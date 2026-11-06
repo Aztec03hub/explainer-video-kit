@@ -19,6 +19,10 @@ jobs:
         run: npm ci
       - name: Tests
         working-directory: plugins/explainer-video/engine
+        # GitHub's Ubuntu runners block unprivileged user namespaces, so Chrome's sandbox cannot start.
+        # EV_NO_SANDBOX is the engine's own switch for that; the runner is a throwaway VM.
+        env:
+          EV_NO_SANDBOX: "1"
         run: node --test
       - name: No keys in the repo
         run: node plugins/explainer-video/engine/bin/ev.mjs scan-secrets .

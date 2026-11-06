@@ -15,7 +15,7 @@ const mkProject = (cfg) => { const d = fs.mkdtempSync(path.join(tmp, 'p-')); fs.
 const deps = (over = {}) => ({
   scrape: async (u) => ({ markdown: 'Corporate Explainer Video\nFree for use', html }),
   download: async (u) => Buffer.from('ID3fake-mp3'),
-  now: () => new Date('2026-11-05T20:00:00-06:00'),
+  now: () => new Date(2026, 10, 5, 12, 0, 0), // local noon, so the local-date stamp is 2026-11-05 in any time zone
   log: () => {}, ...over,
 });
 
