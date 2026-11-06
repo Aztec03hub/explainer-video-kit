@@ -18,5 +18,5 @@ export default async function (argv) {
   if (!which(npm)) throw new Error('npm is not on PATH. It comes with Node: install Node 22 or newer from https://nodejs.org, then run ev setup again.');
   step(npm, ['ci'], process.env);
   step(hyperframesBin(), ['browser', 'ensure'], hfEnv());
-  await doctor([]);
+  await doctor(['--need', 'render,frames']);
 }
