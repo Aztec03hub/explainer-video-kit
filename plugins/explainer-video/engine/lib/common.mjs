@@ -89,7 +89,7 @@ export function getKey(name, opts = {}) {
 export const KEY_HELP = { ELEVENLABS_API_KEY: 'https://elevenlabs.io/app/settings/api-keys' };
 
 export function which(bin) {
-  const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', [bin], { encoding: 'utf8' });
+  const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', [bin], { encoding: 'utf8', cwd: os.tmpdir() });
   return r.status === 0 ? r.stdout.split(/\r?\n/)[0].trim() : null;
 }
 

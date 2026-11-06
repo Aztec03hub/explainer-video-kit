@@ -16,7 +16,7 @@ const MIN_FREE_GB = 10;
 const gb = (n) => (n / 2 ** 30).toFixed(1);
 
 const version = (cmd, args = ['-version']) => {
-  try { return (run(cmd, args).stdout.split(/\r?\n/)[0] || '').trim(); } catch { return ''; }
+  try { return (run(cmd, args, { cwd: os.tmpdir() }).stdout.split(/\r?\n/)[0] || '').trim(); } catch { return ''; }
 };
 
 const freeGb = (dir) => {
