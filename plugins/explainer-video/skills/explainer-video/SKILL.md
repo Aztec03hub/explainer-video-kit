@@ -22,7 +22,7 @@ node "<this skill's base directory>/../../engine/bin/ev.mjs"
 If `EV` fails, or the user says it isn't set up, use the **setup** skill: it does the steps below for them.
 
 1. `EV setup` installs the engine's dependencies and the render browser, then runs `EV doctor`.
-2. `EV doctor` names anything missing and how to fix it. Node 22 and ffmpeg are required. tesseract is optional but needed for the on-screen-text gate. A key for the voice goes in `ELEVENLABS_API_KEY` (see "Keys").
+2. `EV doctor` names anything missing and how to fix it. Node 22 and ffmpeg are required. tesseract is required for the on-screen-text gate: without it that gate fails (opt out with `--skip-ocr`). A key for the voice goes in `ELEVENLABS_API_KEY` (see "Keys").
 
 ## Keys
 
