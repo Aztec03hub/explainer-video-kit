@@ -110,5 +110,16 @@
  "render": {
   "crf": 14,
   "sharpen": 0.7
+ },
+ "endcard": {
+  "title": [
+   "explainer-video,",
+   "a Claude Code plugin"
+  ],
+  "lines": [
+   "/plugin marketplace add evolvconsulting/explainer-video-kit",
+   "/plugin install explainer-video@explainer-video-kit"
+  ],
+  "note": "Needs: Claude Code, Node 22+, ffmpeg, tesseract. ElevenLabs key for the voice."
  }
 }

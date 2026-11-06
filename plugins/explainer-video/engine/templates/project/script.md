@@ -46,4 +46,4 @@ Librarians see every request as it happens, and shelf counts update on their own
 
 ### Try it @66-72
 [warm] Lantern Library. Open the catalogue today, and pick your next read from any shelf in the branch.
-> shot: full page, hold
+> shot: the end card plays over this beat (project.json "endcard"); nothing else is needed here

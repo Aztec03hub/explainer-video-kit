@@ -6,6 +6,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
 import { measureLoudness, mixAudio, lufsTarget, DEFAULTS } from './mix.mjs';
+import { endcardDecision, endcardFonts, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
 import { checkProject, formatCheck } from './project-check.mjs';
 import { themeCss } from './theme.mjs';
 
@@ -33,13 +34,14 @@ export function filmLength({ voiceDuration = null, film = {}, captions = null })
   throw new Error('cannot size the film: there is no voice/take.mp3, film.js has no "duration" and there are no captions. Set FILM.duration in film.js.');
 }
 
-// film.js is a browser script that sets window.FILM; read it in a sandbox to get the id and plan length.
-export function readFilm(file) {
+// film.js is a browser script that sets window.FILM (and maybe window.SCENES); read it in a sandbox. readWindow gives the whole window.
+export function readWindow(file) {
   const win = {};
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), { window: win }, { filename: file });
   if (!win.FILM) throw new Error(`${file} does not set window.FILM`);
-  return win.FILM;
+  return win;
 }
+export const readFilm = (file) => readWindow(file).FILM;
 
 // project.json style: { canvasFrom, canvasMid, canvasTo, caption, highlight, callout, calloutInk, font } -> :root overrides.
 export function styleCss(style = {}) {
@@ -150,17 +152,23 @@ export function checkFindings(tail) {
   return out.length ? out : [`(no error findings in ${line[1].trim()})`];
 }
 
-export function writeComposition(proj, { id, width, height, duration }) {
+export function writeComposition(proj, { id, width, height, duration, endcard = null }) {
   const sets = fs.readdirSync(path.join(proj.build, 'frames'), { withFileTypes: true })
     .filter((e) => e.isDirectory() && fs.existsSync(path.join(proj.build, 'frames', e.name, 'boxes.js'))).map((e) => e.name);
   const boxes = sets.map((s) => `    <script src="frames/${s}/boxes.js"></script>`).join('\n');
   const theme = themeCss(proj.cfg.theme, proj.root);
   fs.mkdirSync(path.join(proj.build, 'assets', 'fonts'), { recursive: true });
   for (const f of theme.files) fs.copyFileSync(f.from, path.join(proj.build, 'assets', 'fonts', f.name));
-  const style = [styleCss(proj.cfg.style), theme.css].filter(Boolean).join('\n      ');
+  // The end card (lib/endcard.mjs): its scene file, the two brand faces unless the theme already loads them, and its script after film.js.
+  const cardFonts = endcard ? endcardFonts(theme.css) : [];
+  if (endcard) {
+    fs.copyFileSync(SCENE_FILE, path.join(proj.build, 'assets', 'evolv-endcard.js'));
+    for (const f of cardFonts) fs.copyFileSync(path.join(BRAND_DIR, 'fonts', f.file), path.join(proj.build, 'assets', 'fonts', f.file));
+  }
+  const style = [styleCss(proj.cfg.style), theme.css, fontCss(cardFonts)].filter(Boolean).join('\n      ');
   const html = fs.readFileSync(path.join(RUNTIME, 'composition.html'), 'utf8')
     .replaceAll('{{WIDTH}}', width).replaceAll('{{HEIGHT}}', height).replaceAll('{{DURATION}}', duration)
-    .replaceAll('{{ID}}', id).replace('{{STYLE}}', () => style).replace('{{BOXES}}', boxes);
+    .replaceAll('{{ID}}', id).replace('{{STYLE}}', () => style).replace('{{BOXES}}', boxes).replace('{{ENDCARD}}', () => (endcard ? endcardScripts(endcard) : ''));
   fs.writeFileSync(path.join(proj.build, 'index.html'), html);
 }
 
@@ -238,7 +246,9 @@ export default async function (argv) {
   fs.copyFileSync(path.join(ENGINE, 'assets', 'fonts', 'Fredoka.ttf'), path.join(assets, 'fonts', 'Fredoka.ttf'));
   syncDir(proj.frames, path.join(proj.build, 'frames'));
   fs.copyFileSync(proj.film, path.join(proj.build, 'film.js'));
-  writeComposition(proj, { id: film.id || 'main', width, height, duration: length });
+  const card = endcardDecision(proj, readWindow(proj.film));
+  log(card.reason);
+  writeComposition(proj, { id: film.id || 'main', width, height, duration: length, endcard: card.plan });
 
   // The mix: voice at offset 0 so word times hold; music optional.
   const m = typeof proj.cfg.music === 'string' ? { file: proj.cfg.music } : proj.cfg.music || {};

@@ -2,6 +2,7 @@
 // "word:", "beat:" and "chapter:" anchors follow the voice, so the picture lands on its word on any voice.
 // Every bell is used: cursor + click, callout + tag (label), eased camera (cam with dur and ease), word-timed events, and a
 // music bed (project.json "music").
+// The last beat (11, "Try it") is the closing line. The evolv end card (project.json "endcard") plays over it, so film.js needs no events there.
 window.FILM = {
   id: 'main',
   duration: 127,

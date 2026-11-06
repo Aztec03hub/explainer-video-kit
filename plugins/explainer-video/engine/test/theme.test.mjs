@@ -48,7 +48,7 @@ test('no theme: composition HTML is byte-identical to the old template fill', ()
   writeComposition(proj, dims);
   const tpl = fs.readFileSync(new URL('../runtime/composition.html', import.meta.url), 'utf8');
   assert.equal(fs.readFileSync(path.join(build, 'index.html'), 'utf8'),
-    tpl.replaceAll('{{WIDTH}}', 1920).replaceAll('{{HEIGHT}}', 1080).replaceAll('{{DURATION}}', 5).replaceAll('{{ID}}', 'm').replace('{{STYLE}}', '').replace('{{BOXES}}', ''));
+    tpl.replaceAll('{{WIDTH}}', 1920).replaceAll('{{HEIGHT}}', 1080).replaceAll('{{DURATION}}', 5).replaceAll('{{ID}}', 'm').replace('{{STYLE}}', '').replace('{{BOXES}}', '').replace('{{ENDCARD}}', ''));
   writeComposition({ ...proj, cfg: { theme: { fonts: [font] } } }, dims);
   assert.match(fs.readFileSync(path.join(build, 'index.html'), 'utf8'), /@font-face \{ font-family: 'Montserrat'/);
   assert.ok(fs.existsSync(path.join(build, 'assets', 'fonts', 'Montserrat.ttf')), 'font copied into build/assets/fonts');

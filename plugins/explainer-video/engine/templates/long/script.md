@@ -42,6 +42,10 @@ When it looks right, confirm. That's the whole checkout, with no form to fill in
 Three days before it's due, Lantern sends a gentle nudge. Nothing runs late, and nobody at the desk has to chase a reader. Renewals are one tap away, and returns are just as quick. Busy weeks stay calm.
 > shot: still on confirmed state
 
-### Staff side @113-127
-Librarians see every request as it happens. Shelf counts update on their own, so the desk always knows what's in. [warm] Lantern Library. Open the catalogue today, and pick your next read from any shelf in the branch.
+### Staff side @113-120
+Librarians see every request as it happens. Shelf counts update on their own, so the desk always knows what's in.
 > shot: camera widens, full page, hold
+
+### Try it @120-127
+[warm] Lantern Library. Open the catalogue today, and pick your next read from any shelf in the branch.
+> shot: the end card plays over this beat (project.json "endcard"); nothing else is needed here

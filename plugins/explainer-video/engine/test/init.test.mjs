@@ -87,7 +87,7 @@ test('a command that needs engine dependencies says "Run: ev setup" when they ar
 const longDir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ev-long-')), 'long-one');
 const loadFilm = (d) => { const ctx = { window: {} }; vm.runInNewContext(fs.readFileSync(path.join(d, 'film.js'), 'utf8'), ctx); return ctx.window.FILM; };
 
-test('init --form long scaffolds the long template (3 chapters, 10 beats, about 330 words)', () => {
+test('init --form long scaffolds the long template (3 chapters, 11 beats, about 330 words)', () => {
   const r = ev('init', longDir, '--form', 'long');
   assert.equal(r.status, 0, r.stderr);
   const cfg = JSON.parse(fs.readFileSync(path.join(longDir, 'project.json'), 'utf8'));
@@ -95,7 +95,7 @@ test('init --form long scaffolds the long template (3 chapters, 10 beats, about 
   assert.ok(cfg.frames.sets.dark.states.confirmed);
   const s = fs.readFileSync(path.join(longDir, 'script.md'), 'utf8');
   assert.equal([...s.matchAll(/^## /gm)].length, 3);
-  assert.equal([...s.matchAll(/^### .* @\d+-\d+$/gm)].length, 10);
+  assert.equal([...s.matchAll(/^### .* @\d+-\d+$/gm)].length, 11);
   assert.match(fs.readFileSync(path.join(longDir, 'README.md'), 'utf8'), /chapters\.vtt/);
 });
 

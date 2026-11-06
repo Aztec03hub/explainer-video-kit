@@ -4,10 +4,11 @@
 //   { t: 'word:replace', cursor: 'dark/default:somebox', dur: 0.8 },          drawn cursor moves to a box
 //   { t: 'word:replace+0.9', click: true },                                   press and ripple
 //   { t: 'word:replace+1', label: 'Tag text', at: 'dark/default:somebox' },   pink brackets + tag
+// The last beat is the closing line: the evolv end card (project.json "endcard") plays over it from just before it starts, so put no pictures there.
 // Music: project.json "music" points at music/bed.mp3; ev build still works without the file.
 window.FILM = {
   id: 'main',
-  duration: 8,
+  duration: 12,
   page: 1280,
   screen: { x: 160, y: 24, w: 1600, h: 900 },
   events: [

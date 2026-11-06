@@ -66,7 +66,8 @@ test('init --empty makes a minimal skeleton that lints and has no sample', () =>
   assert.equal(Object.keys(cfg.frames.sets.dark.states).length, 1);
   assert.deepEqual(JSON.parse(read(dir, 'rules.json')), { banned: [], ruled: [], neverOnScreen: [] });
   assert.match(read(dir, 'film.js'), /^\/\//);
-  assert.equal([...read(dir, 'script.md').matchAll(/^### /gm)].length, 1);
+  assert.equal([...read(dir, 'script.md').matchAll(/^### /gm)].length, 2);   // the hook and the closing beat the end card plays over
+  assert.deepEqual(cfg.endcard.lines, ['Replace this with your call to action']);
   assert.ok(fs.existsSync(path.join(dir, '.gitignore')) && fs.existsSync(path.join(dir, '.env.example')));
   const l = ev('script', dir, '--lint');
   assert.equal(l.status, 0, l.stdout + l.stderr);

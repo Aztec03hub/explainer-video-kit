@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ENGINE, MUSIC_HINT, MUSIC_URLS, parseArgs, log, readJson, writeJson } from './common.mjs';
 
+export const END_CARD_PLACEHOLDER = 'Replace this with your call to action';
 const EV = `node "${path.join(ENGINE, 'bin', 'ev.mjs')}"`; // how to run the engine without an alias
 
 const TEMPLATE = path.join(ENGINE, 'templates', 'project');
@@ -15,6 +16,7 @@ const SAMPLE_LIST = `- script.md: the words. Rewrite it for your product (ev scr
 - film.js: the picture events (camera, cursor, clicks, callouts). They point at the sample's beats and words, so rewrite them with the script.
 - project.json: change "title" and "name"; rewrite "frames" (the page, its states, the texts and boxes to find) for your own page. ev frames needs "frames.page" to open, one query per state, and every text or selector in "texts"/"boxes" to exist on it. Add your voice id under "voice".
 - mockup/: the sample page that gets captured. Replace it with your own page (or point frames.page at a URL, or put your own PNGs in frames/<set>/<state>.png).
+- project.json "endcard": the end card's title, up to two call-to-action lines (the placeholder says "Replace this with your call to action") and an optional "note". "endcard": "none" turns the card off.
 - rules.json: "ruled" (loan, return, reserve) and "neverOnScreen" are examples for the sample app. Replace them with your product's own words and the text that must never be on screen; "banned" is a generic starter list.`;
 
 const boxed = (title, body) => {
@@ -42,7 +44,9 @@ export default async function (argv) {
   const file = path.join(dir, 'project.json');
   const cfg = readJson(file);
   const name = a.name || path.basename(dir);
-  writeJson(file, { ...cfg, name, form, output: `${name}.mp4` });
+  // The evolv end card (the Gleam) is on for every new project: it plays over the last beat, which is a closing line. Replace the placeholder line.
+  const endcard = { title: cfg.title || name, lines: [END_CARD_PLACEHOLDER] };
+  writeJson(file, { ...cfg, name, form, output: `${name}.mp4`, endcard });
   const next = `Next:\n  cd ${dir}\n  ${EV} setup     (once per machine: installs the engine's dependencies and the render browser)\n  ${EV} doctor\n  ${EV} script . --lint\n  ${EV} voice . --dry-run\n` +
     `Put your ElevenLabs key in .env (copy .env.example) before the real voice step.\n` +
     `Music: ${MUSIC_HINT}. project.json already points at music/bed.mp3; ev build works without it. Two Pixabay pages to start from:\n  ${MUSIC_URLS.join('\n  ')}`;

@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import { readFilm } from './cmd-build.mjs';
+import { readWindow } from './cmd-build.mjs';
+import { endcardCheck, endcardDecision } from './endcard.mjs';
 import { readJson } from './common.mjs';
 
 const { makeClock } = createRequire(import.meta.url)('../runtime/clock.js');
@@ -35,7 +36,12 @@ export function checkProject(proj) {
   let film;
   try { themeCss(proj.cfg.theme, proj.root); } catch (e) { errors.push(e.message); }
   if (!fs.existsSync(proj.film)) return { errors, warnings }; // build and frames report a missing film.js themselves
-  try { film = readFilm(proj.film); } catch (e) { return { errors: [...errors, `film.js: ${e.message}`], warnings }; }
+  let win;
+  try { win = readWindow(proj.film); film = win.FILM; } catch (e) { return { errors: [...errors, `film.js: ${e.message}`], warnings }; }
+  errors.push(...endcardCheck(proj.cfg));
+  const card = errors.length ? { plan: null, warnings: [] } : endcardDecision(proj, win);   // the end card is a scene too: labels may aim into it
+  if (card.warning) warnings.push(card.warning);
+  warnings.push(...card.warnings);
   const boxesOf = (set) => { const f = path.join(proj.frames, set, 'boxes.json'); return fs.existsSync(f) ? readJson(f) : null; };
 
   // 1. frame references
@@ -61,7 +67,7 @@ export function checkProject(proj) {
 
   // 1b. callouts aimed into a live scene: at 'scene:name:selector'. The name must be a window.SCENES entry in film.js; whether the
   // selector matches is only known in a browser (the callouts gate and the runtime check it).
-  const scenes = (() => { const win = {}; try { vm.runInNewContext(fs.readFileSync(proj.film, 'utf8'), { window: win }, { filename: proj.film }); } catch { /* readFilm reported it */ } return Object.keys(win.SCENES || {}); })();
+  const scenes = (() => { const win = {}; try { vm.runInNewContext(fs.readFileSync(proj.film, 'utf8'), { window: win }, { filename: proj.film }); } catch { /* readFilm reported it */ } return Object.keys(win.SCENES || {}); })().concat(card.plan ? ['endcard'] : []);
   (film.events || []).forEach((e, i) => {
     const t = e.label !== undefined && sceneTarget(e.at);
     if (!t) return;
