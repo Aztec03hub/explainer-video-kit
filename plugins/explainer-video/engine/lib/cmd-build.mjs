@@ -51,7 +51,7 @@ export const readFilm = (file) => readWindow(file).FILM;
 // project.json style: { canvasFrom, canvasMid, canvasTo, caption, highlight, callout, calloutInk, font } -> :root overrides.
 export function styleCss(style = {}) {
   const lines = Object.entries(style).map(([k, v]) => {
-    if (!/^[a-zA-Z]+$/.test(k) || !/^(?=.*\S)[^;{}<>]+$/.test(String(v))) throw new Error(`project.json style.${k}: use a plain name and a CSS value (not blank) without ; { } < >`);
+    if (!/^[a-zA-Z]+$/.test(k) || !/^(?=.*\S)[^;{}<>]+$/.test(String(v))) throw new Error(`project.json style.${k}: use a plain name and a CSS value without ; { } < >. The value is blank or has a forbidden character: give style.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
     return `--ev-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`;
   });
   return lines.length ? `:root { ${lines.join(' ')} }` : '';
@@ -257,7 +257,7 @@ export default async function (argv) {
   { const d = evolvThemeDefaults(proj, card.plan); if (Object.keys(d).length) log(`evolv colours: ${Object.keys(d).join(', ')} default to evolv orange, its ink and its shadow (the project's own style or theme wins)`); }
   if (card.errors.length) fail(`end card: ${card.errors.join(' ')}`);   // project check reports these too; never a late throw in the render
   { // the card's text is measured in Chrome with the real fonts before anything is rendered: too long even at 70 percent is an error, never a cut
-    const fit = await checkEndcardFit(card.plan, { width, height });
+    const fit = await checkEndcardFit(card.plan, { width, height, theme: themeCss(proj.cfg.theme, proj.root) });
     fit.warnings.forEach((w) => log(`WARNING: ${w}`));
     if (fit.errors.length) fail(fit.errors.join('\n'));
   }

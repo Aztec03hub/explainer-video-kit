@@ -193,7 +193,7 @@ test('auto-fit: a line that overflows at the design size shrinks above the floor
   await withBrowser(async (browser) => {
     const r = await fitOf(browser, SHRINKS);
     const all = [...r.ln.slice(0, 1), ...r.code, ...r.needs];
-    for (const [e, design, avail] of [[r.ln[0], 66, 1128], [r.code[0], 28, 1070], [r.needs[0], 28, 1128]]) {
+    for (const [e, design, avail] of [[r.ln[0], 66, 1128], [r.code[0], 28, 1084], [r.needs[0], 28, 1128]]) {
       assert.ok(e.size < design && e.size > design * 0.7, `shrunk, above the floor: ${JSON.stringify(e)}`);
       assert.ok(e.width <= avail + 1, `fits: ${JSON.stringify(e)}`);
     }
@@ -212,7 +212,7 @@ test('the build check: too long even at 70 percent fails with the element, text,
   assert.equal(bad.errors.length, 3, bad.errors.join('\n'));
   const [t2, i1, note] = bad.errors;
   assert.match(t2, /^end card title line 2 is too long: "an automation plugin for enterprise reporting teams" is \d+ px wide at the design size \(51 characters, \d+ px even at the smallest size, 70 percent\), but the card has 1128 px for it, about \d+ characters at most\. Shorten it/);
-  assert.match(i1, /^end card install line 1 is too long: "\/plugin marketplace add enterprise-reporting-automation-org\/quarterly-reporting-automation-suite" is \d+ px wide .* but the card has 1070 px for it/);
+  assert.match(i1, /^end card install line 1 is too long: "\/plugin marketplace add enterprise-reporting-automation-org\/quarterly-reporting-automation-suite" is \d+ px wide .* but the card has 1084 px for it/);
   assert.match(note, /^end card note is too long/);
   // the stated limit is honest: text cut to about that many characters fits
   const max = +/about (\d+) characters at most/.exec(t2)[1], cut = TOO_LONG.title[1].slice(0, max - 4);
@@ -250,4 +250,52 @@ test('text is HTML-escaped, and a card with no lines and no note has neither ele
     assert.deepEqual(x.needs.map((e) => e.text), ['</style><b>`${1}` & "q"']);
     assert.equal(x.injected, 0, 'no element came out of the text (the watermark img is outside the text boxes)');
   });
+});
+
+// ---- round 4 ----
+test('Low a: the install-line limit the scene reports is the real text width of the code box', { skip, timeout: 120000 }, async () => {
+  await withBrowser(async (browser) => {
+    const page = await browser.newPage();
+    try {
+      await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+      await page.goto('file://' + makePage('plugin', { opts: HERO }), { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(() => { window.__timelines.main.seek(0.5); });
+      const r = await page.evaluate(() => {
+        const code = document.querySelector('.xp-scene .code'), em = code.querySelector('em');
+        return { avail: document.querySelector('.xp-scene .ec').__ecFit()[2].avail, inner: code.clientWidth - parseFloat(getComputedStyle(code).paddingLeft) - parseFloat(getComputedStyle(em).marginRight) };
+      });
+      assert.equal(r.avail, r.inner, 'the limit equals the code box content width less the prompt margin');
+      assert.equal(r.avail, 1084);
+    } finally { await page.close(); }
+  });
+});
+
+test('Low c: the fit decision at 1280x720 is the same as at 1920x1080 (hero fits, shrinkable text fits, too-long text fails on the same elements)', { skip, timeout: 240000 }, async () => {
+  const { checkEndcardFit } = await import('../lib/endcard-measure.mjs');
+  const els = (r) => r.errors.map((e) => /^end card (.*?) is too long/.exec(e)[1]);
+  const small = { width: 1280, height: 720 };
+  assert.deepEqual((await checkEndcardFit({ opts: HERO }, small)).errors, []);
+  assert.deepEqual((await checkEndcardFit({ opts: SHRINKS }, small)).errors, []);
+  const a = await checkEndcardFit({ opts: TOO_LONG }), b = await checkEndcardFit({ opts: TOO_LONG }, small);
+  assert.deepEqual(els(b), els(a));
+  assert.deepEqual(els(a), ['title line 2', 'install line 1', 'note']);
+  const px = (r) => r.errors.map((e) => +/is (\d+) px wide/.exec(e)[1]);
+  px(a).forEach((v, i) => assert.ok(Math.abs(v - px(b)[i]) <= 2, `${v} vs ${px(b)[i]}: scene px agree across frame sizes`));
+});
+
+test('M2: the fit check measures with the theme\'s own Montserrat when the theme declares one, as the render does', { skip, timeout: 240000 }, async () => {
+  const { checkEndcardFit } = await import('../lib/endcard-measure.mjs');
+  const { themeCss } = await import('../lib/theme.mjs');
+  const { endcardFonts } = await import('../lib/endcard.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-endcard-theme-'));
+  try {
+    fs.copyFileSync(path.join(BRAND_DIR, 'fonts', 'NunitoSans.ttf'), path.join(root, 'Mine.ttf'));   // a different face under the name Montserrat
+    const theme = themeCss({ fonts: [{ family: 'Montserrat', file: 'Mine.ttf', weight: '200 1000' }] }, root);
+    assert.deepEqual(endcardFonts(theme.css).map((f) => f.family), ['Nunito Sans'], 'the render skips the vendored Montserrat for this theme');
+    const opts = { title: ['x'.repeat(30) + ' wide words '.repeat(8)] };   // too long in both faces, so the message carries the width
+    const width = async (t) => +/is (\d+) px wide/.exec((await checkEndcardFit({ opts }, t ? { theme: t } : {})).errors[0])[1];
+    const own = await width(theme), vendored = await width(null);
+    assert.notEqual(own, vendored, `measured with the theme's file (${own} px), not the vendored one (${vendored} px)`);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
