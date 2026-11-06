@@ -3,7 +3,7 @@
 // mix's own ducking filters (sidechaincompress keyed on the voice), over the voice's span only, against the voice's own
 // integrated loudness. Narrower than 15 dB fails, wider than 18 warns. The bed level is a calibration knob: with the bed
 // at -14 dB the gap was 11.7 dB, at -19 dB 16.7 dB, so measure and adjust, don't trust a fixed number.
-// project.json: music { file, bed (default -19), voiceOffset (default 0.4 s, where the voice starts in the mix) }.
+// project.json: music { file, bed (default -19), voiceOffset (default 0 s, where the voice starts in the mix) }.
 import fs from 'node:fs';
 import path from 'node:path';
 import { ffprobeDuration, run } from '../common.mjs';
@@ -59,7 +59,7 @@ export default async function audioGate({ proj, cut, opts = {} }) {
       : !fs.existsSync(voice) ? `${voice} is missing, so the gap was not measured. Run: ev voice <project>` : null;
   if (skip) lines.push(`SKIP gap: ${skip}`);
   else {
-    const voiceLen = ffprobeDuration(voice), offset = Number(proj.cfg.music.voiceOffset ?? 0.4);
+    const voiceLen = ffprobeDuration(voice), offset = Number(proj.cfg.music.voiceOffset ?? 0);
     const bed = Number(proj.cfg.music.bed ?? -19);
     const voiceLufs = measure(voice).lufs;
     const musicLufs = duckedMusicLufs({ voice, music, bed, offset, length: ffprobeDuration(cut), voiceLen });
