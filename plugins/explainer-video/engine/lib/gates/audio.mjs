@@ -3,7 +3,7 @@
 // mix's own ducking filters (sidechaincompress keyed on the voice), over the voice's span only, against the voice's own
 // integrated loudness. Narrower than 15 dB fails, wider than 18 warns. The bed level is a calibration knob: with the bed
 // at -14 dB the gap was 11.7 dB, at -19 dB 16.7 dB, so measure and adjust, don't trust a fixed number.
-// project.json: music { file, bed (default -19), voiceOffset (default 0 s, where the voice starts in the mix) }.
+// project.json: music "file.mp3" or music { file, bed (default -19) }, read the same way ev build reads it. The voice starts at 0 s in the mix.
 import fs from 'node:fs';
 import path from 'node:path';
 import { ffprobeDuration, run } from '../common.mjs';
@@ -40,7 +40,8 @@ export function duckedMusicLufs({ voice, music, bed, offset, length, voiceLen })
 export default async function audioGate({ proj, cut, opts = {} }) {
   const target = Number.isFinite(parseFloat(opts.lufs)) ? parseFloat(opts.lufs) : TARGET;
   const loud = measure(cut);
-  const hasInputs = fs.existsSync(path.join(proj.voice, 'take.mp3')) || !!proj.cfg.music;
+  const mcfg = typeof proj.cfg.music === 'string' ? { file: proj.cfg.music } : proj.cfg.music || {};
+  const hasInputs = fs.existsSync(path.join(proj.voice, 'take.mp3')) || !!mcfg.file;
   const silent = loud.lufs === null || loud.lufs <= -70 || loud.peak === null; // ebur128 reports silence as -70 LUFS
   if (silent && !hasInputs) return { name, status: 'SKIP', reason: `${cut} is silent and there is no voice/take.mp3 and no music in project.json: a silent film is not a failure, so loudness was not judged. Run ev voice, or set music, to get an audio check.` };
   if (silent) return { name, status: 'FAIL', measured: 'the cut is silent', limit: `${target} +/- ${TOLERANCE} LUFS`, margin: 'n/a', lines: [`${cut} has no audio above the gate. Check the mix: ev build <project>`] };
@@ -55,15 +56,15 @@ export default async function audioGate({ proj, cut, opts = {} }) {
   const limit = `${target} +/- ${TOLERANCE} LUFS, peak <= ${MAX_PEAK} dBTP, gap ${GAP_MIN}-${GAP_MAX} dB`;
   const data = { lufs: loud.lufs, truePeak: loud.peak, gap: null };
 
-  const music = proj.cfg.music?.file ? path.resolve(proj.root, proj.cfg.music.file) : null;
+  const music = mcfg.file ? path.resolve(proj.root, mcfg.file) : null;
   const voice = path.join(proj.voice, 'take.mp3');
   const skip = !music ? 'project.json has no music.file, so the music-under-voice gap was not measured. Add music { file } or ignore this if the film has no music.'
     : !fs.existsSync(music) ? `music file ${music} doesn't exist, so the gap was not measured. Fix music.file in project.json.`
       : !fs.existsSync(voice) ? `${voice} is missing, so the gap was not measured. Run: ev voice <project>` : null;
   if (skip) lines.push(`SKIP gap: ${skip}`);
   else {
-    const voiceLen = ffprobeDuration(voice), offset = Number(proj.cfg.music.voiceOffset ?? 0);
-    const bed = Number(proj.cfg.music.bed ?? -19);
+    const voiceLen = ffprobeDuration(voice), offset = 0;
+    const bed = Number(mcfg.bed ?? -19);
     const voiceLufs = measure(voice).lufs;
     const musicLufs = duckedMusicLufs({ voice, music, bed, offset, length: ffprobeDuration(cut), voiceLen });
     if (voiceLufs === null || musicLufs === null) { ok = false; lines.push('could not measure the voice or the ducked music (silent input)'); }

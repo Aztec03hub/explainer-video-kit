@@ -283,6 +283,14 @@ describe('audio gate', () => {
     assert.ok(r.data.gap < 15);
     assert.match(r.lines.join('\n'), /only \d+\.\d dB under the voice.*Lower music\.bed/);
   });
+  test('"music": "file.wav" (the string form ev build accepts) is measured too, not skipped', async () => {
+    const p = mkProject({ 'project.json': { name: 'lantern', music: path.join(dir, 'music.wav') } });
+    fs.mkdirSync(p.voice, { recursive: true });
+    fs.copyFileSync(path.join(dir, 'voice.mp3'), path.join(p.voice, 'take.mp3'));
+    const r = await audioGate(ctx(p, F.good));
+    assert.ok(r.data.gap > 0, `gap measured: ${r.measured}`);
+    assert.doesNotMatch(r.lines.join('\n'), /SKIP gap/);
+  });
   test('a bed far too quiet passes with a warning (wider than 18 dB)', async () => {
     const r = await audioGate(ctx(withVoice(-45), F.good));
     assert.equal(r.status, 'PASS');
