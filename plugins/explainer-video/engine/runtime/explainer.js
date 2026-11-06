@@ -229,7 +229,9 @@
           const m = camMove, p = Math.min(1, Math.max(0, (t - m.start) / (m.end - m.start))), k = gsap.parseEase(m.ease)(p);
           const at = {};
           for (const key of ['x', 'y', 'w']) at[key] = m.from[key] + (m.to[key] - m.from[key]) * k;
-          Object.assign(m.tween.vars, at);
+          const E = gsap.parseEase(m.ease), Ep = E(p);
+          // the move keeps its own path up to the cut (the ease is rescaled so the frames before the cut do not change), then ends there
+          Object.assign(m.tween.vars, at, { ease: Ep > 1e-9 ? (u) => E(u * p) / Ep : 'none' });
           m.tween.duration(t - m.start).invalidate();
           camAt = at;
         }

@@ -8,6 +8,7 @@
 // older one kept overwriting the newer cut, so the picture flipped between two cameras for a third of a second (spike, stall, spike).
 // A stall needs real motion around it (mean difference >= 0.15): the slow tail of an eased move legitimately repeats frames at 0.08.
 // Frames are compared on FILM.screen at 320x180 grey, as a mean absolute difference (0 to 255).
+import { spawn } from 'node:child_process';
 import { loadTimeline } from './timeline.mjs';
 import { spawnAsync } from './ocr.mjs';
 
@@ -50,16 +51,29 @@ async function packets(cut) {
   return r.stdout.split('\n').filter(Boolean).map(Number).sort((a, b) => a - b);
 }
 
-async function frameDiffs(cut, S, fps) {
-  const r = await spawnAsync('ffmpeg', ['-v', 'error', '-i', cut, '-vf', `crop=${S.w}:${S.h}:${S.x}:${S.y},scale=${W}:${H},format=gray`, '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], { binary: true });
-  if (r.status !== 0) throw new Error(`ffmpeg could not decode ${cut}: ${r.stderr.trim()}`);
-  const buf = r.stdout, size = W * H, n = Math.floor(buf.length / size), diffs = new Array(n).fill(0);
-  for (let f = 1; f < n; f++) {
-    let sum = 0;
-    for (let p = 0, a = (f - 1) * size, b = f * size; p < size; p++) sum += Math.abs(buf[a + p] - buf[b + p]);
-    diffs[f] = sum / size;
-  }
-  return { diffs, n, fps };
+// Streams the decoded frames and keeps only the previous one, so a long film costs one frame of memory, not the whole video.
+function frameDiffs(cut, S, fps) {
+  return new Promise((resolve, reject) => {
+    const size = W * H, diffs = [0];
+    const child = spawn('ffmpeg', ['-v', 'error', '-i', cut, '-vf', `crop=${S.w}:${S.h}:${S.x}:${S.y},scale=${W}:${H},format=gray`, '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let pending = Buffer.alloc(0), prev = null, err = '';
+    child.stderr.on('data', (d) => { err += d; });
+    child.on('error', (e) => reject(new Error(`ffmpeg could not start (${e.code || e.message}): install ffmpeg, then run the gate again`)));
+    child.stdout.on('data', (chunk) => {
+      pending = pending.length ? Buffer.concat([pending, chunk]) : chunk;
+      while (pending.length >= size) {
+        const f = pending.subarray(0, size);
+        if (prev) { let sum = 0; for (let p = 0; p < size; p++) sum += Math.abs(f[p] - prev[p]); diffs.push(sum / size); }
+        prev = Buffer.from(f);
+        pending = pending.subarray(size);
+      }
+    });
+    child.on('close', (code) => {
+      if (code !== 0) return reject(new Error(`ffmpeg could not decode ${cut}: ${err.trim()}`));
+      if (diffs.length < 2) return reject(new Error(`ffmpeg decoded no frames from ${cut}`));
+      resolve({ diffs, n: diffs.length, fps });
+    });
+  });
 }
 
 export default async function smoothGate({ proj, cut }) {
@@ -68,18 +82,19 @@ export default async function smoothGate({ proj, cut }) {
   const { F, clock, screen } = tl;
   const probe = await spawnAsync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'csv=p=0', cut]);
   const [num, den] = probe.stdout.trim().split('/').map(Number);
-  const fps = num && den ? num / den : 30;
+  if (probe.status !== 0 || !(num && den)) throw new Error(`ffprobe could not read the frame rate of ${cut}: ${(probe.error && probe.error.message) || probe.stderr.trim() || 'is ffprobe installed?'}`);
+  const fps = num / den;
 
   const exemptSecs = [];   // [from, to] seconds
   for (const e of F.events) {
     const t = clock(e.t), d = e.fade || 0, f = 1 / fps;
     if (e.show || 'device' in e) exemptSecs.push([t - f, t + d + 2 * f]);
-    if (e.cam && !e.dur) exemptSecs.push([t - f, t + 2 * f]);
+    if (e.cam && (!e.dur || e.dur < 0.25)) exemptSecs.push([t - f, t + (e.dur || 0) + 2 * f]);   // a cam cut, or a move so short it reads as one
     if (e.scene) exemptSecs.push([t - f, t + (e.dur || 4) + d + 0.15]);
   }
   exemptSecs.push([0, 3 / fps], [tl.length - 3 / fps, tl.length + 1]);
   const exempt = (i) => { const t = i / fps; return exemptSecs.some(([a, b]) => t >= a && t <= b); };
-  const moves = F.events.filter((e) => e.cam && e.dur).map((e) => [clock(e.t), clock(e.t) + e.dur]);
+  const moves = F.events.filter((e) => e.cam && e.dur >= 0.25).map((e) => [clock(e.t), clock(e.t) + e.dur]);
   const inMove = (t) => moves.some(([a, b]) => t >= a - 0.05 && t <= b + 0.05);
 
   const lines = [], findings = [];

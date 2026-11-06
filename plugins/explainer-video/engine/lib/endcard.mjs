@@ -31,6 +31,22 @@ const AT = /^beat:[1-9]\d*([+-]\d+(\.\d+)?)?$/;
 const off = (v) => v === false || (typeof v === 'string' && v.trim().toLowerCase() === 'none');
 const asList = (v) => (v === undefined || v === null || v === '' ? [] : Array.isArray(v) ? v : [v]);
 
+// The optional designed lower half: { kind: 'pipeline', stages: [2 to 8 short labels], credit? } or { kind: 'proof', facts: [1 to 3 of { big, small }], credit? }.
+// The text is not measured in Chrome, so the lengths are limited here instead (they fit the 1128 px strip at the design sizes).
+const LOWER_LIMITS = { stage: 14, credit: 80, big: 10, small: 22 };
+function lowerCheck(c) {
+  const l = c.lower, at = 'project.json endcard.lower', str = (v, max) => typeof v === 'string' && v.trim() && v.length <= max, errors = [];
+  if (typeof l !== 'object' || l === null || Array.isArray(l)) return [`${at}: use an object like { "kind": "pipeline", "stages": ["Research", "Build"] } (got ${JSON.stringify(l)}).`];
+  const unknown = Object.keys(l).filter((k) => !['kind', 'stages', 'facts', 'credit'].includes(k));
+  if (unknown.length) errors.push(`${at}.${unknown[0]}: unknown key. Use kind, stages, facts and credit.`);
+  if (l.kind !== 'pipeline' && l.kind !== 'proof') errors.push(`${at}.kind: "pipeline" or "proof" (got ${JSON.stringify(l.kind)}).`);
+  if (l.kind === 'pipeline' && !(Array.isArray(l.stages) && l.stages.length >= 2 && l.stages.length <= 8 && l.stages.every((s) => str(s, LOWER_LIMITS.stage)))) errors.push(`${at}.stages: a list of 2 to 8 labels, each 1 to ${LOWER_LIMITS.stage} characters.`);
+  if (l.kind === 'proof' && !(Array.isArray(l.facts) && l.facts.length >= 1 && l.facts.length <= 3 && l.facts.every((f) => f && str(f.big, LOWER_LIMITS.big) && str(f.small, LOWER_LIMITS.small)))) errors.push(`${at}.facts: a list of 1 to 3 { "big": up to ${LOWER_LIMITS.big} characters, "small": up to ${LOWER_LIMITS.small} characters }.`);
+  if (l.credit !== undefined && !str(l.credit, LOWER_LIMITS.credit)) errors.push(`${at}.credit: one line of up to ${LOWER_LIMITS.credit} characters.`);
+  if (asList(c.lines).length > 1) errors.push(`${at}: with a lower half the card shows one prompt bar, so endcard.lines may hold one entry (it has ${asList(c.lines).length}).`);
+  return errors;
+}
+
 // Errors for a project.json "endcard" value, as plain lines (project check prints them as ERROR lines).
 export function endcardCheck(cfg) {
   const c = cfg?.endcard, errors = [];
@@ -48,6 +64,7 @@ export function endcardCheck(cfg) {
   if (c.note !== undefined && typeof c.note !== 'string') errors.push('project.json endcard.note: one line of text.');
   if (c.at !== undefined && c.at !== 'last-beat' && !(typeof c.at === 'number' && c.at >= 0) && !(typeof c.at === 'string' && AT.test(c.at))) errors.push(`project.json endcard.at: "last-beat", a number of seconds, or "beat:N" (got ${JSON.stringify(c.at)}).`);
   if (c.dur !== undefined && !(typeof c.dur === 'number' && c.dur >= 3.2)) errors.push('project.json endcard.dur: seconds, 3.2 or more (the card runs 12 s by default).');
+  if (c.lower !== undefined) errors.push(...lowerCheck(c));
   return errors;
 }
 
