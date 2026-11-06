@@ -69,10 +69,10 @@ describe('ocr gate', { skip: ocrSkip }, () => {
     assert.equal(r.status, 'FAIL');
     assert.match(r.lines[0], /\(poster\).*frame 0 reads as blank/);
   });
-  test('"ASK-12" matches the term "ASK-" (L138)', async () => {
-    const r = await ocrGate(ctx(proj(['ASK-']), clip('ask', [...POSTER, dt('ASK-12', 200, 60, 'between(t,1,4)')].join(','))));
-    assert.equal(r.status, 'FAIL', 'ASK-12 was not found');
-    assert.match(r.lines.at(-1) ?? r.lines[0], /'ASK-'/);
+  test('"TKT-12" matches the term "TKT-" (L138)', async () => {
+    const r = await ocrGate(ctx(proj(['TKT-']), clip('ask', [...POSTER, dt('TKT-12', 200, 60, 'between(t,1,4)')].join(','))));
+    assert.equal(r.status, 'FAIL', 'TKT-12 was not found');
+    assert.match(r.lines.at(-1) ?? r.lines[0], /'TKT-'/);
   });
   test('the temp frame folder is removed', async () => {
     const before = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith('ocr-gate-')).length;
@@ -85,7 +85,7 @@ describe('ocr helpers', () => {
   test('pattern: whole word, case-insensitive, no trailing boundary after punctuation', () => {
     assert.ok(pattern('Demo').test('the demo user'));
     assert.ok(!pattern('Demo').test('demonstration'));
-    assert.ok(pattern('ASK-').test('see ask-12 here'));
+    assert.ok(pattern('TKT-').test('see tkt-12 here'));
     assert.ok(!pattern('SLA').test('slate'));
   });
   test('terms come from the Never on screen section, to the next heading', () => {

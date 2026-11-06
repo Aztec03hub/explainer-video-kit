@@ -2,7 +2,7 @@
 // Strings: rules.json neverOnScreen, plus backticked items under "## Never on screen" in any file named by
 // project.json frameList. Frames: one every `step` s (default 0.5), scaled to 3840 px wide (tesseract misses small UI
 // text at 1080p, L136), read with the tesseract CLI one thread per process (unpinned threads took 10 minutes for 170
-// frames, pinned 10 s, L137), as many processes as cores. Whole-word, case-insensitive match (L138 for the "ASK-" case).
+// frames, pinned 10 s, L137), as many processes as cores. Whole-word, case-insensitive match (L138 for the "TKT-" case).
 // Poster rule (L139): frame 0 is every player's thumbnail, so it must OCR at least 10 words.
 // Known limit (L141): OCR can't read a string drawn over busy text, so a graphics bug that paints a forbidden string
 // into a dense table would pass. This gate is not a content check (L142).
@@ -41,7 +41,7 @@ export async function mapPool(items, limit, fn) {
   return results;
 }
 
-// A term ending in punctuation ("ASK-", followed by digits in "ASK-12") has no trailing word boundary.
+// A term ending in punctuation ("TKT-", followed by digits in "TKT-12") has no trailing word boundary.
 export function pattern(term) {
   const t = term.toLowerCase();
   const tail = /[a-z0-9]$/.test(t) ? '(?![a-z0-9])' : '';
