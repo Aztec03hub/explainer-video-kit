@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ENGINE, parseArgs, log, readJson, writeJson } from './common.mjs';
 
+const EV = `node "${path.join(ENGINE, 'bin', 'ev.mjs')}"`; // how to run the engine without an alias
+
 const TEMPLATE = path.join(ENGINE, 'templates', 'project');
 
 export default async function (argv) {
@@ -19,6 +21,6 @@ export default async function (argv) {
   const cfg = readJson(file);
   const name = a.name || path.basename(dir);
   writeJson(file, { ...cfg, name, form, output: `${name}.mp4` });
-  log(`Created ${form} project "${name}" in ${dir}\n\nNext:\n  cd ${dir}\n  ev doctor\n  ev script . --lint\n  ev voice . --dry-run\n` +
+  log(`Created ${form} project "${name}" in ${dir}\n\nNext:\n  cd ${dir}\n  ${EV} doctor\n  ${EV} script . --lint\n  ${EV} voice . --dry-run\n` +
     `Put your ElevenLabs key in .env (copy .env.example) before the real voice step. Edit script.md and mockup/ for your own app.`);
 }

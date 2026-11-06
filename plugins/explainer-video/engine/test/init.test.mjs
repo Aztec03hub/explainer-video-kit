@@ -19,7 +19,7 @@ test('scaffolds a project with the right name and form', () => {
   const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
   assert.equal(cfg.name, 'demo-one'); assert.equal(cfg.form, 'long'); assert.equal(cfg.output, 'demo-one.mp4');
   assert.ok(cfg.frames.sets.dark.states.open && cfg.frames.sets.dark.texts.borrow);
-  assert.match(r.stdout, /ev doctor/);
+  assert.match(r.stdout, /ev\.mjs" doctor/);
 });
 
 test('script.md has about 12 beats with windows summing to 72 s and about 190 words', () => {
@@ -65,4 +65,19 @@ test('refuses a non-empty folder, allows --force', () => {
   assert.equal(r.status, 1);
   assert.match(r.stderr, /not empty/);
   assert.equal(ev('init', dir, '--force').status, 0);
+});
+
+test('init prints a command that runs without an alias', () => {
+  const r = ev('init', path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ev-init2-')), 'p'));
+  assert.match(r.stdout, /node ".*bin[\\/]ev\.mjs" doctor/);
+});
+
+test('a command that needs engine dependencies says "Run: ev setup" when they are not installed', () => {
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-bare-'));
+  for (const d of ['bin', 'lib', 'runtime']) fs.cpSync(path.join(path.dirname(EV), '..', d), path.join(bare, d), { recursive: true });
+  fs.copyFileSync(path.join(path.dirname(EV), '..', 'package.json'), path.join(bare, 'package.json'));
+  const r = spawnSync(process.execPath, [path.join(bare, 'bin', 'ev.mjs'), 'frames', dir], { encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /an engine dependency is not installed \(pngjs\)\. Run: ev setup/);
+  fs.rmSync(bare, { recursive: true, force: true });
 });

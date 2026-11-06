@@ -38,6 +38,7 @@ try {
   const mod = await import(pathToFileURL(file).href);
   await mod.default(argv);
 } catch (e) {
+  if (e.code === 'ERR_MODULE_NOT_FOUND' && /Cannot find package/.test(e.message)) e.message = `an engine dependency is not installed (${/package '([^']+)'/.exec(e.message)?.[1] || 'unknown'}). Run: ev setup`;
   console.error(`ev ${cmd}: ${e.message}`);
   if (process.env.EV_DEBUG) console.error(e.stack);
   process.exit(1);

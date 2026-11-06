@@ -128,6 +128,6 @@ export function lint(s, rules) {
       last.set(n, k);
     }
   });
-  if ((rules.ruled || []).length) out.push({ level: 'info', beat: 0, name: '', msg: 'ruled words in rules.json were not checked: different-form detection is not implemented' });
+  if ((rules.ruled || []).length) out.push({ level: 'info', beat: 0, name: '', msg: 'the "ruled" words in rules.json are not checked by this lint: read the spoken file against them yourself' });
   return out;
 }
