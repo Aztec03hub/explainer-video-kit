@@ -23,6 +23,7 @@ const USAGE = `usage: ev gates <project> [<cut.mp4>] [--only ocr,wipes,captions,
   cut       defaults to out/<output> from project.json
   --only    run just these gates
   --skip-ocr      don't fail on a missing tesseract (same as project.json "gates": { "ocr": false })
+  (project.json "gates": { "smooth": false } turns the smooth-motion gate off the same way)
   --require-ocr   no-op, kept so old scripts still run: a missing tesseract always fails now
   --json    print the results as JSON
   --step S (ocr frame spacing, 0.5)  --min-overlap X (wipes, 0.45)  --lufs N (audio target, -16; project.json gates.audio.lufs sets it)

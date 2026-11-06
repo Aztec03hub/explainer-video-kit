@@ -179,3 +179,34 @@ test('project.json endcard.lower: a good block passes; bad kinds, labels, facts 
   assert.notEqual(bad(ok, ['one', 'two']), '', 'two lines with a lower half is an error');
   assert.match(bad({ kind: 'proof', facts: [{ big: '1', small: 'x' }] }, ['one']), /no prompt bar/);
 });
+
+// Low from hiccup-review2: the crop assumed the cut is the composition size; and gates.smooth: false was missing (only gates.ocr had it).
+import { cropFor } from '../lib/gates/smooth.mjs';
+
+test('cropFor scales the screen box to the cut size from the composition size, and leaves it alone at full size or with no data-width', () => {
+  const S = { x: 160, y: 24, w: 1600, h: 900 };
+  assert.deepEqual(cropFor(S, { w: 1920, h: 1080 }, { w: 1920, h: 1080 }), S);
+  assert.deepEqual(cropFor(S, { w: 1920, h: 1080 }, { w: 1280, h: 720 }), { x: 107, y: 16, w: 1067, h: 600 });
+  assert.deepEqual(cropFor(S, null, { w: 1280, h: 720 }), S);
+});
+
+test('the smooth gate on a 1280x720 proxy of a 1920x1080 composition crops by fraction and passes a clean clip', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-smooth-px-'));
+  for (const [f, v] of Object.entries({ 'project.json': { name: 'px' }, 'film.js': `window.FILM = ${JSON.stringify({ id: 'main', duration: 6, screen: { x: 160, y: 24, w: 1600, h: 900 }, events: [{ t: 0, show: 'a/b' }] })};`,
+    'build/captions.json': { chunks: [], beats: [], chapters: [] }, 'build/index.html': '<div data-composition-id="main" data-duration="6" data-width="1920" data-height="1080"></div>' })) {
+    fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
+    fs.writeFileSync(path.join(root, f), typeof v === 'string' ? v : JSON.stringify(v));
+  }
+  const f = path.join(root, 'proxy.mp4');
+  const r = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=1280x720:d=6:r=10', '-pix_fmt', 'yuv420p', f], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  // unscaled, the 1600x900 crop at (160,24) runs past a 1280x720 frame and ffmpeg errors; scaled, it decodes
+  const out = await smoothGate({ proj: loadProject(root), cut: f });
+  assert.equal(out.status, 'PASS', JSON.stringify(out.lines));
+});
+
+test('project.json gates.smooth: false skips the gate without reading the film or the cut', async () => {
+  const out = await smoothGate({ proj: { cfg: { gates: { smooth: false } } }, cut: '/no/such.mp4' });
+  assert.equal(out.status, 'SKIP');
+  assert.match(out.reason, /gates\.smooth is false/);
+});
