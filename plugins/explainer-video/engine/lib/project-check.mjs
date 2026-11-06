@@ -8,7 +8,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { readWindow, styleCss } from './cmd-build.mjs';
-import { blankColourErrors, endcardCheck, endcardDecision } from './endcard.mjs';
+import { blankColours, endcardCheck, endcardDecision } from './endcard.mjs';
 import { readJson } from './common.mjs';
 
 const { makeClock } = createRequire(import.meta.url)('../runtime/clock.js');
@@ -43,7 +43,8 @@ export function checkProject(proj) {
   const card = errors.length ? { plan: null, warnings: [] } : endcardDecision(proj, win);   // the end card is a scene too: labels may aim into it
   if (card.warning) warnings.push(card.warning);
   warnings.push(...card.warnings);
-  errors.push(...(card.errors || []), ...blankColourErrors(proj, card.plan));
+  const blank = blankColours(proj, card.plan);
+  errors.push(...(card.errors || []), ...blank.errors); warnings.push(...blank.warnings);
   const boxesOf = (set) => { const f = path.join(proj.frames, set, 'boxes.json'); return fs.existsSync(f) ? readJson(f) : null; };
 
   // 1. frame references

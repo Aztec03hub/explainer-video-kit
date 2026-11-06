@@ -179,19 +179,20 @@ export function evolvThemeDefaults(proj, plan) {
   ]);
   return Object.fromEntries(Object.entries({ '--ev-highlight': orange, '--ev-callout': orange, '--ev-callout-ink': CALLOUT_INK, '--ev-callout-shadow': CALLOUT_SHADOW }).filter(([k]) => !own.has(k)));
 }
-// A blank (whitespace-only) style or theme value for a colour the evolv defaults set would blank the evolv orange, so it is an error, but only
-// when the defaults apply (the card, an explicit endcard block or the evolv logo). Other projects keep exactly the v0.1.1 behaviour.
-export function blankColourErrors(proj, plan) {
-  const cfg = proj.cfg || {}, c = cfg.endcard;
-  if (!plan && !evolvLogoReason(proj) && !(c !== undefined && c !== null && !off(c))) return [];
-  const blank = (v) => typeof v === 'string' && !v.trim(), errors = [];
+// A blank (whitespace-only) style or theme value for a colour the evolv defaults set would blank the evolv orange. It is an ERROR when the card or
+// the colours come from an explicit endcard block, and a WARNING for an implicit evolv-logo project (v0.1.1 built it). It only counts where the
+// defaults apply (the card, an explicit endcard block or the evolv logo); other projects keep exactly the v0.1.1 behaviour. Returns { errors, warnings }.
+export function blankColours(proj, plan) {
+  const cfg = proj.cfg || {}, c = cfg.endcard, explicit = c !== undefined && c !== null && !off(c);
+  if (!plan && !evolvLogoReason(proj) && !explicit) return { errors: [], warnings: [] };
+  const blank = (v) => typeof v === 'string' && !v.trim(), msgs = [];
   for (const k of ['highlight', 'callout', 'calloutInk', 'calloutShadow']) {
-    if (blank(cfg.style?.[k])) errors.push(`project.json style.${k}: the value is blank, which would replace the evolv colour default: give style.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
+    if (blank(cfg.style?.[k])) msgs.push(`project.json style.${k}: the value is blank, which would replace the evolv colour default: give style.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
   }
   for (const k of ['--ev-highlight', '--ev-callout', '--ev-callout-ink', '--ev-callout-shadow']) {
-    if (blank(cfg.theme?.vars?.[k])) errors.push(`project.json theme.vars.${k}: the value is blank, which would replace the evolv colour default: give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
+    if (blank(cfg.theme?.vars?.[k])) msgs.push(`project.json theme.vars.${k}: the value is blank, which would replace the evolv colour default: give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
   }
-  return errors;
+  return explicit ? { errors: msgs, warnings: [] } : { errors: [], warnings: msgs };
 }
 export const defaultsCss = (d) => (Object.keys(d).length ? `:root { ${Object.entries(d).map(([k, v]) => `${k}: ${v};`).join(' ')} }` : '');
 

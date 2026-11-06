@@ -14,7 +14,7 @@ import { writeComposition } from '../lib/cmd-build.mjs';
 import { checkEndcardFit, checkProjectFit } from '../lib/endcard-measure.mjs';
 import { checkProject } from '../lib/project-check.mjs';
 import { parseScript } from '../lib/script.mjs';
-import { CALLOUT_INK, CALLOUT_SHADOW, FIT_FLOOR, defaultsCss, fitElements, fitErrors, endcardCheck, endcardDecision, evolvThemeDefaults, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
+import { CALLOUT_INK, CALLOUT_SHADOW, FIT_FLOOR, defaultsCss, fitElements, fitErrors, endcardCheck, endcardDecision, evolvThemeDefaults, blankColours, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
 import { applyHunks, FIXTURE, SNAPS } from '../tools/endcard-from-locked.mjs';
 import { check as brandCheck } from '../tools/vendor-brand.mjs';
 
@@ -607,12 +607,17 @@ test('M2: a throw while setting up the fit check is a warning, on the implicit a
     assert.match(r.warnings[0], /^could not measure the end card text: .*; continuing/);
   }
 });
-test('L1: an unreadable mockup file is "no match", not a crash', () => {
+test('L1: an unreadable mockup file is "no match", not a crash', (t) => {
   const p = made([], (c) => { delete c.endcard; delete c.brand; });
   fs.mkdirSync(path.join(p.root, 'mockup'), { recursive: true });
-  const f = path.join(p.root, 'mockup', 'x.html'); fs.writeFileSync(f, '<p>hello</p>'); fs.chmodSync(f, 0o000);   // read throws (unless run as root)
+  const f = path.join(p.root, 'mockup', 'x.html'); fs.writeFileSync(f, '<img src="evolv-logo.svg">');
+  assert.ok(endcardDecision(p, win(p)).plan, 'control: the same file, readable, makes the implicit card');
+  fs.chmodSync(f, 0o000);
+  let readable = true; try { fs.readFileSync(f); } catch { readable = false; }
+  if ((process.getuid && process.getuid() === 0) || readable) { t.skip('SKIPPED: this user can read a chmod 000 file (root), so the read cannot be made to throw'); fs.chmodSync(f, 0o644); return; }
   assert.doesNotThrow(() => endcardDecision(p, win(p)));
-  assert.equal(endcardDecision(p, win(p)).plan, null);
+  assert.equal(endcardDecision(p, win(p)).plan, null, 'unreadable counts as no match');
+  fs.chmodSync(f, 0o644);
 });
 test('L2: a blank style or theme colour is an error only where the evolv defaults apply; other projects keep v0.1.1 behaviour', () => {
   const o = made([], (c) => { delete c.endcard; delete c.brand; c.style = { highlight: ' ' }; c.theme = { vars: { '--ev-callout': ' ' } }; });
@@ -621,4 +626,19 @@ test('L2: a blank style or theme colour is an error only where the evolv default
   assert.doesNotThrow(() => writeComposition(o, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }));
   const e = made([], (c) => { c.style = { highlight: ' ' }; });
   assert.match(checkProject(e).errors.join('\n'), /style\.highlight: .*is blank/);
+});
+
+test('L2b: a blank colour is a WARNING (no error, build and check go on) for an implicit evolv-logo project, an ERROR for an explicit endcard block', () => {
+  const imp = made([], (c) => { delete c.endcard; c.brand = 'evolv'; c.style = { highlight: ' ', calloutShadow: ' ' }; c.theme = { vars: { '--ev-callout': ' ' } }; });
+  const r = checkProject(imp), pl = endcardDecision(imp, win(imp)).plan;
+  const w = blankColours(imp, pl);
+  assert.deepEqual(w.errors, []);
+  assert.equal(w.warnings.length, 3);
+  assert.match(w.warnings.join('\n'), /style\.highlight: .*blank.*delete the key/);
+  assert.match(w.warnings.join('\n'), /theme\.vars\.--ev-callout: /);
+  assert.deepEqual(r.errors.filter((m) => /blank/.test(m)), []);
+  assert.equal(r.warnings.filter((m) => /blank/.test(m)).length, 3);
+  const exp = made([], (c) => { c.style = { highlight: ' ' }; });
+  const x = blankColours(exp, endcardDecision(exp, win(exp)).plan);
+  assert.equal(x.errors.length, 1); assert.deepEqual(x.warnings, []);
 });

@@ -6,7 +6,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
 import { measureLoudness, mixAudio, lufsTarget, DEFAULTS } from './mix.mjs';
-import { blankColourErrors, defaultsCss, endcardDecision, endcardFonts, evolvThemeDefaults, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
+import { blankColours, defaultsCss, endcardDecision, endcardFonts, evolvThemeDefaults, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
 import { checkEndcardFit } from './endcard-measure.mjs';
 import { checkProject, formatCheck } from './project-check.mjs';
 import { themeCss } from './theme.mjs';
@@ -165,7 +165,8 @@ export function writeComposition(proj, { id, width, height, duration, endcard = 
   fs.mkdirSync(path.join(proj.build, 'assets', 'fonts'), { recursive: true });
   for (const f of theme.files) fs.copyFileSync(f.from, path.join(proj.build, 'assets', 'fonts', f.name));
   // The end card (lib/endcard.mjs): its scene file, the two brand faces unless the theme already loads them, and its script after film.js.
-  const blank = blankColourErrors(proj, endcard); if (blank.length) throw new Error(blank[0]);
+  const blank = blankColours(proj, endcard); if (blank.errors.length) throw new Error(blank.errors[0]);
+  blank.warnings.forEach((w) => log(`WARNING: ${w}`));
   const cardFonts = endcard ? endcardFonts(theme.css) : [];
   if (endcard) {
     fs.copyFileSync(SCENE_FILE, path.join(proj.build, 'assets', 'evolv-endcard.js'));
