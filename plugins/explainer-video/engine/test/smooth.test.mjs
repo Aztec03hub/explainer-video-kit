@@ -94,3 +94,8 @@ test('ev build warns when a camera move is still running at the next camera even
   assert.equal(w.length, 1);
   assert.match(w[0], /event 2 .*2\.0 s.*event 3 starts at 5\.0 s.*3\.0 s early/);
 });
+
+test('the slow tail of an eased camera move (about 0.08 a frame) repeats frames without being a stall', () => {
+  const tail = [0, ...flat(10, 0.08), 0, ...flat(2, 0.08), 0.001, ...flat(2, 0.08), 0, ...flat(10, 0.08)];
+  assert.deepEqual(findHiccups(tail), []);
+});

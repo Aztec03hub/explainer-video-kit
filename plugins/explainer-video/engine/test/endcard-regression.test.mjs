@@ -44,7 +44,7 @@ const checkBRows = (y) => y < CAPTION_ROWS_FROM && !(y >= CODE_ROWS[0] && y <= C
 let haveChrome = true;
 try { chromePath(); } catch { haveChrome = false; console.log('SKIPPING the end card regression test: no Chrome'); }
 const load1 = os.loadavg()[0];
-const busy = load1 > 10;
+const busy = load1 > 10 && !process.env.EV_IGNORE_LOAD;   // EV_IGNORE_LOAD=1 runs it anyway (Phil, 2026-11-06: a deadline outranks load)
 if (haveChrome && busy) console.log(`SKIPPING the end card regression test: load1 is ${load1.toFixed(1)} (needs 10 or less)`);
 const skip = !haveChrome || busy;
 

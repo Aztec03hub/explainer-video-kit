@@ -6,6 +6,7 @@
 // and the first and last frames are exempt, as are their cross-fades and a scene's whole window. A hold on a still screen is never a stall,
 // because a still screen has no motion around it. Found on a real film: two camera moves on the same camera overlapped, and the
 // older one kept overwriting the newer cut, so the picture flipped between two cameras for a third of a second (spike, stall, spike).
+// A stall needs real motion around it (mean difference >= 0.15): the slow tail of an eased move legitimately repeats frames at 0.08.
 // Frames are compared on FILM.screen at 320x180 grey, as a mean absolute difference (0 to 255).
 import { loadTimeline } from './timeline.mjs';
 import { spawnAsync } from './ocr.mjs';
@@ -13,7 +14,7 @@ import { spawnAsync } from './ocr.mjs';
 export const name = 'smooth';
 export const help = 'smooth: finds repeated or dropped frames, a freeze in the middle of motion and one-frame jumps away from the cuts in film.js; names the seconds.';
 const W = 320, H = 180;
-const SPIKE_FLOOR = 2.0, SPIKE_RATIO = 4, STALL_RATIO = 0.1, MOTION_MIN = 0.08, STALL_MAX = 0.02, MAX_RUN = 4, SPAN = 6;
+const SPIKE_FLOOR = 2.0, SPIKE_RATIO = 4, STALL_RATIO = 0.1, MOTION_MIN = 0.15, STALL_MAX = 0.02, MAX_RUN = 4, SPAN = 6;
 
 const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
 

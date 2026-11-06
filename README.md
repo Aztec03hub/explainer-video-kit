@@ -83,6 +83,10 @@ The card's e mark, fonts and colours come from the evolv-brand skill, vendored i
 
 When the card is on, or the project uses the evolv logo, the caption highlight and the callouts default to evolv orange (`--ev-highlight`, `--ev-callout`, read from the vendored brand tokens) with dark ink on the callout tags (`--ev-callout-ink`, `#0B0F18`, 4.65:1 on the orange; it is not a brand token) and the same ink at .9 for the corner-mark halo (`--ev-callout-shadow`, `rgba(11,15,24,.9)`). `"endcard": "none"` turns the card off, not these colours. Your own `style` or `theme` value for any of the four (`--ev-highlight`, `--ev-callout`, `--ev-callout-ink`, `--ev-callout-shadow`) always wins, and projects without the card or the logo keep the engine's yellow and pink. `ev build` prints one line when it applies them.
 
+### A designed lower half (optional)
+
+For a closing card that recaps the film, add a `lower` block to the `endcard` block. `{"kind": "pipeline", "stages": ["Research", "Interview", "Spec"], "credit": "Your team, your event"}` draws a strip of stages with a light that travels along it at the Gleam's own speed and lights each stage; the one `lines` entry becomes a centred prompt bar under it, and `credit` a small centred sign-off. `{"kind": "proof", "facts": [{"big": "36 of 36", "small": "rules pass"}]}` draws up to three tiles instead. Use only figures you can source. The Gleam, the logo and the title do not change.
+
 ## Quick or long
 
 A quick explainer of about a minute is the default (`ev init demo`). For chapters and a longer film, `ev init demo --form long`.

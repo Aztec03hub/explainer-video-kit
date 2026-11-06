@@ -37,8 +37,8 @@ export function endcardCheck(cfg) {
   if (c === undefined || off(c)) return errors;
   if (c === true || c === 'evolv') return errors;
   if (typeof c !== 'object' || Array.isArray(c) || c === null) return [`project.json endcard: use an object { "title", "lines", "note" }, or "none" to turn the end card off (got ${JSON.stringify(c)}).`];
-  const unknown = Object.keys(c).filter((k) => !['title', 'lines', 'note', 'at', 'dur'].includes(k));
-  if (unknown.length) errors.push(`project.json endcard.${unknown[0]}: unknown key. Use title, lines, note, at and dur.`);
+  const unknown = Object.keys(c).filter((k) => !['title', 'lines', 'note', 'at', 'dur', 'lower'].includes(k));
+  if (unknown.length) errors.push(`project.json endcard.${unknown[0]}: unknown key. Use title, lines, note, lower, at and dur.`);
   const title = asList(c.title);
   if (title.length > MAX_TITLE_LINES) errors.push(`project.json endcard.title has ${title.length} lines; the card has room for ${MAX_TITLE_LINES}. Shorten it to ${MAX_TITLE_LINES} lines or fewer.`);
   if (title.some((l) => typeof l !== 'string' || !l.trim())) errors.push('project.json endcard.title: each title line must be a non-empty string.');
@@ -140,6 +140,7 @@ export function endcardDecision(proj, win) {
   const lines = asList(bl.lines);
   if (lines.includes(PLACEHOLDER)) warnings.push(`the end card's call to action is still the placeholder "${PLACEHOLDER}". Replace it in project.json endcard.lines (or remove "lines" for no code box), or set "endcard": "none".`);
   const opts = { title, lines, note: typeof bl.note === 'string' ? bl.note.trim() : '' };
+  if (bl.lower && typeof bl.lower === 'object') opts.lower = bl.lower;   // an optional designed lower half: { kind: 'pipeline' | 'proof', stages, facts, credit }
   return { plan: { implicit: c === undefined, opts, event: { t, scene: 'endcard', dur: bl.dur || DEFAULT_DUR, fade: FADE }, reason: `end card: evolv, ${why}` }, reason: `end card: evolv, ${why}`, warnings, errors };
 }
 export const endcardPlan = (proj, win) => endcardDecision(proj, win).plan;

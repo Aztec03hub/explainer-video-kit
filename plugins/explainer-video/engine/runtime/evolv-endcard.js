@@ -11,6 +11,8 @@
 //   7. build: the text auto-fit (fit / refit, shrink only, never a cut; host.__ecFit reports the sizes), the body tween skips lines that are absent, and draw() calls refit();
 //   8. three colour snaps to the evolv-brand tokens (Organizer ruling), listed in SNAPS in tools/endcard-from-locked.mjs: the box border
 //      3A4660 to 3A4560, the title AAB3C8 to A9B4CC (CSS and its byte triple) and the lit title E4E8F0 to E8ECF4 (its byte triple); each under 2 dE76.
+//   9. the optional designed lower half (project.json endcard.lower: a pipeline strip with a light that travels at the gleam's own pace, or
+//      tiles of facts, a prompt bar and a sign-off): tools/endcard-lower-hunks.json. It runs only when opts.lower is set; without it the card is the locked one.
 // Nothing else differs: no other colour, size, timing, tween or light code.
 // End card scene (beat 14), Phil's combination (final; B's heat, bleed and edge catches with a masked glint on the watermark, A's title letters, the approved motion curve): a live layer animated from the timeline only. Colours are the groundwork dark tokens by value
 // (evolv-brand 0.2.0); the e mark is evolv-icon-white.svg byte for byte, shown at low opacity as a watermark.
@@ -21,7 +23,7 @@ window.evolvEndCard = (opts) => {
   if (!opts || !opts.icon) throw new Error('evolvEndCard: opts.icon (the evolv-icon-white.svg text) is required');
   const ICON = opts.icon;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const TITLE = [].concat(opts.title || []).slice(0, 2), CODES = (opts.lines || []).slice(0, 2), NOTE = opts.note || '';
+  const TITLE = [].concat(opts.title || []).slice(0, 2), LOWER = opts.lower && typeof opts.lower === 'object' ? opts.lower : null, CODES = (opts.lines || []).slice(0, LOWER ? 1 : 2), NOTE = opts.note || '';
 
   // ---------- light engine ----------
   const W = 1280, OS = 1.5, NC = Math.round(W * OS);           // scene is 1280 wide; canvas is 1.5x so it is sharp at 1920x1080
@@ -108,16 +110,37 @@ window.evolvEndCard = (opts) => {
   .ec .wmg { position:absolute; right:-86px; top:-96px; height:500px; width:441px; pointer-events:none; }
   .ec .rim { position:absolute; pointer-events:none; mix-blend-mode:plus-lighter; }
   .ec .rt { left:0; right:0; top:0; height:3px; } .ec .rl { left:0; top:0; width:3px; height:300px; } .ec .rr { right:0; top:0; width:3px; height:300px; }
+  .ec .low { position:absolute; left:76px; top:20px; width:1128px; height:210px; }
+  .ec .low .line { position:absolute; left:0; right:0; top:38px; height:2px; background:#3A4560; opacity:0; }
+  .ec .low .nd { position:absolute; top:31px; width:16px; height:16px; margin-left:-8px; border-radius:50%; background:#141A27; border:2px solid #3A4560; opacity:0; box-sizing:border-box; }
+  .ec .low .lb { position:absolute; top:62px; width:150px; margin-left:-75px; text-align:center; font:400 22px/1.2 'Nunito Sans',sans-serif; color:#A9B4CC; opacity:0; white-space:nowrap; }
+  .ec .low .cm { position:absolute; top:39px; left:0; width:0; height:0; opacity:0; }
+  .ec .low .cm .tail { position:absolute; right:0; top:-2px; width:340px; height:4px; transform-origin:100% 50%; border-radius:2px;
+    background:linear-gradient(90deg,rgba(209,86,53,0) 0%,rgba(255,120,60,.45) 40%,rgba(255,175,105,.9) 78%,rgba(255,248,230,1) 100%); filter:blur(.5px); box-shadow:0 0 14px 3px rgba(255,130,60,.35); }
+  .ec .low .cm .core { position:absolute; left:-45px; top:-45px; width:90px; height:90px; border-radius:50%; transform-origin:50% 50%;
+    background:radial-gradient(circle,#fff 0%,rgba(255,238,205,.95) 9%,rgba(255,170,90,.55) 26%,rgba(255,120,60,.22) 48%,rgba(255,110,50,0) 70%); }
+  .ec .low .tile { position:absolute; top:6px; width:360px; height:170px; background:#1D2536; border:1px solid #3A4560; border-radius:10px; opacity:0; }
+  .ec .low .tile b { position:absolute; left:28px; top:26px; font:300 62px/1.1 'Montserrat',sans-serif; color:#fff; }
+  .ec .low .tile span { position:absolute; left:28px; top:112px; font:400 26px/1.2 'Nunito Sans',sans-serif; color:#D9D9D9; white-space:nowrap; }
+  .ec .code.pbar { left:0; right:0; margin:0 auto; width:fit-content; padding-right:28px; }
+  .ec .low .credit { position:absolute; left:0; right:0; text-align:center; top:196px; font:400 22px/1.3 'Nunito Sans',sans-serif; color:#A9B4CC; opacity:0; white-space:nowrap; letter-spacing:.02em; }
+  .ec .needs.tag { top:254px; font:300 44px/1.2 'Montserrat',sans-serif; color:#fff; }
   `;
   const wrapLetters = (s) => [...s].map((ch) => (ch === ' ' ? ' ' : `<span class="ch">${esc(ch)}</span>`)).join('');
+  const lowerHtml = !LOWER ? '' : (() => {
+    const kind = LOWER.kind, st = (LOWER.stages || []).slice(0, 8), facts = (LOWER.facts || []).slice(0, 3);
+    if (kind === 'proof') return `<div class="low">${facts.map((f, i) => `<div class="tile" style="left:${i * 384}px"><b>${esc(f.big)}</b><span>${esc(f.small)}</span></div>`).join('')}</div>`;
+    const n = Math.max(1, st.length - 1);
+    return `<div class="low"><i class="line"></i>${st.map((l, i) => `<i class="nd" style="left:${(i / n) * 1128}px"></i><div class="lb" style="left:${(i / n) * 1128}px">${esc(l)}</div>`).join('')}<i class="cm"><b class="tail"></b><b class="core"></b></i>${LOWER.credit ? `<div class="credit">${esc(LOWER.credit)}</div>` : ''}</div>`;
+  })();
   const html = `<style>${css}</style><div class="ec">
     <div class="band"><img class="wm" src="data:image/svg+xml;utf8,${encodeURIComponent(ICON)}" alt="">
       <div class="wmg"></div>
       <h1>${TITLE.map((l) => `<span class="ln">${wrapLetters(l)}</span>`).join('')}</h1></div>
     <div class="bar"></div>
-    <div class="body"><div id="ec-codes" style="position:absolute;left:76px;top:36px;width:1128px;height:162px">
-      ${CODES.map((l, i) => `<div class="code" id="ec-i${i + 1}" style="top:${i ? '92px' : '0'};left:0"><em>&gt;</em>${esc(l)}</div>`).join('')}</div>
-      ${NOTE ? `<div class="needs">${esc(NOTE)}</div>` : ''}</div>
+    <div class="body"><div id="ec-codes" style="position:absolute;left:76px;top:${LOWER ? 128 : 36}px;width:1128px;height:162px">
+      ${CODES.map((l, i) => `<div class="code${LOWER ? ' pbar' : ''}" id="ec-i${i + 1}" style="top:${i ? '92px' : '0'};left:0"><em>&gt;</em>${esc(l)}</div>`).join('')}</div>
+      ${lowerHtml}${NOTE ? `<div class="needs${LOWER ? ' tag' : ''}">${esc(NOTE)}</div>` : ''}</div>
     <i class="rim rt"></i><i class="rim rl"></i><i class="rim rr"></i>
   </div>`;
 
@@ -153,6 +176,31 @@ window.evolvEndCard = (opts) => {
       tl.fromTo(all('h1 .ln'), { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', stagger: 0.14 }, t + 0.2);
       const bodyEls = [q('#ec-i1'), q('#ec-i2'), q('.needs')].filter(Boolean);
       if (bodyEls.length) tl.fromTo(bodyEls, { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out', stagger: 0.16 }, t + 0.75);
+
+      if (LOWER) {                                              // the lower half (opts.lower): a travelling light along the journey, tiles of facts, or a sign-off
+        const T = t + 1.3, N = all('.low .nd').length, stepT = 0.42;
+        const low = (sel) => [...all('.low ' + sel)];
+        if (LOWER.kind === 'proof') tl.fromTo(low('.tile'), { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out', stagger: 0.25 }, T);
+        else {
+          tl.fromTo(low('.line'), { opacity: 0 }, { opacity: 1, duration: 0.5 }, T);
+          tl.fromTo(low('.nd, .lb'), { opacity: 0 }, { opacity: 1, duration: 0.5, stagger: 0.04 }, T);
+          // The light is the gleam's own head: the same speed curve (speedAt / pOfT), the same cruise speed, over the strip's 1128 px
+          // (the gleam's LEN is 1290 px, so distance and time are both scaled by K and the speed in px per second is the same).
+          const K = 1128 / LEN, t1 = T + 0.5, cm = low('.cm')[0], tail = low('.tail')[0], core = low('.core')[0];
+          tl.set(cm, { x: 0, opacity: 0 }, 0);
+          tl.to(cm, { opacity: 1, duration: 0.12 }, t1);
+          tl.fromTo(cm, { x: 0 }, { x: 1128, duration: TOT * K, ease: (u) => pOfT(u * TOT) / LEN }, t1);
+          tl.fromTo(tail, { scaleX: 0.04 }, { scaleX: 1, duration: TOT * K, ease: (u) => Math.min(1, speedAt(pOfT(u * TOT)) / V) }, t1);
+          tl.fromTo(core, { scale: 0.9 }, { scale: 1.15, duration: TOT * K, ease: (u) => 0.5 * (1 - Math.cos(Math.PI * Math.min(1, u * 1.2))) }, t1);
+          tl.to(core, { scale: 1.9, duration: 0.7, ease: 'power2.out' }, t1 + TOT * K - 0.1);
+          low('.nd').forEach((nd, i) => {
+            const at = t1 + tOfP((i / (N - 1)) * 1128 / K) * K, last = i === N - 1;
+            tl.to(nd, { backgroundColor: '#D15635', borderColor: '#D15635', scale: last ? 1.5 : 1.15, duration: 0.25, ease: 'power2.out' }, at);
+            tl.to(low('.lb')[i], { color: '#FFFFFF', fontWeight: last ? 700 : 400, duration: 0.25 }, at);
+          });
+        }
+        if (LOWER.credit) tl.fromTo(low('.credit'), { opacity: 0 }, { opacity: 1, duration: 0.8 }, T + 3.4);
+      }
 
       const t0 = t + 0.95;                                     // the head enters at the left edge
       // heat tail: a point on the bar heats when the head passes and cools as a sum of two exponentials.

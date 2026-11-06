@@ -98,7 +98,7 @@ export function checkProject(proj) {
   const pageH = shotHeights.length ? Math.min(...shotHeights) : null;
   events.forEach((e, i) => {
     if (!Array.isArray(e.cam)) return;
-    const [x, y, w] = e.cam, h = (w * 9) / 16, where = `event ${i + 1} (cam: [${e.cam.join(', ')}])`;
+    const [x, y, w] = e.cam, h = w * (film.screen && film.screen.w > 0 && film.screen.h > 0 ? film.screen.h / film.screen.w : 9 / 16), where = `event ${i + 1} (cam: [${e.cam.join(', ')}])`;
     if (![x, y, w].every(Number.isFinite) || w <= 0) return errors.push(`${where}: a camera window is [x, y, width] in page pixels.`);
     if (x < 0 || x + w > pageW) errors.push(`${where}: the window's right edge is at ${x + w} but the page is ${pageW} wide. Keep x >= 0 and x + width <= ${pageW}.`);
     if (y < 0) errors.push(`${where}: y is negative.`);

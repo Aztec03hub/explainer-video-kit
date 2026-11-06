@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const ENGINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const FIXTURE = path.join(ENGINE, 'test', 'fixtures', 'endcard-scene-final.js.txt');
@@ -25,6 +26,8 @@ const HEADER = `// evolv end card scene: the Gleam. window.evolvEndCard(opts) re
 //   7. build: the text auto-fit (fit / refit, shrink only, never a cut; host.__ecFit reports the sizes), the body tween skips lines that are absent, and draw() calls refit();
 //   8. three colour snaps to the evolv-brand tokens (Organizer ruling), listed in SNAPS in tools/endcard-from-locked.mjs: the box border
 //      3A4660 to 3A4560, the title AAB3C8 to A9B4CC (CSS and its byte triple) and the lit title E4E8F0 to E8ECF4 (its byte triple); each under 2 dE76.
+//   9. the optional designed lower half (project.json endcard.lower: a pipeline strip with a light that travels at the gleam's own pace, or
+//      tiles of facts, a prompt bar and a sign-off): tools/endcard-lower-hunks.json. It runs only when opts.lower is set; without it the card is the locked one.
 // Nothing else differs: no other colour, size, timing, tween or light code.
 `;
 
@@ -100,6 +103,8 @@ export function applyHunks(locked) {
   t = once(t, '      const draw = (T) => {\n', '      const draw = (T) => {\n        refit();\n');
   // 2 wrapper end
   t = once(t, '\n})();\n', '\n};\n');
+  // 9 the optional designed lower half (opts.lower): tools/endcard-lower-hunks.json
+  for (const [from, to] of createRequire(import.meta.url)('./endcard-lower-hunks.json').hunks) t = once(t, from, to);
   return t;
 }
 

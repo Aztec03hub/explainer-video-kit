@@ -290,9 +290,9 @@ test('the locked fixture is pinned, and the runtime scene is that file plus the 
 test('the light engine, motion curve, rims, glint and letters code is present in the runtime scene character for character', () => {
   const lines = fs.readFileSync(FIXTURE, 'utf8').split('\n'), plugin = new Set(fs.readFileSync(SCENE_FILE, 'utf8').split('\n'));
   // Every locked line (1-based numbers) that is not a whole line of in the runtime scene is in a hunk: the wrapper and ICON (6 to 8), the
-  // title colour (84), title line css (85), the box border (88), wrapLetters (96), the html lines (100, 103 to 105), the body tween (116), the letter colours (161) and the closing wrapper (199).
+  // title colour (84), title line css (85), the box border (88), wrapLetters (96), the html lines (100, 102 to 105: 102 is the codes box, moved down when opts.lower is set), the body tween (116), the letter colours (161) and the closing wrapper (199).
   const changed = lines.map((l, k) => [k + 1, l]).filter(([, l]) => l && !plugin.has(l)).map(([k]) => k);
-  assert.deepEqual(changed, [6, 7, 8, 84, 85, 88, 96, 100, 103, 104, 105, 116, 161, 199]);   // 84, 88 and 161 are the three colour snaps
+  assert.deepEqual(changed, [6, 7, 8, 84, 85, 88, 96, 100, 102, 103, 104, 105, 116, 161, 199]);   // 84, 88 and 161 are the three colour snaps
 });
 
 test('the hunk list fails when the scene is edited: one changed digit in the light engine breaks the comparison', () => {
