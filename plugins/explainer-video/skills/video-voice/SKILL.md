@@ -26,7 +26,7 @@ description: Record the narration for a video with ElevenLabs: choose a model (E
 Voice only some beats, with the same voice, model, seed and tags, and join them onto the existing take so the old word times stay valid. Check first with `--dry-run` (shows only the chosen beats, their characters and estimated credits, "nothing was spent").
 
 - Add beats at the end (the take must cover exactly the beats before them): `EV voice <project> --beats 9-` (also `--beats 8-14` or `--beats 7`; `--append` is accepted and means the same).
-- A stray thump or click alone in silence (the audio gate names its time): `EV voice <project> --trim 60.80-61.36` cuts that span of silence out of the take (never speech), moves later word times earlier and keeps a backup. Free; no re-take.
+- A stray thump or click alone in silence (the audio gate names its time): `EV voice <project> --trim 60.80-61.36` cuts that span out of the take (it refuses any sound above -50 dB, except the stray burst the gate flagged, so it never cuts speech), moves later word times earlier and keeps a backup. Free; no re-take.
 - Re-take beats already voiced: `EV voice <project> --replace-beats 3` (or `3-4`). Later word times shift by the difference.
 - Old and new audio are joined with a 0.35 s silence into ONE take.mp3. The old take is first copied to `voice/take.before-<time>.mp3` and `.json`. `spend.json` keeps a `runs` list and running totals.
 - It refuses, spending nothing, when take.json doesn't match the script's words for the earlier beats: run a full `EV voice <project> --force` then. The approved-text lock (`--force-words`) still checks the whole script.
