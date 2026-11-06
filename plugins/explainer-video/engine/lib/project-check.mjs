@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
-import { readWindow } from './cmd-build.mjs';
+import { readWindow, styleCss } from './cmd-build.mjs';
 import { endcardCheck, endcardDecision } from './endcard.mjs';
 import { readJson } from './common.mjs';
 
@@ -35,6 +35,7 @@ export function checkProject(proj) {
   const frames = proj.cfg.frames || {}, sets = frames.sets || {};
   let film;
   try { themeCss(proj.cfg.theme, proj.root); } catch (e) { errors.push(e.message); }
+  try { styleCss(proj.cfg.style); } catch (e) { errors.push(e.message); }
   if (!fs.existsSync(proj.film)) return { errors, warnings }; // build and frames report a missing film.js themselves
   let win;
   try { win = readWindow(proj.film); film = win.FILM; } catch (e) { return { errors: [...errors, `film.js: ${e.message}`], warnings }; }

@@ -58,8 +58,9 @@ const FIT = `
         };
         return run;
       };
+      const CODE_AVAIL = 1128 - 2 - 28 - 14;   // the code box's width, minus its border, its left padding and the > prompt's right margin (the Range counts the glyph, not its margin)
       const fits = [...all('h1 .ln')].map((e) => fitter(e, 1128, 66, true))
-        .concat([...all('.code')].map((e) => fitter(e, 1070, 28, false)), [...all('.needs')].map((e) => fitter(e, 1128, 28, false)));
+        .concat([...all('.code')].map((e) => fitter(e, CODE_AVAIL, 28, false)), [...all('.needs')].map((e) => fitter(e, 1128, 28, false)));
       let fitSeen = null;
       const fit = () => { fits.forEach((f) => f()); fitSeen = document.fonts ? document.fonts.status : 'loaded'; };
       const refit = () => { if (fitSeen !== 'loaded' && (!document.fonts || document.fonts.status === 'loaded')) fit(); };

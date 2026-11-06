@@ -17,7 +17,7 @@ export function themeCss(theme, root) {
   const rules = [], files = [];
   const vars = Object.entries(theme.vars || {}).map(([k, v]) => {
     if (!THEME_VARS.includes(k)) throw new Error(`project.json theme.vars.${k}: unknown variable. Use one of: ${THEME_VARS.join(', ')}`);
-    if (!SAFE.test(String(v))) throw new Error(`project.json theme.vars.${k}: use a CSS value (not blank) without ; { } < > or backslash`);
+    if (!SAFE.test(String(v))) throw new Error(`project.json theme.vars.${k}: use a CSS value without ; { } < > or backslash. The value is blank or has a forbidden character: give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
     return `${k}: ${v};`;
   });
   (theme.fonts || []).forEach((f, i) => {

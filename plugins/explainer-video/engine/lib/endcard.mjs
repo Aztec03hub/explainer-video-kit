@@ -125,6 +125,8 @@ export function endcardDecision(proj, win) {
   if (Math.abs(w / h - 16 / 9) > 0.01) return none(`end card: skipped for ${w}x${h}`, { warning: `the evolv end card is made for 16:9; skipped for ${w}x${h}; set endcard: none to silence this` });
   const title = asList(bl.title).length ? asList(bl.title) : asList(cfg.title);
   const warnings = [], errors = [];
+  const page = win?.FILM?.page;
+  if (page !== undefined && +page !== 1280) errors.push(`film.js sets page: ${JSON.stringify(page)}, but the end card is designed on 1280 scene units and would be laid out wrong at another page width. Set page: 1280 in film.js (or leave it out), or set "endcard": "none".`);
   if (at === 'last-beat' && !beats) return none('end card: none (the script has no beats to place it after)');
   if (at === 'last-beat' && beats === 1) warnings.push('the end card starts at the last beat and the script has one beat, so the card covers the whole film. Add a closing beat to script.md.');
   // an "at" that cannot happen is an error now, never a throw at render time
@@ -135,7 +137,7 @@ export function endcardDecision(proj, win) {
   if (!title.length) errors.push('the end card has no title: set project.json endcard.title (or the project "title"). The card is not drawn with an empty title.');
   const lines = asList(bl.lines);
   if (lines.includes(PLACEHOLDER)) warnings.push(`the end card's call to action is still the placeholder "${PLACEHOLDER}". Replace it in project.json endcard.lines (or remove "lines" for no code box), or set "endcard": "none".`);
-  const opts = { title, lines, note: bl.note || '' };
+  const opts = { title, lines, note: typeof bl.note === 'string' ? bl.note.trim() : '' };
   return { plan: { opts, event: { t, scene: 'endcard', dur: bl.dur || DEFAULT_DUR, fade: FADE }, reason: `end card: evolv, ${why}` }, reason: `end card: evolv, ${why}`, warnings, errors };
 }
 export const endcardPlan = (proj, win) => endcardDecision(proj, win).plan;
@@ -183,14 +185,16 @@ export const FIT_FLOOR = 0.7;
 // The element names, in the order the scene lays them out: title lines, install lines, the note. opts is the plan's opts.
 export function fitElements(opts) {
   return [...asList(opts.title).slice(0, MAX_TITLE_LINES).map((text, i) => ({ element: `title line ${i + 1}`, text })),
-    ...asList(opts.lines).slice(0, MAX_LINES).map((text, i) => ({ element: `install line ${i + 1}`, text })),
+    ...asList(opts.lines).slice(0, MAX_LINES).map((text, i) => ({ element: `install line ${i + 1}`, text, lead: 1 })),
     ...(opts.note ? [{ element: 'note', text: opts.note }] : [])];
 }
 // rows: fitElements() joined with the scene's measurements { natural, width, avail } (scene px: at the design size, and after shrinking; width is optional, default the floor size). Returns the error lines.
 export function fitErrors(rows) {
   return rows.filter((r) => (r.width ?? r.natural * FIT_FLOOR) > r.avail + 0.01).map((r) => {
     const chars = [...r.text].length, atFloor = Math.round(r.natural * FIT_FLOOR);
-    const max = Math.max(1, Math.floor((chars * r.avail) / (r.natural * FIT_FLOOR)));
+    // about N: this text's own average width per character at the smallest size, over the box. An install line's measured width also holds the
+    // > prompt (r.lead = 1 glyph), so it counts as a character and comes off the answer.
+    const lead = r.lead || 0, max = Math.max(1, Math.floor(((chars + lead) * r.avail) / (r.natural * FIT_FLOOR)) - lead);
     return `end card ${r.element} is too long: "${r.text}" is ${Math.round(r.natural)} px wide at the design size (${chars} characters, ${atFloor} px even at the smallest size, ${FIT_FLOOR * 100} percent), but the card has ${Math.round(r.avail)} px for it, about ${max} characters at most. Shorten it in project.json endcard (the text is never cut).`;
   });
 }

@@ -10,7 +10,7 @@ import vm from 'node:vm';
 import { spawnSync } from 'node:child_process';
 import { ENGINE, loadProject } from '../lib/common.mjs';
 import { writeComposition } from '../lib/cmd-build.mjs';
-import { checkEndcardFit } from '../lib/endcard-measure.mjs';
+import { checkEndcardFit, checkProjectFit } from '../lib/endcard-measure.mjs';
 import { checkProject } from '../lib/project-check.mjs';
 import { parseScript } from '../lib/script.mjs';
 import { CALLOUT_INK, CALLOUT_SHADOW, FIT_FLOOR, defaultsCss, fitElements, fitErrors, endcardCheck, endcardDecision, evolvThemeDefaults, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
@@ -463,10 +463,10 @@ test('Low 3: a scene at beat:N-3 starts before the card and is not "your own"; b
 test('Low 4: a blank style or theme value is an error, so the evolv default is never blanked', () => {
   const s = made([], (c) => { c.style = { highlight: ' ' }; });
   fs.mkdirSync(path.join(s.build, 'frames'), { recursive: true });
-  assert.throws(() => writeComposition(s, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }), /style\.highlight: .*not blank/);
+  assert.throws(() => writeComposition(s, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }), /style\.highlight: .*is blank.*give style\.highlight a CSS value like "#FF6A3D", or delete the key/);
   const t = made([], (c) => { c.theme = { vars: { '--ev-callout': '   ' } }; });
   fs.mkdirSync(path.join(t.build, 'frames'), { recursive: true });
-  assert.throws(() => writeComposition(t, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }), /not blank/);
+  assert.throws(() => writeComposition(t, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }), /theme\.vars\.--ev-callout: .*is blank.*give theme\.vars\.--ev-callout a CSS value/);
 });
 
 test('Low 5: a numeric at with no known film length warns, and ev build checks it once the placeholder captions give a length', () => {
@@ -483,4 +483,63 @@ test('Low 5: a numeric at with no known film length warns, and ev build checks i
   const r = ev('build', q.root, '--no-render', '--skip-pixel-check');
   assert.notEqual(r.status, 0);
   assert.match(r.stdout + r.stderr, /endcard\.at: 500 s is past the end of the film \(\d+ s\)/);
+});
+
+// ---- round 4 ----
+test('M1: ev doctor --project on a folder with only project.json does not crash; the fit check skips quietly', async () => {
+  const dir = path.join(tmp, 'only-json'); fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify({ name: 'x', title: 'X', endcard: { title: 'X' } }));
+  assert.deepEqual(await checkProjectFit(loadProject(dir)), { errors: [], warnings: [] });
+  const r = ev('doctor', '--project', dir);
+  assert.doesNotMatch(r.stdout + r.stderr, /ENOENT|ev doctor: /, r.stdout + r.stderr);
+  fs.writeFileSync(path.join(dir, 'film.js'), 'this is not javascript (');   // unreadable film.js: the project check says so, the fit check skips
+  assert.deepEqual(await checkProjectFit(loadProject(dir)), { errors: [], warnings: [] });
+});
+
+test('Low a: the install-line limit is the real text width of the code box, derived from the scene CSS (one number for check and message)', () => {
+  const src = fs.readFileSync(SCENE_FILE, 'utf8');
+  const px = (re) => +re.exec(src)[1];
+  const box = px(/\.ec \.code \{[^}]*?width:(\d+)px/), pad = px(/\.ec \.code \{[^}]*?padding-left:(\d+)px/), margin = px(/\.ec \.code em \{[^}]*?margin-right:(\d+)px/);
+  assert.equal(box - 2 - pad - margin, 1084, 'box width minus 2 border, padding-left and the prompt margin');
+  assert.match(src, /const CODE_AVAIL = 1128 - 2 - 28 - 14;/);
+  assert.match(src, /fitter\(e, CODE_AVAIL, 28, false\)/);
+  assert.doesNotMatch(src, /\b1070\b/);
+});
+
+test('Low b: "about N characters" is this text\'s own average width per character at the floor; an install line counts its > prompt', () => {
+  // title: 40 characters at 1700 px, floor 1190 px, box 1128: 40 * 1128 / 1190 = 37.9 -> 37
+  assert.match(fitErrors([{ element: 'title line 1', text: 'x'.repeat(40), natural: 1700, avail: 1128 }])[0], /about 37 characters at most/);
+  // install line: 40 text characters + the prompt = 41 glyphs at 1700 px: (41 * 1084 / 1190) = 37.35 -> 37, less the prompt = 36
+  const i = fitErrors([{ element: 'install line 1', text: 'x'.repeat(40), natural: 1700, avail: 1084, lead: 1 }]);
+  assert.match(i[0], /about 36 characters at most/);
+  assert.deepEqual(fitElements({ title: ['a'], lines: ['b'], note: 'c' }).map((x) => x.lead || 0), [0, 1, 0]);
+});
+
+test('Low d: a blank style or theme value is a project-check ERROR naming the key and the fix (not a fallback)', () => {
+  const s = made([], (c) => { c.style = { highlight: '  ' }; });
+  assert.match(checkProject(s).errors.join('\n'), /project\.json style\.highlight: .*is blank.*give style\.highlight a CSS value like "#FF6A3D", or delete the key/);
+  const t = made([], (c) => { c.theme = { vars: { '--ev-callout': ' ' } }; });
+  assert.match(checkProject(t).errors.join('\n'), /project\.json theme\.vars\.--ev-callout: .*is blank.*delete the key/);
+});
+
+test('Low e: a whitespace-only note draws no note element', () => {
+  const p = made([], (c) => { c.endcard = { title: 'X', lines: ['/plugin install x'], note: '   ' }; });
+  const d = endcardDecision(p, win(p));
+  assert.equal(d.plan.opts.note, '');
+  assert.deepEqual(fitElements(d.plan.opts).map((x) => x.element), ['title line 1', 'install line 1']);
+  assert.equal(endcardDecision(made([], (c) => { c.endcard = { title: 'X', note: '  hi  ' }; }), win(p)).plan.opts.note, 'hi');
+});
+
+test('Low f: a film.js page other than 1280 is an error with the card on (the scene is laid out on 1280 units); 1280, no page, or endcard none are fine', () => {
+  const p = made([]);
+  const withPage = (page, extra = {}) => { const w = win(p); if (page === undefined) delete w.FILM.page; else w.FILM.page = page; return endcardDecision(made([], (c) => Object.assign(c, extra)), w); };
+  assert.match(withPage(1920).errors.join('\n'), /film\.js sets page: 1920, but the end card is designed on 1280 scene units.*page: 1280.*"endcard": "none"/);
+  assert.deepEqual(withPage(1280).errors, []);
+  assert.deepEqual(withPage(undefined).errors, []);
+  assert.deepEqual(withPage(1920, { endcard: 'none' }).errors, []);
+  assert.match(fs.readFileSync(path.join(ENGINE, 'runtime', 'explainer.js'), 'utf8'), /PAGE = F\.page \|\| 1280/, 'the scene is sized from film.js page, so the check is needed');
+});
+
+test('Low g: video-render SKILL lists all four evolv defaults', () => {
+  assert.match(fs.readFileSync(path.join(REPO, 'plugins', 'explainer-video', 'skills', 'video-render', 'SKILL.md'), 'utf8'), /--ev-callout-ink`[^.]*`--ev-callout-shadow`/);
 });
