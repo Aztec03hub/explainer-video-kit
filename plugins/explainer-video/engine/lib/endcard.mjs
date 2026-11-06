@@ -44,7 +44,8 @@ function lowerCheck(c) {
   if (l.kind === 'proof' && !(Array.isArray(l.facts) && l.facts.length >= 1 && l.facts.length <= 3 && l.facts.every((f) => f && str(f.big, LOWER_LIMITS.big) && str(f.small, LOWER_LIMITS.small)))) errors.push(`${at}.facts: a list of 1 to 3 { "big": up to ${LOWER_LIMITS.big} characters, "small": up to ${LOWER_LIMITS.small} characters }.`);
   if (l.credit !== undefined && l.kind === 'proof') errors.push(`${at}.credit: only the "pipeline" kind shows a sign-off; remove it, or use kind "pipeline".`);
   else if (l.credit !== undefined && !str(l.credit, LOWER_LIMITS.credit)) errors.push(`${at}.credit: one line of up to ${LOWER_LIMITS.credit} characters.`);
-  if (asList(c.lines).length > 1) errors.push(`${at}: with a lower half the card shows one prompt bar, so endcard.lines may hold one entry (it has ${asList(c.lines).length}).`);
+  if (l.kind === 'proof' && asList(c.lines).length) errors.push(`${at}: the "proof" kind has no prompt bar (the tiles take its place), so remove endcard.lines or use kind "pipeline".`);
+  else if (asList(c.lines).length > 1) errors.push(`${at}: with a lower half the card shows one prompt bar, so endcard.lines may hold one entry (it has ${asList(c.lines).length}).`);
   return errors;
 }
 

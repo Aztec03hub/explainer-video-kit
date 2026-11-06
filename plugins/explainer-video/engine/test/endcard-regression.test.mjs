@@ -253,21 +253,27 @@ test('text is HTML-escaped, and a card with no lines and no note has neither ele
 });
 
 test('the designed lower half renders for both kinds: stage labels and credit, or fact tiles', { skip, timeout: 120000 }, async () => {
-  const textAt = async (browser, lower) => {
+  const textAt = async (browser, lower, lines = ['one line']) => {
     const page = await browser.newPage();
     try {
       await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
-      await page.goto('file://' + makePage('plugin', { opts: { ...HERO, lines: ['one line'], lower } }), { waitUntil: 'load' });
+      await page.goto('file://' + makePage('plugin', { opts: { ...HERO, lines, lower } }), { waitUntil: 'load' });
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(() => { window.__timelines.main.seek(5.9); });
-      return await page.evaluate(() => document.getElementById('root').innerText);
+      const box = (q) => page.evaluate((s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && { top: r.top, bottom: r.bottom }; }, q);
+      const text = await page.evaluate(() => document.getElementById('root').innerText);
+      return Object.assign(new String(text), { bar: await box('#ec-i1'), tile: await box('.low .tile') });
     } finally { await page.close(); }
   };
   await withBrowser(async (browser) => {
     const pipe = await textAt(browser, { kind: 'pipeline', stages: ['Research', 'Build', 'Score'], credit: 'The Test Team' });
     for (const s of ['Research', 'Build', 'Score', 'The Test Team']) assert.ok(pipe.includes(s), `pipeline shows "${s}"`);
-    const proof = await textAt(browser, { kind: 'proof', facts: [{ big: '36 of 36', small: 'rules pass' }] });
+    const proof = await textAt(browser, { kind: 'proof', facts: [{ big: '36 of 36', small: 'rules pass' }] }, []);
     for (const s of ['36 of 36', 'rules pass']) assert.ok(proof.includes(s), `proof shows "${s}"`);
+    for (const [name, c] of [['pipeline', pipe], ['proof', proof]]) {
+      const [a, b] = c.tile ? [c.tile, c.bar] : [null, null];
+      if (a && b) assert.ok(a.bottom <= b.top + 1 || b.bottom <= a.top + 1, `${name}: the prompt bar does not overlap the tiles (${JSON.stringify([a, b])})`);
+    }
   });
 });
 

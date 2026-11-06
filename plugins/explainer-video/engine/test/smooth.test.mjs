@@ -149,4 +149,5 @@ test('project.json endcard.lower: a good block passes; bad kinds, labels, facts 
     [{ kind: 'proof', facts: [{ big: '1', small: 'x' }], credit: 'Team' }, /credit/],
   ]) assert.match(bad(lower), re, JSON.stringify(lower));
   assert.notEqual(bad(ok, ['one', 'two']), '', 'two lines with a lower half is an error');
+  assert.match(bad({ kind: 'proof', facts: [{ big: '1', small: 'x' }] }, ['one']), /no prompt bar/);
 });
