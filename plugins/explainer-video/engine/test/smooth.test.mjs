@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { ENGINE, RUNTIME, loadProject } from '../lib/common.mjs';
 import { chromePath } from '../lib/cmd-frames.mjs';
 import { checkProject } from '../lib/project-check.mjs';
-import { findHiccups } from '../lib/gates/smooth.mjs';
+import smoothGate, { findHiccups } from '../lib/gates/smooth.mjs';
 import { endcardCheck } from '../lib/endcard.mjs';
 
 const flat = (n, v) => Array(n).fill(v);
@@ -93,6 +93,34 @@ test('ev build warns when a camera move is still running at the next camera even
   console.log(`must-warn output: ${w.join(' | ')}`);
   assert.equal(w.length, 1);
   assert.match(w[0], /event 2 .*2\.0 s.*event 3 starts at 5\.0 s.*3\.0 s early/);
+});
+
+// The gate on real files: a 6 s clip of the moving ffmpeg test pattern at 10 fps. Clean passes; a repeated frame in the middle of the
+// slide fails and is named by time; the same repeated frame under a scheduled show event is a cut and passes.
+test('the smooth gate on a synthetic clip: clean passes, a repeated frame fails, a scheduled cut is exempt', async () => {
+  const mk = (events) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-smooth-g-'));
+    for (const [f, v] of Object.entries({ 'project.json': { name: 'smooth' }, 'film.js': `window.FILM = ${JSON.stringify({ id: 'main', duration: 6, screen: { x: 0, y: 0, w: 640, h: 360 }, events })};`,
+      'build/captions.json': { chunks: [], beats: [], chapters: [] }, 'build/index.html': '<div data-composition-id="main" data-duration="6"></div>' })) {
+      fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
+      fs.writeFileSync(path.join(root, f), typeof v === 'string' ? v : JSON.stringify(v));
+    }
+    return loadProject(root);
+  };
+  const clip = (name, extra) => {
+    const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ev-smooth-v-')), name + '.mp4');
+    const r = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=640x360:d=6:r=10', '-vf', `null${extra}`, '-pix_fmt', 'yuv420p', f], { encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    return f;
+  };
+  const clean = await smoothGate({ proj: mk([{ t: 0, show: 'a/b' }]), cut: clip('clean', '') });
+  assert.equal(clean.status, 'PASS', JSON.stringify(clean.lines));
+  const frozen = clip('frozen', ',loop=loop=1:size=1:start=30');
+  const bad = await smoothGate({ proj: mk([{ t: 0, show: 'a/b' }]), cut: frozen });
+  assert.equal(bad.status, 'FAIL');
+  assert.match(bad.lines.join('\n'), /^3\.\d\d s +freeze/m, bad.lines.join('\n'));
+  const cutHere = await smoothGate({ proj: mk([{ t: 0, show: 'a/b' }, { t: 3, show: 'c/d' }]), cut: frozen });
+  assert.equal(cutHere.status, 'PASS', JSON.stringify(cutHere.lines));
 });
 
 test('the slow tail of an eased camera move (about 0.08 a frame) repeats frames without being a stall', () => {

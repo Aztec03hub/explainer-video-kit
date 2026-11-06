@@ -260,20 +260,23 @@ test('the designed lower half renders for both kinds: stage labels and credit, o
       await page.goto('file://' + makePage('plugin', { opts: { ...HERO, lines, lower } }), { waitUntil: 'load' });
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(() => { window.__timelines.main.seek(5.9); });
-      const box = (q) => page.evaluate((s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && { top: r.top, bottom: r.bottom }; }, q);
-      const text = await page.evaluate(() => document.getElementById('root').innerText);
-      return Object.assign(new String(text), { bar: await box('#ec-i1'), tile: await box('.low .tile') });
+      // each wanted element: its box and its computed opacity (innerText also counts text at opacity 0)
+      return await page.evaluate((sels) => Object.fromEntries(sels.map((s) => {
+        const el = document.querySelector(s), r = el && el.getBoundingClientRect();
+        return [s, el && { top: r.top, bottom: r.bottom, opacity: Number(getComputedStyle(el).opacity), text: el.textContent }];
+      })), ['#ec-i1', '.low .lb', '.low .credit', '.low .tile']);
     } finally { await page.close(); }
   };
   await withBrowser(async (browser) => {
     const pipe = await textAt(browser, { kind: 'pipeline', stages: ['Research', 'Build', 'Score'], credit: 'The Test Team' });
-    for (const s of ['Research', 'Build', 'Score', 'The Test Team']) assert.ok(pipe.includes(s), `pipeline shows "${s}"`);
+    assert.equal(pipe['.low .lb'].text, 'Research'); assert.equal(pipe['.low .credit'].text, 'The Test Team');
+    for (const s of ['#ec-i1', '.low .lb', '.low .credit']) assert.equal(pipe[s].opacity, 1, `pipeline: ${s} is visible at the end`);
+    const [bar, lb, credit] = [pipe['#ec-i1'], pipe['.low .lb'], pipe['.low .credit']];
+    assert.ok(bar.bottom <= lb.top + 1 || lb.bottom <= bar.top + 1, `pipeline: the prompt bar and the stage labels do not overlap (${JSON.stringify([bar, lb])})`);
+    assert.ok(credit.bottom <= 1080 * 0.999, 'the sign-off is inside the frame');
     const proof = await textAt(browser, { kind: 'proof', facts: [{ big: '36 of 36', small: 'rules pass' }] }, []);
-    for (const s of ['36 of 36', 'rules pass']) assert.ok(proof.includes(s), `proof shows "${s}"`);
-    for (const [name, c] of [['pipeline', pipe], ['proof', proof]]) {
-      const [a, b] = c.tile ? [c.tile, c.bar] : [null, null];
-      if (a && b) assert.ok(a.bottom <= b.top + 1 || b.bottom <= a.top + 1, `${name}: the prompt bar does not overlap the tiles (${JSON.stringify([a, b])})`);
-    }
+    assert.match(proof['.low .tile'].text, /36 of 36.*rules pass/);
+    assert.equal(proof['.low .tile'].opacity, 1, 'proof: the tile is visible at the end');
   });
 });
 
