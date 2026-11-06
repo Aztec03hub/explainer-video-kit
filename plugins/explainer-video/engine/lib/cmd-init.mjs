@@ -6,15 +6,17 @@ import { ENGINE, parseArgs, log, readJson, writeJson } from './common.mjs';
 const EV = `node "${path.join(ENGINE, 'bin', 'ev.mjs')}"`; // how to run the engine without an alias
 
 const TEMPLATE = path.join(ENGINE, 'templates', 'project');
+const LONG = path.join(ENGINE, 'templates', 'long'); // overlay for --form long: script.md, film.js, README.md
 
 export default async function (argv) {
   const a = parseArgs(argv, { bool: ['force', 'help'] });
-  if (a.help || !a._[0]) return log('usage: ev init <dir> [--form quick|long] [--name <name>] [--force]\nCopies the sample project into <dir> (must be empty unless --force).');
+  if (a.help || !a._[0]) return log('usage: ev init <dir> [--form quick|long] [--name <name>] [--force]\nCopies the sample project (one minute, or about two minutes with chapters for --form long) into <dir> (must be empty unless --force).');
   const form = a.form || 'quick';
   if (!['quick', 'long'].includes(form)) throw new Error(`--form must be quick or long, not "${form}"`);
   const dir = path.resolve(a._[0]);
   if (fs.existsSync(dir) && fs.readdirSync(dir).length && !a.force) throw new Error(`${dir} is not empty. Pick a new folder or add --force.`);
   fs.cpSync(TEMPLATE, dir, { recursive: true });
+  if (form === 'long') fs.cpSync(LONG, dir, { recursive: true });
   // npm drops files named .gitignore from packages, so the template ships it as "gitignore".
   fs.renameSync(path.join(dir, 'gitignore'), path.join(dir, '.gitignore'));
   const file = path.join(dir, 'project.json');
