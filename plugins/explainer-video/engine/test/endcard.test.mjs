@@ -12,7 +12,7 @@ import { ENGINE, loadProject } from '../lib/common.mjs';
 import { writeComposition } from '../lib/cmd-build.mjs';
 import { checkProject } from '../lib/project-check.mjs';
 import { parseScript } from '../lib/script.mjs';
-import { endcardCheck, endcardDecision, endcardPlan, endcardScripts, ICON_FILE, SCENE_FILE } from '../lib/endcard.mjs';
+import { endcardCheck, endcardDecision, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
 import { applyHunks, FIXTURE } from '../tools/endcard-from-locked.mjs';
 import { check as brandCheck } from '../tools/vendor-brand.mjs';
 
@@ -47,7 +47,9 @@ for (const [label, args] of [['quick', []], ['long', ['--form', 'long']], ['empt
     assert.deepEqual(d.plan.opts, { title: [proj.cfg.title], lines: ['Replace this with your call to action'], note: '' });
     assert.match(d.reason, /^end card: evolv, from project.json endcard$/);
     assert.deepEqual(endcardCheck(proj.cfg), []);
-    assert.deepEqual(d.warnings, []);   // the last beat is a closing line, never the only beat
+    assert.equal(d.warnings.length, 1);   // the last beat is a closing line (no one-beat warning); only the placeholder warning
+    assert.match(d.warnings[0], /still the placeholder/);
+    assert.deepEqual(d.errors, []);
   });
 }
 
@@ -188,6 +190,71 @@ test('at: seconds, beat:N and dur are used as given', () => {
   assert.deepEqual(endcardPlan(p1, win(p1)).event, { t: 41.5, scene: 'endcard', dur: 8, fade: 0.3 });
   const p2 = made([], (c) => { c.endcard = { title: 'X', at: 'beat:5+1' }; });
   assert.equal(endcardPlan(p2, win(p2)).event.t, 'beat:5+1');
+});
+
+// ---- review fixes: "at" limits, any later scene is "your own", the placeholder warning, an empty title ----
+test('at past the film end, or beat:N past the last beat, is a project-check ERROR with the real limits (never a late throw)', () => {
+  const last = (p) => beats(p);
+  const p1 = made([], (c) => { c.endcard = { title: 'X', at: 'beat:99' }; });
+  const e1 = checkProject(p1).errors.filter((e) => /endcard/.test(e));
+  assert.equal(e1.length, 1);
+  assert.match(e1[0], new RegExp(`"beat:99" but the script has ${last(p1)} beats. Use "beat:1" to "beat:${last(p1)}"`));
+  const p2 = made([], (c) => { c.endcard = { title: 'X', at: 500 }; });
+  fs.appendFileSync(p2.film, '\nwindow.FILM.duration = 90;\n');
+  assert.match(checkProject(p2).errors.find((e) => /endcard/.test(e)), /at: 500 s is past the end of the film \(90 s\)/);
+  const ok = made([], (c) => { c.endcard = { title: 'X', at: 'beat:2' }; });
+  assert.deepEqual(endcardDecision(ok, win(ok)).errors, []);
+  fs.appendFileSync(p2.film, '\nwindow.FILM.duration = 600;\n');
+  assert.deepEqual(endcardDecision(p2, win(p2)).errors, [], 'inside a 600 s film 500 is fine');
+  // ev build fails on it before any rendering work
+  const r = ev('build', p1.root, '--no-render');
+  assert.notEqual(r.status, 0);
+  assert.match(r.stdout + r.stderr, /project check failed/);
+});
+
+test('any scene event at or after the card start is "your own scene": numbers, word: and beat: anchors, any offset; earlier scenes are not', () => {
+  const edit = (proj, ev) => fs.appendFileSync(proj.film, `\nwindow.SCENES = { closing: { html: '', build() {} } }; window.FILM.events.push(${JSON.stringify(ev)});\n`);
+  const place = (proj) => { const b = parseScript(fs.readFileSync(proj.script, 'utf8')).beats; return { last: b.length, plan: b.at(-1).plan }; };
+  // a number in the last beat's window (the script has @start-end windows)
+  const p1 = made([]); const { last, plan } = place(p1);
+  assert.ok(plan, 'the quick template has plan windows');
+  edit(p1, { t: plan[0] + 2, scene: 'closing', dur: 4 });
+  assert.match(endcardDecision(p1, win(p1)).reason, /your own scene/);
+  // beat anchors with any offset, on the last beat
+  const p2 = made([]); edit(p2, { t: `beat:${place(p2).last}+3`, scene: 'closing', dur: 4 });
+  assert.match(endcardDecision(p2, win(p2)).reason, /your own scene/);
+  // a scene well before the last beat is not
+  const p3 = made([]); edit(p3, { t: 'beat:2+1', scene: 'closing', dur: 4 }); edit(p3, { t: 5, scene: 'closing', dur: 4 });
+  assert.ok(endcardDecision(p3, win(p3)).plan, 'earlier scenes keep the card');
+  // a word: anchor needs the captions: before them it is not judged, with them it is
+  const p4 = made([]); const lastPlan = place(p4).last;
+  edit(p4, { t: 'word:thanks', scene: 'closing', dur: 4 });
+  assert.ok(endcardDecision(p4, win(p4)).plan, 'without captions a word anchor cannot be placed');
+  fs.mkdirSync(p4.build, { recursive: true });
+  const bs = Array.from({ length: lastPlan }, (_, i) => ({ plan: [i * 10, i * 10 + 10], voice: [i * 10, i * 10 + 9] }));
+  const caps = (word) => ({ beats: bs, chapters: [], chunks: [{ words: [{ w: word, start: (lastPlan - 1) * 10 + 4, end: (lastPlan - 1) * 10 + 5 }] }] });
+  fs.writeFileSync(path.join(p4.build, 'captions.json'), JSON.stringify(caps('thanks')));
+  assert.match(endcardDecision(p4, win(p4)).reason, /your own scene/);
+  fs.writeFileSync(path.join(p4.build, 'captions.json'), JSON.stringify({ ...caps('thanks'), chunks: [{ words: [{ w: 'thanks', start: 3, end: 4 }] }] }));
+  assert.ok(endcardDecision(p4, win(p4)).plan, 'a word spoken in an early beat is before the card');
+});
+
+test('the ev init placeholder call to action warns (project check, ev doctor) until it is replaced', () => {
+  const proj = made([]);
+  assert.ok(checkProject(proj).warnings.some((w) => w.includes(PLACEHOLDER) && /Replace it in project\.json endcard\.lines/.test(w)));
+  const r = ev('doctor', '--project', proj.root);
+  assert.match(r.stdout + r.stderr, /placeholder/);
+  const fixed = made([], (c) => { c.endcard.lines = ['/plugin install mine']; });
+  assert.ok(!checkProject(fixed).warnings.some((w) => /placeholder/.test(w)));
+  assert.ok(fs.readFileSync(path.join(REPO, 'README.md'), 'utf8').includes('"endcard": "none"'), 'the README says how to opt out');
+});
+
+test('a card with no title is a project-check ERROR (the layout of non-empty titles is untouched)', () => {
+  const none = made([], (c) => { c.endcard = {}; delete c.title; });
+  assert.match(checkProject(none).errors.join('\n'), /the end card has no title/);
+  assert.deepEqual(endcardDecision(none, win(none)).errors.length, 1);
+  const fromProject = made([], (c) => { c.endcard = {}; });
+  assert.deepEqual(endcardDecision(fromProject, win(fromProject)).errors, [], 'the project title fills in');
 });
 
 // ---- the hero example uses the block, not an inline scene ----

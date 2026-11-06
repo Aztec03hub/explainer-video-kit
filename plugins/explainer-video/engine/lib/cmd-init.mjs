@@ -2,9 +2,9 @@
 // or with --empty a minimal skeleton from engine/templates/empty.
 import fs from 'node:fs';
 import path from 'node:path';
+import { PLACEHOLDER } from './endcard.mjs';
 import { ENGINE, MUSIC_HINT, MUSIC_URLS, parseArgs, log, readJson, writeJson } from './common.mjs';
 
-export const END_CARD_PLACEHOLDER = 'Replace this with your call to action';
 const EV = `node "${path.join(ENGINE, 'bin', 'ev.mjs')}"`; // how to run the engine without an alias
 
 const TEMPLATE = path.join(ENGINE, 'templates', 'project');
@@ -45,7 +45,7 @@ export default async function (argv) {
   const cfg = readJson(file);
   const name = a.name || path.basename(dir);
   // The evolv end card (the Gleam) is on for every new project: it plays over the last beat, which is a closing line. Replace the placeholder line.
-  const endcard = { title: cfg.title || name, lines: [END_CARD_PLACEHOLDER] };
+  const endcard = { title: cfg.title || name, lines: [PLACEHOLDER] };
   writeJson(file, { ...cfg, name, form, output: `${name}.mp4`, endcard });
   const next = `Next:\n  cd ${dir}\n  ${EV} setup     (once per machine: installs the engine's dependencies and the render browser)\n  ${EV} doctor\n  ${EV} script . --lint\n  ${EV} voice . --dry-run\n` +
     `Put your ElevenLabs key in .env (copy .env.example) before the real voice step.\n` +

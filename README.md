@@ -16,7 +16,7 @@
 - **Word-timed subtitles** burned in, with the spoken word highlighted. SRT, VTT and chapter files come along.
 - **Voice** from ElevenLabs v4, with emotion tags like `[warm]` to steer the delivery.
 - **A music bed** that ducks under the voice and lands at -16 LUFS. `ev music <pixabay track page>` fetches a track and saves its licence record; the music is yours to pick and isn't bundled.
-- **The evolv end card, the Gleam**: every video ends on a memorable evolv-branded card, a light sweeping along the orange line, catching the title letters, the panel edges and the large e mark. It's on by default and takes your title and call to action from project.json (see [End card](#end-card)).
+- **The evolv end card, the Gleam**: projects made with `ev init`, and any project that uses the evolv logo, end on a memorable evolv-branded card: a light sweeping along the orange line, catching the title letters, the panel edges and the large e mark. It takes your title and call to action from project.json. Any other project gets it only when you add an `endcard` block (see [End card](#end-card)).
 - **Your look**: a `theme` in project.json sets the colours and fonts for the canvas, subtitles and callouts, and your own film.js can still define a different live end card scene. `render.sharpen` adds an optional pass for crisper screen text.
 - **Quality gates** that fail the build when something's wrong (see below).
 - **Contact sheets and a review page** so a reviewer can scrub the cut without opening a player.
@@ -58,9 +58,9 @@ A failed gate fails the build.
 
 ## End card
 
-The Gleam is the card every video ends on: a navy band with your title and the large evolv e mark, the orange line, and one or two install or call-to-action lines. A light sweeps along the line, the title letters catch it and fade back, and the edges of the panel and the e mark pick up the glint. The look and motion are fixed; only the words change.
+The Gleam is the card an `ev init` project ends on (and any project that uses the evolv logo): a navy band with your title and the large evolv e mark, the orange line, and one or two install or call-to-action lines. A light sweeps along the line, the title letters catch it and fade back, and the edges of the panel and the e mark pick up the glint. The look and motion are fixed; only the words change.
 
-`ev init` writes an `endcard` block into project.json, with your title and a placeholder line to replace:
+The card is on by default for every `ev init` project: `ev init` writes an `endcard` block into project.json with your title and a placeholder line, so your first build already ends on it. `ev doctor` and `ev build` warn while the placeholder is still there. Replace it, or opt out with `"endcard": "none"`. The block, filled in:
 
 ```json
 "endcard": {
@@ -75,9 +75,9 @@ The Gleam is the card every video ends on: a navy band with your title and the l
 - `note`: one small line under the boxes (optional).
 - `at` and `dur`: the card starts just before the last beat (`"last-beat"`, the default) and runs 12 s. Give seconds or `"beat:N"` to move it, and `dur` (3.2 or more) to change its length.
 
-The card covers the screen from the last beat on, so make the last beat of script.md a short closing line, not content. The three starter templates already end that way. A line that is too wide for its box shrinks to at most 70 percent of its size and then ends in an ellipsis. More than 2 title lines or 2 `lines` is an error from `ev doctor` and `ev build`.
+The card covers the screen from the last beat on, so make the last beat of script.md a short closing line, not content. The three starter templates already end that way. A line that is too wide for its box shrinks to at most 70 percent of its size and then ends in an ellipsis. These are errors from `ev doctor` and `ev build`: more than 2 title lines or 2 `lines`, no title at all, an `at` in seconds past the end of the film, or a `beat:N` past the last beat.
 
-The card is made for 16:9 (any 16:9 frame size). For another shape `ev build` skips it and says so. To switch it off set `"endcard": "none"`. To use your own end card, define `window.SCENES.endcard` in film.js (or put your own scene event on the last beat) and the engine adds nothing. A project with no `endcard` key at all gets the card only if it uses the evolv logo (`"brand": "evolv"`, or an evolv-logo or evolv-icon asset in `theme/` or `mockup/`). `ev build` always prints one line saying what it decided.
+The card is made for 16:9 (any 16:9 frame size). For another shape `ev build` skips it and says so. To switch it off set `"endcard": "none"`. To use your own end card, define `window.SCENES.endcard` in film.js, or put your own scene event at or after where the card would start, and the engine adds nothing. What counts as at or after: a `beat:N` anchor with N at or after the card's beat (the last beat), with any offset; a number at or after the card's start; a `word:` anchor (or a `beat:N` when `at` is in seconds) whose time is at or after the card's start, judged from `build/captions.json`, which exists from the first build on. A scene earlier in the film does not count. A project with no `endcard` key at all gets the card only if it uses the evolv logo (`"brand": "evolv"`, or an evolv-logo or evolv-icon asset in `theme/` or `mockup/`). `ev build` always prints one line saying what it decided.
 
 The card's e mark, fonts and colours come from the evolv-brand skill, vendored in `plugins/explainer-video/engine/assets/evolv-brand` (`node tools/vendor-brand.mjs --check` reports drift). Its fonts are Montserrat and Nunito Sans; the engine adds them to the composition unless your `theme` already loads them.
 

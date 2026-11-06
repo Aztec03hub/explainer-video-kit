@@ -5,11 +5,14 @@
 //   { "title": "Name" | ["line 1", "line 2"], "lines": ["install or call-to-action line", ...up to 2], "note": "one small line", "at": "last-beat" | seconds | "beat:N", "dur": 12 }
 //   "none" or false: no end card. No "endcard" key at all: the card is added when the project uses the evolv logo (brand: "evolv",
 //   or the theme, mockup or frames name an evolv-logo or evolv-icon asset), otherwise nothing is added.
-// A film.js that defines window.SCENES.endcard, or has a scene event anchored to the last beat, keeps its own: nothing is added.
+// A film.js that defines window.SCENES.endcard keeps its own, and so does one with a scene event at or after the card's start
+// (see ownScene below for exactly what is detected): nothing is added.
 import fs from 'node:fs';
 import path from 'node:path';
 import { ENGINE, RUNTIME, readJson } from './common.mjs';
+import { createRequire } from 'node:module';
 import { parseScript } from './script.mjs';
+const { makeClock } = createRequire(import.meta.url)('../runtime/clock.js');
 
 export const SCENE_FILE = path.join(RUNTIME, 'evolv-endcard.js');
 export const BRAND_DIR = path.join(ENGINE, 'assets', 'evolv-brand');
@@ -21,6 +24,7 @@ export const BRAND_FONTS = [
 export const LEAD = 0.05; // the card starts this long before the last beat, like the hero
 export const DEFAULT_DUR = 12;
 export const FADE = 0.3;
+export const PLACEHOLDER = 'Replace this with your call to action';   // what ev init writes into endcard.lines; the check warns while it is still there
 export const MAX_TITLE_LINES = 2, MAX_LINES = 2;
 
 const AT = /^beat:[1-9]\d*([+-]\d+(\.\d+)?)?$/;
@@ -68,21 +72,47 @@ export function evolvLogoReason(proj) {
   return null;
 }
 
-// How many beats the script has: from script.md, else from build/captions.json.
-export function beatCount(proj) {
-  if (fs.existsSync(proj.script)) return parseScript(fs.readFileSync(proj.script, 'utf8'), { title: proj.cfg.title || proj.name, form: proj.cfg.form }).beats.length;
+// The beats the script has (each with .plan, the @start-end window, when given): from script.md, else from build/captions.json.
+export function beatList(proj) {
+  if (fs.existsSync(proj.script)) return parseScript(fs.readFileSync(proj.script, 'utf8'), { title: proj.cfg.title || proj.name, form: proj.cfg.form }).beats;
   const j = path.join(proj.build, 'captions.json');
-  return fs.existsSync(j) ? (readJson(j).beats || []).length : 0;
+  return fs.existsSync(j) ? readJson(j).beats || [] : [];
+}
+export const beatCount = (proj) => beatList(proj).length;
+
+// Is film.js's scene event `e` at or after the card's start, so the film already has its own ending? Exactly what counts:
+//   a "beat:N" anchor (any offset) with N at or after the card's beat (the last beat by default);
+//   a number t (plan seconds) at or after the card's start, when the start is known (script windows, or a numeric "at");
+//   a "word:" anchor, or a "beat:N" when "at" is in seconds, when build/captions.json exists (it does from the first build on) and
+//   that anchor's time is at or after the card's start.
+// A scene before the card's start is not "your own": the card is added after it.
+function laterScene(e, { beatN, startPlan, startSec, clock }) {
+  const t = e.t;
+  if (typeof t === 'number') return startPlan != null && t >= startPlan;
+  const m = /^beat:(\d+)/.exec(String(t).trim());
+  if (m && beatN) return +m[1] >= beatN;
+  if (clock && startSec != null) { try { return clock(t) >= startSec - 1e-6; } catch { return false; } }
+  return false;
 }
 
-// win: what film.js left on `window` (FILM, SCENES). Returns { plan, reason, warning, warnings }.
+// win: what film.js left on `window` (FILM, SCENES). Returns { plan, reason, warning, warnings, errors }.
 //   plan: null (no card) or { opts, event, reason }; opts goes to window.evolvEndCard, event is a film event for the engine's scene event.
+//   errors: problems only known from the script and film.js (an "at" past the end, no title); project check prints them as ERROR lines.
 export function endcardDecision(proj, win) {
-  const cfg = proj.cfg || {}, c = cfg.endcard, none = (reason, extra = {}) => ({ plan: null, reason, warnings: [], ...extra });
+  const cfg = proj.cfg || {}, c = cfg.endcard, none = (reason, extra = {}) => ({ plan: null, reason, warnings: [], errors: [], ...extra });
   if (c !== undefined && off(c)) return none('end card: none (endcard: none)');
-  const beats = (() => { try { return beatCount(proj); } catch { return 0; } })();
-  const own = Boolean(win?.SCENES?.endcard) || ((win?.FILM?.events) || []).some((e) => e.scene && beats && new RegExp(`^beat:${beats}([+-]|$)`).test(String(e.t)));
-  if (own) return none('end card: your own scene (film.js defines window.SCENES.endcard or a scene at the last beat)');
+  const list = (() => { try { return beatList(proj); } catch { return []; } })(), beats = list.length;
+  const bl = c && typeof c === 'object' ? c : {};
+  const at = bl.at === undefined || bl.at === 'last-beat' ? 'last-beat' : bl.at;
+  const t = at === 'last-beat' ? `beat:${beats}-${LEAD}` : at;
+  // where the card starts: its beat, its time in plan seconds, and (with captions) in film seconds
+  const bm = /^beat:(\d+)([+-]\d+(?:\.\d+)?)?$/.exec(String(t)), beatN = bm ? +bm[1] : null;
+  const startPlan = typeof t === 'number' ? t : beatN && list[beatN - 1]?.plan ? list[beatN - 1].plan[0] + (bm[2] ? +bm[2] : 0) : null;
+  const cap = path.join(proj.build, 'captions.json'), dur = win?.FILM?.duration;
+  let clock = null, startSec = null;
+  try { if (fs.existsSync(cap)) { clock = makeClock({ captions: readJson(cap), planEnd: dur, length: dur }); startSec = clock(t); } } catch { /* the anchor is not in the captions: judged by beat number and plan seconds only */ }
+  const own = Boolean(win?.SCENES?.endcard) || ((win?.FILM?.events) || []).some((e) => e.scene && laterScene(e, { beatN, startPlan, startSec, clock }));
+  if (own) return none('end card: your own scene (film.js defines window.SCENES.endcard, or has a scene at or after where the card would start)');
   let why;
   if (c !== undefined) why = 'from project.json endcard';
   else {
@@ -92,15 +122,19 @@ export function endcardDecision(proj, win) {
   }
   const w = +cfg.width || 1920, h = +cfg.height || 1080;
   if (Math.abs(w / h - 16 / 9) > 0.01) return none(`end card: skipped for ${w}x${h}`, { warning: `the evolv end card is made for 16:9; skipped for ${w}x${h}; set endcard: none to silence this` });
-  const b = c && typeof c === 'object' ? c : {};
-  const title = asList(b.title).length ? asList(b.title) : asList(cfg.title);
-  const warnings = [];
-  const at = b.at === undefined || b.at === 'last-beat' ? 'last-beat' : b.at;
+  const title = asList(bl.title).length ? asList(bl.title) : asList(cfg.title);
+  const warnings = [], errors = [];
   if (at === 'last-beat' && !beats) return none('end card: none (the script has no beats to place it after)');
   if (at === 'last-beat' && beats === 1) warnings.push('the end card starts at the last beat and the script has one beat, so the card covers the whole film. Add a closing beat to script.md.');
-  const t = at === 'last-beat' ? `beat:${beats}-${LEAD}` : at;
-  const opts = { title, lines: asList(b.lines), note: b.note || '' };
-  return { plan: { opts, event: { t, scene: 'endcard', dur: b.dur || DEFAULT_DUR, fade: FADE }, reason: `end card: evolv, ${why}` }, reason: `end card: evolv, ${why}`, warnings };
+  // an "at" that cannot happen is an error now, never a throw at render time
+  if (beatN && beats && beatN > beats) errors.push(`project.json endcard.at: "${at}" but the script has ${beats} beat${beats === 1 ? '' : 's'}. Use "beat:1" to "beat:${beats}", or "last-beat".`);
+  const length = dur || (() => { try { const ch = readJson(cap).chunks?.at(-1); return ch ? Math.ceil(ch.words.at(-1).end + 5) : null; } catch { return null; } })();
+  if (typeof at === 'number' && length && at >= length) errors.push(`project.json endcard.at: ${at} s is past the end of the film (${length} s). Use a time before ${length}, or "last-beat".`);
+  if (!title.length) errors.push('the end card has no title: set project.json endcard.title (or the project "title"). The card is not drawn with an empty title.');
+  const lines = asList(bl.lines);
+  if (lines.includes(PLACEHOLDER)) warnings.push(`the end card's call to action is still the placeholder "${PLACEHOLDER}". Replace it in project.json endcard.lines (or remove "lines" for no code box), or set "endcard": "none".`);
+  const opts = { title, lines, note: bl.note || '' };
+  return { plan: { opts, event: { t, scene: 'endcard', dur: bl.dur || DEFAULT_DUR, fade: FADE }, reason: `end card: evolv, ${why}` }, reason: `end card: evolv, ${why}`, warnings, errors };
 }
 export const endcardPlan = (proj, win) => endcardDecision(proj, win).plan;
 

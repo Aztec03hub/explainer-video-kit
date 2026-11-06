@@ -45,7 +45,7 @@ Pick the form first. **Quick** (default): about 60 to 90 seconds, 12 beats or fe
 
 The order is script, script check, picture, voice, captions, build, review. Picture can come before voice because captions can use placeholder timing; voice must come after the words are approved.
 
-Every video ends on the evolv end card (the Gleam) unless project.json says `"endcard": "none"` or film.js has its own end scene. `EV init` writes the `endcard` block with a placeholder line to replace, and the last beat of the script is a short closing line that the card plays over: keep it that way, and put no picture events on it (details in video-picture).
+Every `EV init` project, and any project that uses the evolv logo, ends on the evolv end card (the Gleam) unless project.json says `"endcard": "none"` or film.js has its own end scene. The check warns while the placeholder line is still in project.json. `EV init` writes the `endcard` block with a placeholder line to replace, and the last beat of the script is a short closing line that the card plays over: keep it that way, and put no picture events on it (details in video-picture).
 
 Music is optional and free: `EV music --list`, then `EV music <Pixabay track URL> --project <dir>` (before the build; details in video-render). The user accepts Pixabay's licence; the track is for use in the video only, never to be shared on its own.
 

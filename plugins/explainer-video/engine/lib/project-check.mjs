@@ -42,6 +42,7 @@ export function checkProject(proj) {
   const card = errors.length ? { plan: null, warnings: [] } : endcardDecision(proj, win);   // the end card is a scene too: labels may aim into it
   if (card.warning) warnings.push(card.warning);
   warnings.push(...card.warnings);
+  errors.push(...(card.errors || []));
   const boxesOf = (set) => { const f = path.join(proj.frames, set, 'boxes.json'); return fs.existsSync(f) ? readJson(f) : null; };
 
   // 1. frame references

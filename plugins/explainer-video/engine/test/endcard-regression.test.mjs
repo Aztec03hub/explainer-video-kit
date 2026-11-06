@@ -149,7 +149,7 @@ async function fitOf(browser, opts) {
       const shown = (e) => [...e.childNodes].map((n) => (n.nodeType === 3 ? n.data : n.style && n.style.display === 'none' ? '' : n.textContent)).join('');   // what is visible: cut letters are display:none
       const info = (e) => ({ size: parseFloat(getComputedStyle(e).fontSize), text: shown(e), width: Math.round(w(e)) });
       const q = (s) => [...document.querySelectorAll(`.xp-scene ${s}`)].map(info);
-      return { ln: q('h1 .ln'), code: q('.code'), needs: q('.needs') };
+      return { ln: q('h1 .ln'), code: q('.code'), needs: q('.needs'), injected: document.querySelectorAll('.xp-scene h1 *:not(.ln):not(.ch), .xp-scene .code *:not(em), .xp-scene .needs *').length };
     });
   } finally { await page.close(); }
 }
@@ -177,5 +177,10 @@ test('text is HTML-escaped, and a card with no lines and no note has neither ele
     const r = await fitOf(browser, { title: ['<b>x</b> & "q"'] });
     assert.deepEqual(r.ln.map((e) => e.text), ['<b>x</b> & "q"']);
     assert.deepEqual([r.code.length, r.needs.length], [0, 0]);
+    // lines and note go through the same escaping: nothing in them becomes an element
+    const x = await fitOf(browser, { title: ['T'], lines: ['<img src=x onerror=alert(1)>'], note: '</style><b>`${1}` & "q"' });
+    assert.deepEqual(x.code.map((e) => e.text), ['><img src=x onerror=alert(1)>']);   // the first character is the orange > prompt
+    assert.deepEqual(x.needs.map((e) => e.text), ['</style><b>`${1}` & "q"']);
+    assert.equal(x.injected, 0, 'no element came out of the text (the watermark img is outside the text boxes)');
   });
 });

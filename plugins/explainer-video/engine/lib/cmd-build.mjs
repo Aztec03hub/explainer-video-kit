@@ -250,6 +250,7 @@ export default async function (argv) {
   fs.copyFileSync(proj.film, path.join(proj.build, 'film.js'));
   const card = endcardDecision(proj, readWindow(proj.film));
   log(card.reason);
+  if (card.errors.length) fail(`end card: ${card.errors.join(' ')}`);   // project check reports these too; never a late throw in the render
   writeComposition(proj, { id: film.id || 'main', width, height, duration: length, endcard: card.plan });
 
   // The mix: voice at offset 0 so word times hold; music optional.
