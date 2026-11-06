@@ -6,7 +6,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
 import { measureLoudness, mixAudio, lufsTarget, DEFAULTS } from './mix.mjs';
-import { endcardDecision, endcardFonts, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
+import { defaultsCss, endcardDecision, endcardFonts, evolvThemeDefaults, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
 import { checkProject, formatCheck } from './project-check.mjs';
 import { themeCss } from './theme.mjs';
 
@@ -23,7 +23,8 @@ const HELP = `usage: ev build <project> [--no-render] [--quality draft|delivery]
   --skip-pixel-check  don't compare the frames with project.json frames.approved (a folder of approved PNGs) before rendering
   --skip-ocr     the on-screen text gate won't fail on a missing tesseract (also: project.json "gates": { "ocr": false })
   The evolv end card (the Gleam) is added over the last beat from project.json "endcard" ({ title, lines, note }); "endcard": "none" or your own
-  window.SCENES.endcard in film.js turns it off. A project with no "endcard" key gets it only if it uses the evolv logo. One line says what was decided.`;
+  window.SCENES.endcard in film.js turns it off. A project with no "endcard" key gets it only if it uses the evolv logo. One line says what was decided.
+  With the card on (or the evolv logo in use) the caption highlight and callouts default to evolv orange unless your style or theme sets them.`;
 
 const TAIL_SECONDS = 5; // the film ends this many seconds after the voice, so the last beat holds while the music fades
 
@@ -167,7 +168,8 @@ export function writeComposition(proj, { id, width, height, duration, endcard = 
     fs.copyFileSync(SCENE_FILE, path.join(proj.build, 'assets', 'evolv-endcard.js'));
     for (const f of cardFonts) fs.copyFileSync(path.join(BRAND_DIR, 'fonts', f.file), path.join(proj.build, 'assets', 'fonts', f.file));
   }
-  const style = [styleCss(proj.cfg.style), theme.css, fontCss(cardFonts)].filter(Boolean).join('\n      ');
+  // evolv orange for caption highlights and callouts when the card is on or the evolv logo is used; first, so the project's own style and theme come after it
+  const style = [defaultsCss(evolvThemeDefaults(proj, endcard)), styleCss(proj.cfg.style), theme.css, fontCss(cardFonts)].filter(Boolean).join('\n      ');
   const html = fs.readFileSync(path.join(RUNTIME, 'composition.html'), 'utf8')
     .replaceAll('{{WIDTH}}', width).replaceAll('{{HEIGHT}}', height).replaceAll('{{DURATION}}', duration)
     .replaceAll('{{ID}}', id).replace('{{STYLE}}', () => style).replace('{{BOXES}}', boxes).replace('{{ENDCARD}}', () => (endcard ? endcardScripts(endcard) : ''));
@@ -250,6 +252,7 @@ export default async function (argv) {
   fs.copyFileSync(proj.film, path.join(proj.build, 'film.js'));
   const card = endcardDecision(proj, readWindow(proj.film));
   log(card.reason);
+  { const d = evolvThemeDefaults(proj, card.plan); if (Object.keys(d).length) log(`evolv colours: ${Object.keys(d).join(', ')} default to evolv orange and its ink (the project's own style or theme wins)`); }
   if (card.errors.length) fail(`end card: ${card.errors.join(' ')}`);   // project check reports these too; never a late throw in the render
   writeComposition(proj, { id: film.id || 'main', width, height, duration: length, endcard: card.plan });
 

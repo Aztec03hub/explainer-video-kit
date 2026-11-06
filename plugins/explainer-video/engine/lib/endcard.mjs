@@ -155,3 +155,21 @@ export function endcardFonts(themeCssText = '') {
   return BRAND_FONTS.filter((f) => !new RegExp(`font-family:\\s*['"]?${f.family}['"]?\\s*;`, 'i').test(themeCssText));
 }
 export const fontCss = (fonts) => fonts.map((f) => `@font-face { font-family: '${f.family}'; src: url('assets/fonts/${f.file}'); font-weight: ${f.weight}; }`).join('\n      ');
+
+// evolv colour defaults for captions and callouts. The engine's own defaults are yellow (--ev-highlight) and pink (--ev-callout); a project
+// that has the evolv end card on, or that uses the evolv logo (the same detection as the card's auto rule), gets evolv Primary Orange
+// instead, read from the vendored tokens (the "accent" token), unless its own project.json style or theme.vars sets that variable.
+// Other projects keep yellow and pink. Returns { '--ev-highlight': ..., ... } with only the variables to set, or {}.
+// CALLOUT_INK is not a brand token: it is the hero's tag ink (examples/hero), 4.65:1 against the orange (WCAG, #D15635 on it).
+export const CALLOUT_INK = '#0B0F18';
+export const brandOrange = () => JSON.parse(fs.readFileSync(path.join(BRAND_DIR, 'groundwork', 'tokens.json'), 'utf8')).color.accent.dark;
+export function evolvThemeDefaults(proj, plan) {
+  if (!plan && !evolvLogoReason(proj)) return {};
+  const cfg = proj.cfg || {}, orange = brandOrange();
+  const own = new Set([
+    ...Object.keys(cfg.style || {}).map((k) => `--ev-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`),
+    ...Object.keys((cfg.theme && typeof cfg.theme === 'object' && cfg.theme.vars) || {}),
+  ]);
+  return Object.fromEntries(Object.entries({ '--ev-highlight': orange, '--ev-callout': orange, '--ev-callout-ink': CALLOUT_INK }).filter(([k]) => !own.has(k)));
+}
+export const defaultsCss = (d) => (Object.keys(d).length ? `:root { ${Object.entries(d).map(([k, v]) => `${k}: ${v};`).join(' ')} }` : '');

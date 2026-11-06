@@ -12,7 +12,7 @@ import { ENGINE, loadProject } from '../lib/common.mjs';
 import { writeComposition } from '../lib/cmd-build.mjs';
 import { checkProject } from '../lib/project-check.mjs';
 import { parseScript } from '../lib/script.mjs';
-import { endcardCheck, endcardDecision, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
+import { CALLOUT_INK, defaultsCss, endcardCheck, endcardDecision, evolvThemeDefaults, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
 import { applyHunks, FIXTURE, SNAPS } from '../tools/endcard-from-locked.mjs';
 import { check as brandCheck } from '../tools/vendor-brand.mjs';
 
@@ -313,6 +313,46 @@ test('the scene\'s e mark is the vendored evolv-icon-white.svg byte for byte, an
     const drift = brandCheck(path.join(skills, v, 'skills', 'evolv-brand')).filter((p) => !/newer/.test(p));
     assert.deepEqual(drift, [], 'vendored files were edited here');
   }
+});
+
+// ---- evolv colour defaults for caption highlights and callouts ----
+const ORANGE = JSON.parse(fs.readFileSync(path.join(ENGINE, 'assets', 'evolv-brand', 'groundwork', 'tokens.json'), 'utf8')).color.accent.dark;
+const ALL3 = { '--ev-highlight': ORANGE, '--ev-callout': ORANGE, '--ev-callout-ink': '#0B0F18' };
+test('evolv colour defaults: on with the end card, on with the evolv logo, off for other projects, and a project value always wins', () => {
+  assert.equal(ORANGE, '#D15635');   // the token, so no hex is typed into the code
+  assert.equal(CALLOUT_INK, '#0B0F18');
+  const card = made([]);
+  assert.deepEqual(evolvThemeDefaults(card, endcardDecision(card, win(card)).plan), ALL3, 'the card is on');
+  const logo = made([], (c) => { delete c.endcard; c.brand = 'evolv'; });
+  assert.deepEqual(evolvThemeDefaults(logo, endcardDecision(logo, win(logo)).plan), ALL3, 'no card key, evolv logo');
+  const logoNoCard = made([], (c) => { c.endcard = 'none'; c.brand = 'evolv'; });
+  assert.deepEqual(evolvThemeDefaults(logoNoCard, null), ALL3, 'the logo alone is enough');
+  const plain = made([], (c) => { delete c.endcard; });
+  assert.deepEqual(evolvThemeDefaults(plain, endcardDecision(plain, win(plain)).plan), {}, 'a non-evolv project keeps yellow and pink');
+  const offNoLogo = made([], (c) => { c.endcard = 'none'; });
+  assert.deepEqual(evolvThemeDefaults(offNoLogo, null), {});
+  // the project's own value wins, each variable on its own: project.json style and theme.vars
+  const own = made([], (c) => { c.style = { highlight: '#123456' }; c.theme = { vars: { '--ev-callout': '#654321' } }; });
+  assert.deepEqual(evolvThemeDefaults(own, endcardDecision(own, win(own)).plan), { '--ev-callout-ink': '#0B0F18' });
+  const ink = made([], (c) => { c.style = { calloutInk: '#000000' }; });
+  assert.deepEqual(Object.keys(evolvThemeDefaults(ink, endcardDecision(ink, win(ink)).plan)), ['--ev-highlight', '--ev-callout']);
+  assert.equal(defaultsCss({}), '');
+});
+
+test('the built composition carries the evolv defaults before the project style, and not for a non-evolv project', () => {
+  const css = (proj, plan) => { fs.mkdirSync(path.join(proj.build, 'frames'), { recursive: true }); writeComposition(proj, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: plan }); return fs.readFileSync(path.join(proj.build, 'index.html'), 'utf8'); };
+  const a = made([], (c) => { c.style = { callout: '#654321' }; });
+  const html = css(a, endcardDecision(a, win(a)).plan);
+  assert.ok(html.includes(`:root { --ev-highlight: ${ORANGE}; --ev-callout-ink: #0B0F18; }`));
+  assert.ok(html.indexOf('--ev-callout-ink: #0B0F18;') < html.indexOf('--ev-callout: #654321;'), 'the project style comes after');
+  const plain = made([], (c) => { delete c.endcard; });
+  assert.doesNotMatch(css(plain, null), new RegExp(`--ev-highlight: ${ORANGE}`));
+});
+
+test('examples/hero: its own theme sets all three variables, so the evolv defaults add nothing to its CSS', () => {
+  const proj = loadProject(path.join(REPO, 'examples', 'hero'));
+  assert.deepEqual(evolvThemeDefaults(proj, endcardDecision(proj, win(proj)).plan), {});
+  assert.deepEqual(['--ev-highlight', '--ev-callout', '--ev-callout-ink'].filter((k) => !(k in proj.cfg.theme.vars)), []);
 });
 
 // ---- the three colour snaps ----

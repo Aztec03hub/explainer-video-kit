@@ -81,6 +81,8 @@ The card is made for 16:9 (any 16:9 frame size). For another shape `ev build` sk
 
 The card's e mark, fonts and colours come from the evolv-brand skill, vendored in `plugins/explainer-video/engine/assets/evolv-brand` (`node tools/vendor-brand.mjs --check` reports drift). Its fonts are Montserrat and Nunito Sans; the engine adds them to the composition unless your `theme` already loads them.
 
+When the card is on, or the project uses the evolv logo, the caption highlight and the callouts default to evolv orange (`--ev-highlight`, `--ev-callout`, read from the vendored brand tokens) with dark ink on the callout tags (`--ev-callout-ink`, `#0B0F18`, 4.65:1 on the orange; it is not a brand token). Your own `style` or `theme` value for any of the three always wins, and projects without the card or the logo keep the engine's yellow and pink. `ev build` prints one line when it applies them.
+
 ## Quick or long
 
 A quick explainer of about a minute is the default (`ev init demo`). For chapters and a longer film, `ev init demo --form long`.
