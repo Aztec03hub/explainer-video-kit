@@ -1,0 +1,8 @@
+.env
+*.env
+!.env.example
+build/
+out/
+voice/*.mp3
+frames/
+node_modules/
