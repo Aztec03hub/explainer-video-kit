@@ -81,16 +81,17 @@ export function beatList(proj) {
 export const beatCount = (proj) => beatList(proj).length;
 
 // Is film.js's scene event `e` at or after the card's start, so the film already has its own ending? Exactly what counts:
-//   a "beat:N" anchor (any offset) with N at or after the card's beat (the last beat by default);
-//   a number t (plan seconds) at or after the card's start, when the start is known (script windows, or a numeric "at");
+//   a "beat:N" anchor with N after the card's beat, or on it at or after the card's own offset (the last beat by default: beat:N-3 is before it);
+//   a number t (plan seconds) at or after the card's start (from the script windows or a numeric "at"; else from build/captions.json, below);
 //   a "word:" anchor, or a "beat:N" when "at" is in seconds, when build/captions.json exists (it does from the first build on) and
 //   that anchor's time is at or after the card's start.
 // A scene before the card's start is not "your own": the card is added after it.
-function laterScene(e, { beatN, startPlan, startSec, clock }) {
+function laterScene(e, { beatN, cardOff, startPlan, startSec, clock }) {
   const t = e.t;
-  if (typeof t === 'number') return startPlan != null && t >= startPlan;
-  const m = /^beat:(\d+)/.exec(String(t).trim());
-  if (m && beatN) return +m[1] >= beatN;
+  if (typeof t === 'number' && startPlan != null) return t >= startPlan;   // a number with no known plan start is judged by the clock below
+  const m = /^beat:(\d+)([+-]\d+(?:\.\d+)?)?/.exec(String(t).trim());
+  if (m && beatN && +m[1] > beatN) return true;
+  if (m && beatN && +m[1] === beatN) return +(m[2] || 0) >= cardOff - 1e-6;   // the card's own beat: only from the card's own offset on
   if (clock && startSec != null) { try { return clock(t) >= startSec - 1e-6; } catch { return false; } }
   return false;
 }
@@ -111,7 +112,7 @@ export function endcardDecision(proj, win) {
   const cap = path.join(proj.build, 'captions.json'), dur = win?.FILM?.duration;
   let clock = null, startSec = null;
   try { if (fs.existsSync(cap)) { clock = makeClock({ captions: readJson(cap), planEnd: dur, length: dur }); startSec = clock(t); } } catch { /* the anchor is not in the captions: judged by beat number and plan seconds only */ }
-  const own = Boolean(win?.SCENES?.endcard) || ((win?.FILM?.events) || []).some((e) => e.scene && laterScene(e, { beatN, startPlan, startSec, clock }));
+  const own = Boolean(win?.SCENES?.endcard) || ((win?.FILM?.events) || []).some((e) => e.scene && laterScene(e, { beatN, cardOff: bm && bm[2] ? +bm[2] : 0, startPlan, startSec, clock }));
   if (own) return none('end card: your own scene (film.js defines window.SCENES.endcard, or has a scene at or after where the card would start)');
   let why;
   if (c !== undefined) why = 'from project.json endcard';
@@ -130,6 +131,7 @@ export function endcardDecision(proj, win) {
   if (beatN && beats && beatN > beats) errors.push(`project.json endcard.at: "${at}" but the script has ${beats} beat${beats === 1 ? '' : 's'}. Use "beat:1" to "beat:${beats}", or "last-beat".`);
   const length = dur || (() => { try { const ch = readJson(cap).chunks?.at(-1); return ch ? Math.ceil(ch.words.at(-1).end + 5) : null; } catch { return null; } })();
   if (typeof at === 'number' && length && at >= length) errors.push(`project.json endcard.at: ${at} s is past the end of the film (${length} s). Use a time before ${length}, or "last-beat".`);
+  if (typeof at === 'number' && !length) warnings.push(`project.json endcard.at: ${at} s cannot be checked against the film length yet (no FILM.duration and no voice). ev build checks it once the length is known.`);
   if (!title.length) errors.push('the end card has no title: set project.json endcard.title (or the project "title"). The card is not drawn with an empty title.');
   const lines = asList(bl.lines);
   if (lines.includes(PLACEHOLDER)) warnings.push(`the end card's call to action is still the placeholder "${PLACEHOLDER}". Replace it in project.json endcard.lines (or remove "lines" for no code box), or set "endcard": "none".`);
@@ -162,6 +164,7 @@ export const fontCss = (fonts) => fonts.map((f) => `@font-face { font-family: '$
 // Other projects keep yellow and pink. Returns { '--ev-highlight': ..., ... } with only the variables to set, or {}.
 // CALLOUT_INK is not a brand token: it is the hero's tag ink (examples/hero), 4.65:1 against the orange (WCAG, #D15635 on it).
 export const CALLOUT_INK = '#0B0F18';
+export const CALLOUT_SHADOW = 'rgba(11,15,24,.9)';   // CALLOUT_INK at .9: the 2 px halo behind the callout corner marks (the hero's value); keep the two together
 export const brandOrange = () => JSON.parse(fs.readFileSync(path.join(BRAND_DIR, 'groundwork', 'tokens.json'), 'utf8')).color.accent.dark;
 export function evolvThemeDefaults(proj, plan) {
   if (!plan && !evolvLogoReason(proj)) return {};
@@ -170,6 +173,24 @@ export function evolvThemeDefaults(proj, plan) {
     ...Object.keys(cfg.style || {}).map((k) => `--ev-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`),
     ...Object.keys((cfg.theme && typeof cfg.theme === 'object' && cfg.theme.vars) || {}),
   ]);
-  return Object.fromEntries(Object.entries({ '--ev-highlight': orange, '--ev-callout': orange, '--ev-callout-ink': CALLOUT_INK }).filter(([k]) => !own.has(k)));
+  return Object.fromEntries(Object.entries({ '--ev-highlight': orange, '--ev-callout': orange, '--ev-callout-ink': CALLOUT_INK, '--ev-callout-shadow': CALLOUT_SHADOW }).filter(([k]) => !own.has(k)));
 }
 export const defaultsCss = (d) => (Object.keys(d).length ? `:root { ${Object.entries(d).map(([k, v]) => `${k}: ${v};`).join(' ')} }` : '');
+
+// ---- text fit: the decision and the message (pure; lib/endcard-measure.mjs measures in Chrome) ----
+// The card shrinks a line that is too wide down to FLOOR of its design size and never cuts it. A line that still does not fit is a build error.
+export const FIT_FLOOR = 0.7;
+// The element names, in the order the scene lays them out: title lines, install lines, the note. opts is the plan's opts.
+export function fitElements(opts) {
+  return [...asList(opts.title).slice(0, MAX_TITLE_LINES).map((text, i) => ({ element: `title line ${i + 1}`, text })),
+    ...asList(opts.lines).slice(0, MAX_LINES).map((text, i) => ({ element: `install line ${i + 1}`, text })),
+    ...(opts.note ? [{ element: 'note', text: opts.note }] : [])];
+}
+// rows: fitElements() joined with the scene's measurements { natural, width, avail } (scene px: at the design size, and after shrinking; width is optional, default the floor size). Returns the error lines.
+export function fitErrors(rows) {
+  return rows.filter((r) => (r.width ?? r.natural * FIT_FLOOR) > r.avail + 0.01).map((r) => {
+    const chars = [...r.text].length, atFloor = Math.round(r.natural * FIT_FLOOR);
+    const max = Math.max(1, Math.floor((chars * r.avail) / (r.natural * FIT_FLOOR)));
+    return `end card ${r.element} is too long: "${r.text}" is ${Math.round(r.natural)} px wide at the design size (${chars} characters, ${atFloor} px even at the smallest size, ${FIT_FLOOR * 100} percent), but the card has ${Math.round(r.avail)} px for it, about ${max} characters at most. Shorten it in project.json endcard (the text is never cut).`;
+  });
+}

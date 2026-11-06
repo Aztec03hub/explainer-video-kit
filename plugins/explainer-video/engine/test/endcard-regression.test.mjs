@@ -156,7 +156,8 @@ test('check B fails when the frame is from the wrong moment (plugin at 2.1 s aga
   });
 });
 
-// Auto-fit: text that fits keeps its design size exactly (the hero); text that does not fit shrinks to at most 70 percent, then ends in an ellipsis.
+// Auto-fit: text that fits keeps its design size exactly (the hero); text that overflows shrinks to at most 70 percent so it fits whole; text that
+// still does not fit fails the build (lib/endcard-measure.mjs), and nothing is ever cut or replaced by an ellipsis.
 async function fitOf(browser, opts) {
   const page = await browser.newPage();
   try {
@@ -166,30 +167,76 @@ async function fitOf(browser, opts) {
     await page.evaluate(() => { window.__timelines.main.seek(0.5); });   // draw() runs refit() once the fonts are in
     return await page.evaluate(() => {
       const w = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width / 1.5; };
-      const shown = (e) => [...e.childNodes].map((n) => (n.nodeType === 3 ? n.data : n.style && n.style.display === 'none' ? '' : n.textContent)).join('');   // what is visible: cut letters are display:none
-      const info = (e) => ({ size: parseFloat(getComputedStyle(e).fontSize), text: shown(e), width: Math.round(w(e)) });
+      const info = (e) => ({ size: parseFloat(getComputedStyle(e).fontSize), text: e.textContent, width: Math.round(w(e)) });
       const q = (s) => [...document.querySelectorAll(`.xp-scene ${s}`)].map(info);
       return { ln: q('h1 .ln'), code: q('.code'), needs: q('.needs'), injected: document.querySelectorAll('.xp-scene h1 *:not(.ln):not(.ch), .xp-scene .code *:not(em), .xp-scene .needs *').length };
     });
   } finally { await page.close(); }
 }
+const TOO_LONG = {
+  title: ['A very long product name for a very long film,', 'an automation plugin for enterprise reporting teams'],
+  lines: ['/plugin marketplace add enterprise-reporting-automation-org/quarterly-reporting-automation-suite', '/plugin install quarterly-reporting-automation-suite@enterprise-reporting-automation-org'],
+  note: 'Requires an enterprise license, single sign-on, a read-only reporting database connection and a quarterly planning calendar and more words to be sure it is too long',
+};
+// overflows at the design size, fits once shrunk: measured on this scene (see the numbers the test prints)
+const SHRINKS = { title: ['Lantern Library, borrow a book in a minute', 'x'], lines: ['/plugin marketplace add evolvconsulting/explainer-video-kit-and-more'], note: 'Needs: Claude Code, Node 22+, ffmpeg, tesseract. ElevenLabs key for the voice. And more.' };
 
-test('auto-fit: the hero text keeps its design sizes; a long title and long lines shrink to the floor and end in an ellipsis', { skip, timeout: 120000 }, async () => {
+test('auto-fit: the hero text keeps its design sizes with no shrink', { skip, timeout: 120000 }, async () => {
   await withBrowser(async (browser) => {
     const hero = await fitOf(browser, HERO);
     assert.deepEqual([...hero.ln, ...hero.code, ...hero.needs].map((e) => e.size), [66, 66, 28, 28, 28]);
-    assert.ok([...hero.ln, ...hero.code, ...hero.needs].every((e) => !e.text.includes('…')));
-    const long = await fitOf(browser, {
-      title: ['A very long product name for a very long film,', 'an automation plugin for enterprise reporting teams'],
-      lines: ['/plugin marketplace add enterprise-reporting-automation-org/quarterly-reporting-automation-suite', '/plugin install quarterly-reporting-automation-suite@enterprise-reporting-automation-org'],
-      note: 'Requires an enterprise license, single sign-on, a read-only reporting database connection and a quarterly planning calendar and more words to be sure it is too long',
-    });
-    for (const e of long.ln) { assert.ok(e.size >= 66 * 0.7 - 0.01 && e.size < 66, `title size ${e.size}`); assert.ok(e.width <= 1128 + 1, `title width ${e.width}`); }
-    assert.ok(long.ln[1].text.endsWith('…') && !long.ln[1].text.includes(' …'), long.ln[1].text);
-    for (const e of long.code) { assert.ok(e.size < 28 && e.size >= 28 * 0.7 - 0.01); assert.ok(e.width <= 1070 + 1, `code width ${e.width}`); }
-    assert.ok(long.code[0].text.endsWith('…'));
-    assert.ok(long.needs[0].size < 28 && long.needs[0].width <= 1128 + 1 && long.needs[0].text.endsWith('…'), JSON.stringify(long.needs));
+    assert.deepEqual(hero.ln.map((e) => e.text), HERO.title);
   });
+});
+
+test('auto-fit: a line that overflows at the design size shrinks above the floor and keeps its whole text (no ellipsis)', { skip, timeout: 120000 }, async () => {
+  await withBrowser(async (browser) => {
+    const r = await fitOf(browser, SHRINKS);
+    const all = [...r.ln.slice(0, 1), ...r.code, ...r.needs];
+    for (const [e, design, avail] of [[r.ln[0], 66, 1128], [r.code[0], 28, 1070], [r.needs[0], 28, 1128]]) {
+      assert.ok(e.size < design && e.size > design * 0.7, `shrunk, above the floor: ${JSON.stringify(e)}`);
+      assert.ok(e.width <= avail + 1, `fits: ${JSON.stringify(e)}`);
+    }
+    assert.equal(r.ln[0].text, SHRINKS.title[0]);
+    assert.equal(r.code[0].text, '>' + SHRINKS.lines[0]);   // the first character is the orange > prompt
+    assert.equal(r.needs[0].text, SHRINKS.note);
+    assert.ok(all.every((e) => !e.text.includes('\u2026')));
+  });
+});
+
+test('the build check: too long even at 70 percent fails with the element, text, length and limit; a line that shrinks to fit passes', { skip, timeout: 120000 }, async () => {
+  const fit = async (opts) => (await import('../lib/endcard-measure.mjs')).checkEndcardFit({ opts });
+  const bad = await fit(TOO_LONG);
+  assert.deepEqual(bad.warnings, []);
+  // title line 1 and install line 2 of TOO_LONG shrink to fit (measured: 66 and 28 px at 70 percent); the other three do not, even at the floor
+  assert.equal(bad.errors.length, 3, bad.errors.join('\n'));
+  const [t2, i1, note] = bad.errors;
+  assert.match(t2, /^end card title line 2 is too long: "an automation plugin for enterprise reporting teams" is \d+ px wide at the design size \(51 characters, \d+ px even at the smallest size, 70 percent\), but the card has 1128 px for it, about \d+ characters at most\. Shorten it/);
+  assert.match(i1, /^end card install line 1 is too long: "\/plugin marketplace add enterprise-reporting-automation-org\/quarterly-reporting-automation-suite" is \d+ px wide .* but the card has 1070 px for it/);
+  assert.match(note, /^end card note is too long/);
+  // the stated limit is honest: text cut to about that many characters fits
+  const max = +/about (\d+) characters at most/.exec(t2)[1], cut = TOO_LONG.title[1].slice(0, max - 4);
+  assert.deepEqual((await fit({ title: [cut] })).errors, [], `${max - 4} characters of the title fit`);
+  assert.equal((await fit({ title: [TOO_LONG.title[1].slice(0, max + 12)] })).errors.length, 1, 'a dozen characters past the stated limit fail');
+  assert.deepEqual((await fit(SHRINKS)).errors, [], 'a line that shrinks to fit is not an error');
+  assert.deepEqual((await fit(HERO)).errors, []);
+});
+
+test('ev build fails on a too-long end card line before rendering, with the error message', { skip, timeout: 180000 }, async () => {
+  const { spawnSync } = await import('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-endcard-longbuild-'));
+  try {
+    const ev = (...a) => spawnSync(process.execPath, [path.join(ENGINE, 'bin', 'ev.mjs'), ...a], { encoding: 'utf8' });
+    const p = path.join(dir, 'p');
+    assert.equal(ev('init', p).status, 0);
+    const f = path.join(p, 'project.json'), cfg = JSON.parse(fs.readFileSync(f, 'utf8'));
+    cfg.endcard = TOO_LONG; fs.writeFileSync(f, JSON.stringify(cfg));
+    fs.mkdirSync(path.join(p, 'frames', 'set'), { recursive: true });
+    const r = ev('build', p, '--no-render', '--skip-pixel-check');
+    assert.notEqual(r.status, 0);
+    assert.match(r.stdout + r.stderr, /ev build: end card title line 2 is too long: "an automation plugin for enterprise reporting teams"/);
+    assert.doesNotMatch(r.stdout + r.stderr, /title line 1 is too long/, 'a line that shrinks to fit is not reported');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('text is HTML-escaped, and a card with no lines and no note has neither element', { skip, timeout: 120000 }, async () => {

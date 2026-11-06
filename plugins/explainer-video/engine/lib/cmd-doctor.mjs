@@ -110,6 +110,7 @@ export default async function (argv) {
     const r = checkProject(loadProject(a.project));
     if (!a.json) for (const l of formatCheck(r)) log(l);
     if (r.errors.length) process.exitCode = 1;
+    else { const { checkProjectFit } = await import('./endcard-measure.mjs'); const f = await checkProjectFit(loadProject(a.project)); if (!a.json) [...f.warnings.map((w) => `WARNING: ${w}`), ...f.errors.map((e) => `ERROR: ${e}`)].forEach((l) => log(l)); if (f.errors.length) process.exitCode = 1; }
   }
   if (hard.length) process.exitCode = 1;
 }

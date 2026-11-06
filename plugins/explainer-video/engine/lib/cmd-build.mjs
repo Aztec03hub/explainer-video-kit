@@ -7,6 +7,7 @@ import vm from 'node:vm';
 import { ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
 import { measureLoudness, mixAudio, lufsTarget, DEFAULTS } from './mix.mjs';
 import { defaultsCss, endcardDecision, endcardFonts, evolvThemeDefaults, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
+import { checkEndcardFit } from './endcard-measure.mjs';
 import { checkProject, formatCheck } from './project-check.mjs';
 import { themeCss } from './theme.mjs';
 
@@ -24,6 +25,7 @@ const HELP = `usage: ev build <project> [--no-render] [--quality draft|delivery]
   --skip-ocr     the on-screen text gate won't fail on a missing tesseract (also: project.json "gates": { "ocr": false })
   The evolv end card (the Gleam) is added over the last beat from project.json "endcard" ({ title, lines, note }); "endcard": "none" or your own
   window.SCENES.endcard in film.js turns it off. A project with no "endcard" key gets it only if it uses the evolv logo. One line says what was decided.
+  Its text is measured in Chrome before rendering: it shrinks to 70 percent to fit, and a line still too long fails the build (nothing is cut).
   With the card on (or the evolv logo in use) the caption highlight and callouts default to evolv orange unless your style or theme sets them.`;
 
 const TAIL_SECONDS = 5; // the film ends this many seconds after the voice, so the last beat holds while the music fades
@@ -49,7 +51,7 @@ export const readFilm = (file) => readWindow(file).FILM;
 // project.json style: { canvasFrom, canvasMid, canvasTo, caption, highlight, callout, calloutInk, font } -> :root overrides.
 export function styleCss(style = {}) {
   const lines = Object.entries(style).map(([k, v]) => {
-    if (!/^[a-zA-Z]+$/.test(k) || !/^[^;{}<>]+$/.test(String(v))) throw new Error(`project.json style.${k}: use a plain name and a CSS value without ; { } < >`);
+    if (!/^[a-zA-Z]+$/.test(k) || !/^(?=.*\S)[^;{}<>]+$/.test(String(v))) throw new Error(`project.json style.${k}: use a plain name and a CSS value (not blank) without ; { } < >`);
     return `--ev-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`;
   });
   return lines.length ? `:root { ${lines.join(' ')} }` : '';
@@ -252,8 +254,13 @@ export default async function (argv) {
   fs.copyFileSync(proj.film, path.join(proj.build, 'film.js'));
   const card = endcardDecision(proj, readWindow(proj.film));
   log(card.reason);
-  { const d = evolvThemeDefaults(proj, card.plan); if (Object.keys(d).length) log(`evolv colours: ${Object.keys(d).join(', ')} default to evolv orange and its ink (the project's own style or theme wins)`); }
+  { const d = evolvThemeDefaults(proj, card.plan); if (Object.keys(d).length) log(`evolv colours: ${Object.keys(d).join(', ')} default to evolv orange, its ink and its shadow (the project's own style or theme wins)`); }
   if (card.errors.length) fail(`end card: ${card.errors.join(' ')}`);   // project check reports these too; never a late throw in the render
+  { // the card's text is measured in Chrome with the real fonts before anything is rendered: too long even at 70 percent is an error, never a cut
+    const fit = await checkEndcardFit(card.plan, { width, height });
+    fit.warnings.forEach((w) => log(`WARNING: ${w}`));
+    if (fit.errors.length) fail(fit.errors.join('\n'));
+  }
   writeComposition(proj, { id: film.id || 'main', width, height, duration: length, endcard: card.plan });
 
   // The mix: voice at offset 0 so word times hold; music optional.

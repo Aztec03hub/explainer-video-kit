@@ -22,7 +22,7 @@ const HEADER = `// evolv end card scene: the Gleam. window.evolvEndCard(opts) re
 //   4. esc / TITLE / CODES / NOTE: the text comes from opts, HTML-escaped (wrapLetters escapes each letter);
 //   5. css: white-space:nowrap on the title lines, so a long title is measured and fitted, never wrapped;
 //   6. html: the title lines, the code lines (ids ec-i1, ec-i2) and the note line are generated from the text above;
-//   7. build: the text auto-fit (fit / refit), the body tween skips lines that are absent, and draw() calls refit();
+//   7. build: the text auto-fit (fit / refit, shrink only, never a cut; host.__ecFit reports the sizes), the body tween skips lines that are absent, and draw() calls refit();
 //   8. three colour snaps to the evolv-brand tokens (Organizer ruling), listed in SNAPS in tools/endcard-from-locked.mjs: the box border
 //      3A4660 to 3A4560, the title AAB3C8 to A9B4CC (CSS and its byte triple) and the lit title E4E8F0 to E8ECF4 (its byte triple); each under 2 dE76.
 // Nothing else differs: no other colour, size, timing, tween or light code.
@@ -45,27 +45,25 @@ const once = (text, from, to) => {
 
 const FIT = `
       // Text auto-fit (plugin only, the one addition to build): a line wider than its box shrinks in 1 px steps down to 70 percent of its design
-      // size, then ends in an ellipsis. A line that fits keeps its design size exactly. Widths are measured in scene px (the scene is scaled
-      // from 1280 wide). The first pass can see a fallback face, so it runs again once the fonts have loaded (refit, also called from draw()).
+      // size. A line that fits keeps its design size exactly. Text is never cut: a line still too wide at 70 percent is a build error, found by
+      // ev build before the render (lib/endcard-measure.mjs reads the numbers from host.__ecFit). Widths are measured in scene px (the scene is
+      // scaled from 1280 wide). The first pass can see a fallback face, so it runs again once the fonts have loaded (refit, also called from draw()).
       const wide = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width / (el.getBoundingClientRect().width / W); };
       const fitter = (e, avail, size, ln) => {
-        const spans = ln ? [...e.querySelectorAll('.ch')] : null, node = ln ? null : [...e.childNodes].filter((n) => n.nodeType === 3).pop();
-        if (spans) spans.forEach((s) => { s.dataset.c = s.dataset.c || s.textContent; });
-        const gaps = spans ? spans.map((s) => (s.previousSibling && s.previousSibling.nodeType === 3 ? [s.previousSibling, s.previousSibling.data] : null)) : [];   // the spaces between words
-        const full = node ? node.data : '', n = spans ? spans.length : full.length;
         const set = (s) => { e.style.fontSize = s === size ? '' : s + 'px'; if (ln) e.style.lineHeight = s === size ? '' : size * 1.16 + 'px'; };
-        const cut = (k) => { if (spans) spans.forEach((s, i) => { s.style.display = i > k ? 'none' : ''; s.textContent = i === k ? '\\u2026' : s.dataset.c; if (gaps[i]) gaps[i][0].data = i >= k ? '' : gaps[i][1]; }); else node.data = k >= n ? full : full.slice(0, k).trimEnd() + '\\u2026'; };
-        return () => {
-          let s = size; set(s); cut(n);
+        const run = () => {
+          let s = size; set(s); const natural = wide(e);
           while (wide(e) > avail && s > size * 0.7) { s = Math.max(size * 0.7, s - 1); set(s); }
-          let k = n; while (wide(e) > avail && k > 1) { k--; cut(k); }
+          run.rep = { size: s, design: size, natural, width: wide(e), avail };
         };
+        return run;
       };
       const fits = [...all('h1 .ln')].map((e) => fitter(e, 1128, 66, true))
         .concat([...all('.code')].map((e) => fitter(e, 1070, 28, false)), [...all('.needs')].map((e) => fitter(e, 1128, 28, false)));
       let fitSeen = null;
       const fit = () => { fits.forEach((f) => f()); fitSeen = document.fonts ? document.fonts.status : 'loaded'; };
       const refit = () => { if (fitSeen !== 'loaded' && (!document.fonts || document.fonts.status === 'loaded')) fit(); };
+      host.__ecFit = () => { refit(); return fits.map((f) => f.rep); };
       fit();
       if (document.fonts) document.fonts.ready.then(refit);
 `;
