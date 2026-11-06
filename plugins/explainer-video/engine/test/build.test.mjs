@@ -131,6 +131,18 @@ test('project.json music.file naming a missing file builds without music and say
   assert.ok(lines.some((l) => /no music file: run ev music .*nope\.mp3 is missing; building without music/.test(l)), lines.join('\n'));
 });
 
+test('project.json with no music.file at all prints the music hint (N2)', async () => {
+  const dir = path.join(tmp, 'nomusickey');
+  makeProject(dir);
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
+  delete cfg.music;
+  fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify(cfg));
+  const lines = [], orig = console.log;
+  console.log = (...x) => lines.push(x.join(' '));
+  try { await build([dir, '--no-render', '--skip-pixel-check']); } catch { /* the fixture has no PNGs; the music line comes first */ } finally { console.log = orig; }
+  assert.ok(lines.some((l) => /^no music file: run ev music/.test(l)), lines.join('\n'));
+});
+
 test('frames.approved with your own PNGs (no frames.sets) skips the pixel check instead of crashing', async () => {
   const dir = path.join(tmp, 'ownpngs');
   makeProject(dir);

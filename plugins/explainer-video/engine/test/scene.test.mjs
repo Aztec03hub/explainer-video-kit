@@ -72,3 +72,37 @@ test('a scene with full: true covers the whole 1920x1080 frame, a plain one only
     assert.deepEqual(await box('boxed'), [160, 24, 1600, 900]);
   } finally { await browser.close(); }
 });
+
+// Low from review-final2: a callout aimed into scene:name:selector threw when its label sorted before the scene event, even though build() makes the element.
+async function sceneLabelPage(buildBody, events) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-scene-label-'));
+  const gsapDir = path.join(ENGINE, 'node_modules', 'hyperframes', 'dist', 'vendor', 'npm');
+  fs.copyFileSync(path.join(gsapDir, fs.readdirSync(gsapDir).find((d) => d.startsWith('gsap@')), 'dist', 'gsap.min.js'), path.join(dir, 'gsap.min.js'));
+  for (const f of ['clock.js', 'explainer.js']) fs.copyFileSync(path.join(RUNTIME, f), path.join(dir, f));
+  fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><html><body>
+<div id="root" data-composition-id="main" data-duration="10" data-width="1920" data-height="1080"></div>
+<script src="gsap.min.js"></script><script src="clock.js"></script><script src="explainer.js"></script>
+<script>
+  window.CAPTIONS = { chunks: [] };
+  window.SCENES = { card: { html: '<i></i>', build(el) { ${buildBody} } } };
+  window.FILM = { id: 'main', duration: 10, page: 1280, events: ${JSON.stringify(events)} };
+  try { explainer(window.FILM, 10); } catch (e) { window.__err = e.message; }
+</script></body></html>`);
+  const { default: puppeteer } = await import('puppeteer-core');
+  const browser = await puppeteer.launch({ executablePath: chromePath(), headless: true, args: process.env.EV_NO_SANDBOX ? ['--no-sandbox'] : [] });
+  try {
+    const page = await browser.newPage();
+    await page.goto('file://' + path.join(dir, 'index.html'));
+    return await page.evaluate(() => window.__err || null);
+  } finally { await browser.close(); }
+}
+
+test('a callout into a scene element made by build() works even when the label sorts before the scene event', { skip: !haveChrome, timeout: 60000 }, async () => {
+  const events = [{ t: 2, label: 'Hi', at: 'scene:card:.made', dur: 1 }, { t: 2, scene: 'card', dur: 4 }];
+  assert.equal(await sceneLabelPage(`const b = document.createElement('b'); b.className = 'made'; el.append(b);`, events), null);
+});
+
+test('must fail: a callout selector no element matches, even after build(), still names the selector', { skip: !haveChrome, timeout: 60000 }, async () => {
+  const events = [{ t: 2, label: 'Hi', at: 'scene:card:.nope', dur: 1 }, { t: 2, scene: 'card', dur: 4 }];
+  assert.match(await sceneLabelPage('', events), /no element matches "\.nope" in scene "card"/);
+});
