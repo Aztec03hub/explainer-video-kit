@@ -62,3 +62,34 @@ test('must-fail: a recording of other words matches under 90%', async () => {
   assert.equal(r.status, 1);
   assert.match(r.out, /right recording/);
 });
+
+test('after ev align the whisper gate reads the match counts and the tags gate reads what was heard', async () => {
+  const { dir, audio, env } = setup([]);
+  assert.equal((await ev(['align', dir, '--audio', audio], env)).status, 0);
+  assert.deepEqual(take(dir).match, { matched: 9, total: 9 });
+  const heardFile = JSON.parse(fs.readFileSync(path.join(dir, 'voice', 'transcript.json'), 'utf8'));
+  assert.equal(heardFile[2].text, 'ninety-four', 'the heard words, not the script spelling');
+  const g = await ev(['gates', dir, '--only', 'whisper,tags']);
+  assert.equal(g.status, 0, g.out);
+  assert.match(g.out, /PASS {2}whisper: 9 of 9/);
+  assert.doesNotMatch(g.out, /SKIP heard-words half/);
+});
+
+test('--transcript-only: an ElevenLabs take is left alone, and a tag word heard in it fails the tags gate', async () => {
+  const dir = makeProject(SCRIPT);
+  fs.mkdirSync(path.join(dir, 'voice'));
+  tinyMp3(path.join(dir, 'voice', 'take.mp3'));
+  const original = JSON.stringify({ source: 'elevenlabs', duration: 1, words: [] });
+  fs.writeFileSync(path.join(dir, 'voice', 'take.json'), original);
+  const t = tmp();
+  const said = heard([]); said.splice(1, 0, { text: 'warm', start: 1.2, end: 1.3 }); // the voice read the tag aloud
+  fs.writeFileSync(path.join(t, 'transcript.json'), JSON.stringify(said));
+  const r = await ev(['align', dir, '--transcript-only'], { EV_TRANSCRIPT_JSON: path.join(t, 'transcript.json') });
+  assert.equal(r.status, 0, r.out);
+  assert.match(r.out, /take\.json and take\.mp3 were not touched/);
+  assert.equal(fs.readFileSync(path.join(dir, 'voice', 'take.json'), 'utf8'), original);
+  const g = await ev(['gates', dir, '--only', 'tags']);
+  console.log(`must-fail output:\n${g.out}`);
+  assert.equal(g.status, 1, g.out);
+  assert.match(g.out, /tag word "warm"/);
+});

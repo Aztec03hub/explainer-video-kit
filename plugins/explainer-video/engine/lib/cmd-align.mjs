@@ -8,9 +8,13 @@ import { spawnSync } from 'node:child_process';
 import { ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, norm, parseArgs, readJson, run, writeJson } from './common.mjs';
 import { ensureScript, spokenWords } from './script.mjs';
 
-const HELP = `usage: ev align <project> --audio <file> [--engine whisper] [--shift -0.3] [--force] [--key-file <path>]
-  Transcribes the recording with Whisper (hyperframes transcribe, model small.en), matches the heard words to
-  script.md's spoken words and writes voice/take.json and voice/take.mp3.
+const HELP = `usage: ev align <project> --audio <file> [--engine whisper] [--shift -0.3] [--force]
+       ev align <project> --transcript-only [--audio <file>]
+  Transcribes the recording with Whisper (hyperframes transcribe, model small.en, English), matches the heard words to
+  script.md's spoken words and writes voice/take.json, voice/take.mp3 and voice/transcript.json (the heard words).
+  --transcript-only  only listen: transcribe voice/take.mp3 (or --audio) into voice/transcript.json and report the match
+                     rate, leaving take.json and take.mp3 alone. Use it on an ElevenLabs take so the tags and whisper
+                     gates have something to read (ev gates <project> --only tags,whisper).
   --shift  seconds added to every Whisper time. Default -0.3: whisper.cpp small.en ran about 0.3 s late on average
            against faster-whisper on one 80 s take (median 0.31, p90 0.59). Use --shift 0 to turn it off.
   Fails below 90% of script words matched, warns below 98% (L147).
@@ -93,18 +97,27 @@ function transcribe(audio, engine) {
 export default async function (argv) {
   const a = parseArgs(argv, { bool: ['help', 'force'] });
   if (a.help) return log(HELP);
+  const proj = loadProject(a._[0]);
+  const takeMp3 = path.join(proj.voice, 'take.mp3');
+  if (a['transcript-only']) a.audio = a.audio && a.audio !== true ? a.audio : takeMp3; // listen to the finished take
   if (!a.audio || a.audio === true) throw new Error('--audio <file> is required. See: ev align --help');
   if (!fs.existsSync(a.audio)) throw new Error(`audio file not found: ${a.audio}`);
   const engine = a.engine || 'whisper';
   const shift = a.shift !== undefined ? parseFloat(a.shift) : -0.3;
   if (Number.isNaN(shift)) throw new Error(`--shift must be a number of seconds, got "${a.shift}"`);
-  const proj = loadProject(a._[0]);
-  const takeMp3 = path.join(proj.voice, 'take.mp3');
-  if (fs.existsSync(takeMp3) && !a.force) throw new Error(`${takeMp3} already exists. Pass --force to replace it.`);
+  if (!a['transcript-only'] && fs.existsSync(takeMp3) && !a.force) throw new Error(`${takeMp3} already exists. Pass --force to replace it.`);
 
   const script = ensureScript(proj);
   const words = script.beats.flatMap((b) => spokenWords(b.spoken));
   const heard = transcribe(a.audio, engine).filter((h) => norm(h.text));
+  // What Whisper heard, as it heard it: the tags gate and the whisper gate read this, never the script's own words.
+  fs.mkdirSync(proj.voice, { recursive: true });
+  writeJson(path.join(proj.voice, 'transcript.json'), heard.map((h) => ({ text: h.text, start: h.start, end: h.end })));
+  if (a['transcript-only']) {
+    const { matched: m } = alignWords(words, heard, 0);
+    log(`heard ${heard.length} words; ${m} of ${words.length} script words matched (${((m / words.length) * 100).toFixed(1)}%). Wrote voice/transcript.json; take.json and take.mp3 were not touched.\nNext: ev gates ${proj.root} --only tags,whisper`);
+    return;
+  }
   const { words: timed, matched } = alignWords(words, heard, shift);
   const rate = matched / words.length;
   log(`matched ${matched} of ${words.length} script words to Whisper (${(rate * 100).toFixed(1)}%), shift ${shift} s applied`);
@@ -118,6 +131,6 @@ export default async function (argv) {
     if (r.status !== 0) throw new Error(`ffmpeg could not convert ${a.audio} to mp3: ${r.stderr.trim().slice(0, 300)}`);
   }
   const duration = ffprobeDuration(takeMp3);
-  writeJson(path.join(proj.voice, 'take.json'), { source: 'whisper', model: 'small.en', voice: null, seed: null, shift, matched, duration: +duration.toFixed(3), words: timed });
+  writeJson(path.join(proj.voice, 'take.json'), { source: 'whisper', model: 'small.en', voice: null, seed: null, shift, matched, match: { matched, total: words.length }, duration: +duration.toFixed(3), words: timed });
   log(`wrote ${takeMp3} (${duration.toFixed(1)} s) and take.json`);
 }
