@@ -18,7 +18,7 @@ description: Record the narration for a video with ElevenLabs: choose a model (E
 3. Tag the script (see the reference): describe the delivery, not a sound; CAPITALS for the one stressed word; `...` for a held pause; a few non-verbal tags such as `[exhales]`. Tags make the take longer. The words never change.
 4. `EV voice <project> --dry-run`: shows how the script is split into requests (at beat boundaries, under the model's limit), the characters, and an estimated cost from earlier real runs. Spends nothing.
 5. `EV voice <project>`: speaks it, joins ONE continuous track at `voice/take.mp3`, writes word times to `voice/take.json` and the spend to `voice/spend.json`. It refuses to overwrite an existing take without `--force`: takes cost money and a shipped take is frozen. Use `--seed` for a repeatable take.
-6. Verify by measurement, not by ear: duration against the plan, and every script word present. `EV gates <project> --only tags,whisper` checks no tag was spoken. Tone is the owner's call; a model can't hear it.
+6. Verify by measurement, not by ear: duration against the plan, and every script word present (`EV captions` fails on any missing or extra word). To prove no tag was spoken, let Whisper listen: `EV align <project> --transcript-only` writes `voice/transcript.json` (the take is not touched), then `EV gates <project> --only tags,whisper`. Tone is the owner's call; a model can't hear it.
 7. Report spend: characters sent, credits billed (they are not the same; read the billed number), and the account counter before and after (it lags by minutes).
 
 ## Your own recording

@@ -1,7 +1,7 @@
 // The audio mix for a film: voice over music, ported from the old mix.sh to a spawn of ffmpeg (no shell).
 // The music loops or trims to the film's length, sits at a fixed bed level (default -19 dB, which put it 15 to 18 dB under the
-// voice, L112), ducks under the voice (sidechain keyed on the voice), fades in 1 s and out 2.5 s, and the result is
-// loudness-normalised (EBU R128, -14 LUFS, -1.5 dBTP). The voice starts at offset 0 so the word times in take.json hold (L99).
+// voice), ducks under the voice (sidechain keyed on the voice), fades in 1 s and out 2.5 s, and the result is
+// loudness-normalised (EBU R128, -14 LUFS, -1.5 dBTP). The voice starts at offset 0 so the word times in take.json hold.
 // Music is optional (voice only), so is the voice (music only); with neither the track is silent.
 import { run } from './common.mjs';
 
@@ -20,7 +20,7 @@ export function mixInputs({ voice, music, length }) {
 
 // mixFilterGraph({ hasVoice, hasMusic, length, bed, offset, only }) -> { graph, label }.
 // only: 'music' returns the music-only ducked track (the bed under the voice, before the voice is added and without
-// loudnorm) so the audio gate can rebuild it the way the reviewers did and measure the gap over the voice's span (L113).
+// loudnorm) so the audio gate can rebuild it the way the reviewers did and measure the gap over the voice's span.
 export function mixFilterGraph({ hasVoice, hasMusic, length, bed = DEFAULTS.bed, offset = DEFAULTS.offset, only = null }) {
   const delay = Math.round(offset * 1000);
   const fadeStart = Math.max(0, length - DEFAULTS.fadeOut);
@@ -52,7 +52,7 @@ export function mixAudio({ voice = null, music = null, out, length, bed = DEFAUL
   return { out, length, bed, offset, voice: !!voice, music: !!music };
 }
 
-// measureLoudness(file, { from, to }) -> { lufs, truePeak } (integrated loudness and true peak, ebur128, L114). from/to cut a span.
+// measureLoudness(file, { from, to }) -> { lufs, truePeak } (integrated loudness and true peak, ebur128). from/to cut a span.
 export function measureLoudness(file, { from = 0, to = null } = {}) {
   const span = [...(from ? ['-ss', String(from)] : []), ...(to != null ? ['-t', String(to - from)] : [])];
   const r = run('ffmpeg', ['-hide_banner', '-nostats', ...span, '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
@@ -64,7 +64,7 @@ export function measureLoudness(file, { from = 0, to = null } = {}) {
 }
 
 // measureGap(voiceFile, duckedMusicFile?, { duration }) -> { voice, music, gap, span }: how far the music sits under the voice,
-// both measured over the voice's own span (L113). duckedMusicFile is the music-only track made with
+// both measured over the voice's own span. duckedMusicFile is the music-only track made with
 // mixAudio({ ..., only: 'music' }). Without it only the voice is measured and gap is null.
 export function measureGap(voiceFile, duckedMusicFile = null, { duration = null } = {}) {
   const span = duration ?? parseFloat(run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', voiceFile]).stdout);

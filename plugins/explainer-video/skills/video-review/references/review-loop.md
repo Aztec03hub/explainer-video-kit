@@ -8,15 +8,15 @@ From the first draft of the words to the shipped cut. Read it once before the fi
 
 ## The order: words, then plan, then the real cut
 
-1. Words. `ev script --lint`, read aloud, cold viewer (`cold-viewer-brief.md`), fact check (`fact-check-brief.md`), owner approves the exact words as a diff. No voice characters are spent before this is clean (lessons 20, 153). Words fixed after a voice is recorded mean a re-record.
+1. Words. `ev script --lint`, read aloud, cold viewer (`cold-viewer-brief.md`), fact check (`fact-check-brief.md`), owner approves the exact words as a diff. No voice characters are spent before this is clean. Words fixed after a voice is recorded mean a re-record.
 2. Plan. Frame list, crop rules, callouts, caption axis table. Fact check on the film spec (the time-walk), caption check on sample frames (`caption-check-brief.md`).
 3. The real cut. `ev gates`, then the cut review (`cut-review-brief.md`), a human watching contact sheets, and a final fresh review.
 Fixing upstream is cheaper than downstream: a word change costs a re-record; a crop change costs a 2-minute render.
 
 ## Each round
 
-- Always a fresh reviewer. Never the same reviewer twice, and never ask a reviewer to confirm its own fixes (lesson 150). Run again until a round comes back with nothing: CLEAN with nothing changed.
-- One concern per reviewer (cold viewer, facts, captions, cut). Don't ask one agent to do all of them (lesson 161).
+- Always a fresh reviewer. Never the same reviewer twice, and never ask a reviewer to confirm its own fixes. Run again until a round comes back with nothing: CLEAN with nothing changed.
+- One concern per reviewer (cold viewer, facts, captions, cut). Don't ask one agent to do all of them.
 - Verdict vocabulary (the last line of every report, so you can read the outcome from one line):
   - Cold viewer: `VERDICT: PASS` or `VERDICT: FAIL - <reason>`.
   - Fact check: `VERDICT: CLEAN` or `VERDICT: FIX NEEDED`.
@@ -54,7 +54,7 @@ Every brief ends with: "Your final reply MUST START with the report path; if tha
 | A stale accepted exception | | the owner watching the real cut |
 | Tone and voice delivery | | a human listening |
 
-Item numbers: lessons 154 and 155. Two points from them: a 0 px pixel match proves fidelity, not content; and each gate was validated only because a reviewer tested it on a case that must fail (lessons 138, 140).
+Two points to keep: a 0 px pixel match proves fidelity, not content; and each gate was validated only because a reviewer tested it on a case that must fail.
 
 ## Model and effort
 
@@ -63,9 +63,9 @@ A small, fast model at low effort was enough for every kind of review in the fir
 ## Practical rules
 
 - Run the cheap checks first and often (cold viewer, lint), the expensive ones (fact check, cut review) when the cheap ones are green.
-- Give checkers measured data and the real spec so they don't spend tokens measuring (lesson 160).
-- Scratch folder outside the repo, named in the brief; the exact build command with flags, sandbox setting and a 10-minute timeout (162).
-- Don't rely on a brief's "don't" rules as a gate (156). Re-run any reviewer's number before relying on it (37).
-- Keep a handoff file in the repo updated at every milestone: standing rules, current state, spend, next step. Sessions get compacted and details get lost (164).
-- When a human finds what the loop missed, turn it into a gate, a frame-list rule and a brief change that same turn (158).
+- Give checkers measured data and the real spec so they don't spend tokens measuring.
+- Scratch folder outside the repo, named in the brief; the exact build command with flags, sandbox setting and a 10-minute timeout.
+- Don't rely on a brief's "don't" rules as a gate. Re-run any reviewer's number before relying on it.
+- Keep a handoff file in the repo updated at every milestone: standing rules, current state, spend, next step. Sessions get compacted and details get lost.
+- When a human finds what the loop missed, turn it into a gate, a frame-list rule and a brief change that same turn.
 - A passing loop is not proof of taste. Tone, pacing feel and whether the voice sounds right belong to the owner.

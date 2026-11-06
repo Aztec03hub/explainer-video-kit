@@ -41,7 +41,7 @@ First run on a machine:
 node <plugin folder>/engine/bin/ev.mjs setup
 ```
 
-That installs the engine's dependencies and the render browser, then runs `ev doctor`.
+That installs the engine's dependencies and the render browser, then runs `ev doctor`. In this README `ev` is short for `node <plugin folder>/engine/bin/ev.mjs` (Claude runs it that way for you; in your own terminal make an alias).
 
 ### Requirements
 

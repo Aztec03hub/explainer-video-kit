@@ -27,7 +27,7 @@ test('captionWindows follows the timing rules: starts 0.08 s early, no floor, ne
   assert.ok(w[0].off <= w[1].on, 'no overlap');
   assert.deepEqual(w[0].words[0], { on: 0.1, off: 0.5 });
   assert.ok(Math.abs(w[1].words[3].off - 2.75) < 1e-9, 'the last word lingers 0.15 s');
-  // A short chunk must not be held past the next one: "Hold it," at 48.38 with the next at 48.72 (L63).
+  // A short chunk must not be held past the next one: "Hold it," at 48.38 with the next at 48.72.
   const hold = captionWindows([{ words: [{ w: 'Hold', start: 48.38, end: 48.5 }, { w: 'it,', start: 48.5, end: 48.6 }] }, { words: [{ w: 'and', start: 48.72, end: 48.8 }] }]);
   assert.ok(Math.abs(hold[0].off - 48.62) < 1e-9);
   assert.ok(hold[0].off <= hold[1].on);
@@ -155,7 +155,7 @@ test('end to end: a 6 s film renders at 1920x1080 with audio and a populated fra
   assert.ok(info.streams.some((s) => s.codec_type === 'audio'), 'has an audio stream');
   assert.ok(Math.abs(parseFloat(info.format.duration) - 6) < 0.3, `duration ${info.format.duration}`);
 
-  // Frame 0 must be populated (the poster frame, L85): the screen area is the test pattern, not an empty panel.
+  // Frame 0 must be populated (the poster frame): the screen area is the test pattern, not an empty panel.
   const png = path.join(tmp, 'frame0.png');
   ff('-i', mp4, '-frames:v', '1', png);
   const { data, width } = PNG.sync.read(fs.readFileSync(png));

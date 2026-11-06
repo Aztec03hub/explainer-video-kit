@@ -1,5 +1,5 @@
-// Audio gate: the cut's integrated loudness within 1 LU of -14 (--lufs), true peak at or below -1.0 dBTP (L111, L114),
-// and the music 15 to 18 dB under the voice (L112, L113). The gap is measured on the music alone, rebuilt with the
+// Audio gate: the cut's integrated loudness within 1 LU of -14 (--lufs), true peak at or below -1.0 dBTP,
+// and the music 15 to 18 dB under the voice. The gap is measured on the music alone, rebuilt with the
 // mix's own ducking filters (sidechaincompress keyed on the voice), over the voice's span only, against the voice's own
 // integrated loudness. Narrower than 15 dB fails, wider than 18 warns. The bed level is a calibration knob: with the bed
 // at -14 dB the gap was 11.7 dB, at -19 dB 16.7 dB, so measure and adjust, don't trust a fixed number.

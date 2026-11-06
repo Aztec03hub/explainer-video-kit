@@ -25,7 +25,7 @@ async function listModels(a) {
     const lim = Math.max(m.max_characters_request_subscribed_user || 0, m.max_characters_request_free_user || 0);
     log(`${m.model_id.padEnd(26)}${(m.can_do_text_to_speech ? 'yes' : 'no').padEnd(5)}${(lim ? String(lim) : '?').padEnd(21)}${m.name}${m.model_id === RECOMMENDED_MODEL ? '   <- recommended default (newest expressive family)' : ''}`);
   }
-  log('\nModel names drift: check this list on the day you speak a script (L40).');
+  log('\nModel names drift: check this list on the day you speak a script.');
 }
 
 async function listVoices(a) {
@@ -116,7 +116,7 @@ async function speak(a) {
     if (seed != null && !Number.isNaN(seed)) body.seed = seed; // the template's "seed": null means no seed
     if (r.previous) body.previous_text = r.previous;
     if (r.next) body.next_text = r.next;
-    if (cfg.settings) body.voice_settings = cfg.settings; // none by default: the voice speaks with its own saved settings (L46)
+    if (cfg.settings) body.voice_settings = cfg.settings; // none by default: the voice speaks with its own saved settings
     const res = await api.speak(voice, body);
     const seg = path.join(segDir, `${String(k + 1).padStart(2, '0')}.mp3`);
     fs.writeFileSync(seg, res.audio);

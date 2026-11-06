@@ -1,9 +1,9 @@
 // Wipes gate (dissolve check): a cross-fade (a `show` or `device` event with `fade`) is only for two frames with the
-// same layout (a theme flash). Between different layouts the pages ghost through each other (L101-L107).
+// same layout (a theme flash). Between different layouts the pages ghost through each other.
 // For each fade: the cut's frame just before it against the frame just after it, on edges only, cropped to FILM.screen
-// (so the caption band's changing words don't count, L105): the share of each frame's edge pixels that land on or
-// beside the other's edges, both directions, minimum kept (L103). Fails under --min-overlap (default 0.45).
-// Calibration (L104, 2026-10-30): a same-layout light/dark flash scored 0.51 to 0.78; bad dissolves 0.03 to 0.38.
+// (so the caption band's changing words don't count): the share of each frame's edge pixels that land on or
+// beside the other's edges, both directions, minimum kept. Fails under --min-overlap (default 0.45).
+// Calibration (2026-10-30): a same-layout light/dark flash scored 0.51 to 0.78; bad dissolves 0.03 to 0.38.
 // The flash once scored only 0.06 above the limit, so the margin is printed and under 0.1 it warns.
 // Times: film.js is loaded with vm, events go through EVClock.makeClock (anchors resolve from build/captions.json).
 import fs from 'node:fs';
@@ -66,7 +66,7 @@ export default async function wipesGate({ proj, cut, opts = {} }) {
   if (!rows.length) return { name, status: 'PASS', measured: '0 fades', limit: `overlap >= ${min}`, margin: 'n/a', lines: [], data: { fades: 0 } };
   const worst = Math.min(...rows.map((r) => r.overlap));
   const margin = worst - min;
-  const warnings = margin >= 0 && margin < CLOSE ? [`close to the limit: the worst fade is only ${margin.toFixed(3)} above ${min} (L104: look at that fade in a contact sheet)`] : [];
+  const warnings = margin >= 0 && margin < CLOSE ? [`close to the limit: the worst fade is only ${margin.toFixed(3)} above ${min} (look at that fade in a contact sheet)`] : [];
   return {
     name, status: margin >= 0 ? 'PASS' : 'FAIL', measured: `${rows.length} fades, min edge overlap ${worst.toFixed(3)}`,
     limit: `overlap >= ${min}`, margin: margin.toFixed(3), lines, warnings, data: { fades: rows.length, minOverlap: worst },

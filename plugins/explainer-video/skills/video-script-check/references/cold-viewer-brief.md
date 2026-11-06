@@ -9,19 +9,19 @@ After every script change, before the fact check and before any voice is recorde
 ## Setup rules (these are what made it work)
 
 - The agent reads exactly ONE file: `{{SPOKEN_FILE}}`. That is a plain-text file generated from the script: spoken lines only, one paragraph per beat, with no headings, notes, callouts, shot lists or voice tags. If it reads anything else, the read is no longer cold. Generate this file with `ev script`; never hand-edit it.
-- Tell it what the picture will do, or it fails the words for not describing the layout (lesson 25).
-- Rate every confusion MINOR or MAJOR. A reader told to list every question can never pass: a cold reader always has some curiosity. In the first project, rounds 1 and 2 failed on small curiosities until the split existed; round 3 passed (lesson 24).
+- Tell it what the picture will do, or it fails the words for not describing the layout.
+- Rate every confusion MINOR or MAJOR. A reader told to list every question can never pass: a cold reader always has some curiosity. In the first project, rounds 1 and 2 failed on small curiosities until the split existed; round 3 passed.
 - Pass rule: PASS only if the viewer explained the product and every choice correctly from the words alone AND there is no MAJOR item.
-- Ask "which line sounded like it promised more than a screen could do?" That question is how a reader with no knowledge of the product flagged an overclaim (lessons 26, 12): a closing line promised an empty queue when two kinds of item would still exist.
-- Use a small fast model at low effort. Never reuse an agent: every round is a fresh one (lesson 150).
+- Ask "which line sounded like it promised more than a screen could do?" That question is how a reader with no knowledge of the product flagged an overclaim: a closing line promised an empty queue when two kinds of item would still exist.
+- Use a small fast model at low effort. Never reuse an agent: every round is a fresh one.
 
 ## Fill in before pasting
 
-- `{{AUDIENCE_PERSONA}}`: who the viewer is, in one line (for example "a non-technical office worker who has never seen this app"). Ask the owner for it during setup (lesson 165).
+- `{{AUDIENCE_PERSONA}}`: who the viewer is, in one line (for example "a non-technical office worker who has never seen this app"). Ask the owner for it during setup.
 - `{{SPOKEN_FILE}}`: absolute path of the generated spoken-words file.
-- `{{CHOICES}}`: the named choices or parts the video shows (for example the buttons or modes). Say how many. If the video shows N choices, the words must name all N (lesson 7).
-- `{{HIDDEN_OR_LIMITED_THING}}`: anything the video shows as hidden, limited or restricted. Every restriction needs a reason in the same sentence (lesson 6). Delete the question if there is none.
-- `{{HARD_IDEA}}`: the hardest idea in the script, if any. Ask what it does in the viewer's own words (lesson 10).
+- `{{CHOICES}}`: the named choices or parts the video shows (for example the buttons or modes). Say how many. If the video shows N choices, the words must name all N.
+- `{{HIDDEN_OR_LIMITED_THING}}`: anything the video shows as hidden, limited or restricted. Every restriction needs a reason in the same sentence. Delete the question if there is none.
+- `{{HARD_IDEA}}`: the hardest idea in the script, if any. Ask what it does in the viewer's own words.
 - `{{REPORT_PATH}}`: where the report goes, named `cold-viewer-r<n>-report.md` (never start a report name with REPORT, SUMMARY, FINDINGS or ANALYSIS, because some harnesses refuse those).
 - `{{NEVER_OPEN}}`: your never-open list (see "Standing rules" below).
 
@@ -55,13 +55,13 @@ The last line of the report must be exactly "VERDICT: PASS" (you could answer 1 
 ## Reading the result
 
 - FAIL: fix the words (the owner approves the diff, see `script-craft.md`), regenerate `{{SPOKEN_FILE}}`, run a FRESH cold viewer. Repeat until PASS. The first project needed four runs (FAIL, FAIL, PASS, PASS after a later two-line edit).
-- MINOR items are notes. Decide each once and write the decision down (for example "echo of the app headline is an intended payoff", lesson 69).
+- MINOR items are notes. Decide each once and write the decision down (for example "echo of the app headline is an intended payoff").
 - What typically fails at round 1 (all real, from the first project):
   - The central noun is never defined ("I don't know what a finding is until later").
   - A restriction has no reason ("only the last four show" with no "to keep it private").
-  - A choice is never named, or what it does to the record is missing (L22, L26).
+  - A choice is never named, or what it does to the record is missing.
   - Two choices sound the same (what is the difference between undoing and holding?).
-  - One sentence packs four ideas (lesson 17: too much at speaking pace, even if the owner accepts it).
+  - One sentence packs four ideas (too much at speaking pace, even if the owner accepts it).
   - A vague adjective such as "risky" is never defined.
 - Cold viewer PASS is not "the words are true". Run the fact check next.
 - The cold viewer can't judge tone or voice quality either. Say so in your notes; a human owns that.
@@ -72,4 +72,4 @@ The last line of the report must be exactly "VERDICT: PASS" (you could answer 1 
 - `rg -n` only. Never open `.env` files, secrets files, shell rc files (`~/.bashrc`, `~/.profile`, `~/.zshrc`), cloud credential folders or any file shaped like a key. Never print anything key-shaped.
 - No network commands, no paid API calls, no keys or clicks sent to the desktop.
 - Scratch files go in a named scratch folder outside the repo.
-- Brief rules are advisory, not a sandbox (lesson 156): a reviewer once ran a command it had been told not to. Re-run any number a reviewer reports before relying on it (lesson 37).
+- Brief rules are advisory, not a sandbox: a reviewer once ran a command it had been told not to. Re-run any number a reviewer reports before relying on it.

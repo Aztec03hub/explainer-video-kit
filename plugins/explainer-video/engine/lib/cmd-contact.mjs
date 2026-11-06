@@ -1,7 +1,7 @@
 // ev contact <cut.mp4>: contact sheets for reviewers. One pass tiles a frame every --every seconds over the whole cut; a
-// denser pass (every 0.1 s) covers --span seconds around each --around time, so a short fade can't fall between samples (L102).
+// denser pass (every 0.1 s) covers --span seconds around each --around time, so a short fade can't fall between samples.
 // Each tile is labelled with its time (drawtext, bundled Fredoka). Sheets are at most 6x6 tiles. Tiling happens inside one
-// ffmpeg filter, so there are no numbered frame files to run past the end of (L134).
+// ffmpeg filter, so there are no numbered frame files to run past the end of.
 import fs from 'node:fs';
 import path from 'node:path';
 import { ENGINE, ffprobeDuration, log, parseArgs, run } from './common.mjs';

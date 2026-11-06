@@ -1,4 +1,4 @@
-// Tags gate: a voice tag such as [warm, reassuring] steers the voice and must never be spoken or shown (L43, L66).
+// Tags gate: a voice tag such as [warm, reassuring] steers the voice and must never be spoken or shown.
 // Every heard source (the Whisper transcript voice/transcript.json, or voice/take.json when its source is whisper;
 // the captions; the SRT/VTT text) is aligned to the script's spoken words by longest common subsequence. A heard word
 // that doesn't align to a script word AND is a tag word is a hit. A tag word that is also an ordinary script word
@@ -62,7 +62,7 @@ export default async function tagsGate({ proj }) {
   const lines = [], notes = [];
   const tr = transcriptWords(proj);
   if (tr) sources.push([`transcript ${path.relative(proj.root, tr.file)}`, tr.words]);
-  else notes.push('SKIP heard-words half: no voice/transcript.json and no whisper take. Run: ev align <project> --audio <voice file> (or save a Whisper transcript as voice/transcript.json)');
+  else notes.push('SKIP heard-words half: no voice/transcript.json and no whisper take. Run: ev align <project> --transcript-only (Whisper listens to voice/take.mp3 and saves voice/transcript.json)');
   let hits = 0;
   for (const [label, heard] of sources) {
     const { extras } = align(heard, spoken);

@@ -1,5 +1,5 @@
 // ev build <project>: mix the audio, write the HyperFrames composition into <project>/build, check it, render it, run the gates.
-// Ported from the old per-film build.sh and index.html. A shipped file is frozen: it is never overwritten (L133).
+// Ported from the old per-film build.sh and index.html. A shipped file is frozen: it is never overwritten.
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,7 +16,7 @@ const HELP = `usage: ev build <project> [--no-render] [--quality draft|delivery]
   --workers      parallel render workers (default 3; each is a Chrome process)
   --skip-gates   render without running the gates`;
 
-const TAIL_SECONDS = 5; // the film ends this many seconds after the voice, so the last beat holds while the music fades (L97)
+const TAIL_SECONDS = 5; // the film ends this many seconds after the voice, so the last beat holds while the music fades
 
 // Film length: the voice plus a 5 s tail when there is a voice, else the plan (FILM.duration, or the last caption + 5 s).
 export function filmLength({ voiceDuration = null, film = {}, captions = null }) {
@@ -188,7 +188,7 @@ export default async function (argv) {
   fs.copyFileSync(proj.film, path.join(proj.build, 'film.js'));
   writeComposition(proj, { id: film.id || 'main', width, height, duration: length });
 
-  // The mix: voice at offset 0 so word times hold (L99); music optional.
+  // The mix: voice at offset 0 so word times hold; music optional.
   const m = typeof proj.cfg.music === 'string' ? { file: proj.cfg.music } : proj.cfg.music || {};
   const musicFile = m.file ? path.resolve(proj.root, m.file) : null;
   if (musicFile && !fs.existsSync(musicFile)) fail(`project.json music.file ${musicFile} does not exist. Fix the path or remove "music".`);

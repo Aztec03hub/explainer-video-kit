@@ -1,11 +1,11 @@
 // OCR gate: fail a cut if any sampled frame shows a never-on-screen string, or if frame 0 reads as blank.
 // Strings: rules.json neverOnScreen, plus backticked items under "## Never on screen" in any file named by
 // project.json frameList. Frames: one every `step` s (default 0.5), scaled to 3840 px wide (tesseract misses small UI
-// text at 1080p, L136), read with the tesseract CLI one thread per process (unpinned threads took 10 minutes for 170
-// frames, pinned 10 s, L137), as many processes as cores. Whole-word, case-insensitive match (L138 for the "TKT-" case).
-// Poster rule (L139): frame 0 is every player's thumbnail, so it must OCR at least 10 words.
-// Known limit (L141): OCR can't read a string drawn over busy text, so a graphics bug that paints a forbidden string
-// into a dense table would pass. This gate is not a content check (L142).
+// text at 1080p), read with the tesseract CLI one thread per process (unpinned threads took 10 minutes for 170
+// frames, pinned 10 s), as many processes as cores. Whole-word, case-insensitive match (an id prefix such as "TKT-" matches "TKT-12").
+// Poster rule: frame 0 is every player's thumbnail, so it must OCR at least 10 words.
+// Known limit: OCR can't read a string drawn over busy text, so a graphics bug that paints a forbidden string
+// into a dense table would pass. This gate is not a content check.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';

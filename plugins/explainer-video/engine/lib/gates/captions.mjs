@@ -1,6 +1,6 @@
 // Captions gate: the caption words in build/captions.json equal the spoken words in build/script.json, normalised,
-// same order, zero differences (L146); and the SRT and VTT in out/ contain no "[" (a voice tag that reached the
-// captions, L66). The first difference is reported with context.
+// same order, zero differences; and the SRT and VTT in out/ contain no "[" (a voice tag that reached the
+// captions). The first difference is reported with context.
 import fs from 'node:fs';
 import path from 'node:path';
 import { norm, readJson } from '../common.mjs';

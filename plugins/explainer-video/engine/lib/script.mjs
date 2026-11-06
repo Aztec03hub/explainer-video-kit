@@ -1,5 +1,5 @@
 // script.md -> build/script.json and build/spoken.txt, plus the lint rules. One word-counting function lives here
-// (spokenWords) and every other module that needs "the script's words" uses it, so counts can't drift (L1, L2).
+// (spokenWords) and every other module that needs "the script's words" uses it, so counts can't drift.
 import fs from 'node:fs';
 import { norm, writeJson, readJson } from './common.mjs';
 
@@ -88,7 +88,7 @@ export function lengthReport(s) {
   const r = { min150: at(150), min160: at(160), planSeconds: planEnd || null, warning: null };
   if (planEnd) {
     const diff = Math.abs(r.min160 * 60 - planEnd) / planEnd;
-    if (diff > 0.15) r.warning = `the plan windows end at ${planEnd}s but ${s.words} words take ${(r.min160 * 60).toFixed(0)}s at 160 wpm (${(diff * 100).toFixed(0)}% apart). Trim the words or stretch the plan (L3, L98).`;
+    if (diff > 0.15) r.warning = `the plan windows end at ${planEnd}s but ${s.words} words take ${(r.min160 * 60).toFixed(0)}s at 160 wpm (${(diff * 100).toFixed(0)}% apart). Trim the words or stretch the plan.`;
   }
   return r;
 }
@@ -105,7 +105,7 @@ export function lint(s, rules) {
     if (!bracketsBalanced(b.text)) add('error', b, 'unbalanced [ ] in the beat; every voice tag needs both brackets');
     if (!b.words) add('error', b, 'no spoken text in this beat');
     for (const t of b.text.match(TAG) || []) {
-      if (SFX_TAG.test(t)) add('warning', b, `${t} reads like a sound-effect cue and may be spoken or ignored (L41). Describe the voice instead, for example [softer, confiding]`);
+      if (SFX_TAG.test(t)) add('warning', b, `${t} reads like a sound-effect cue and may be spoken or ignored. Describe the voice instead, for example [softer, confiding]`);
     }
     for (const word of rules.banned || []) {
       if (new RegExp(`(^|[^A-Za-z0-9])${escRe(word)}($|[^A-Za-z0-9])`, 'i').test(b.spoken)) add('error', b, `banned word "${word}" (rules.json)`);
@@ -116,7 +116,7 @@ export function lint(s, rules) {
       const n = spokenWords(sent).length;
       if (n > 28) add('warning', b, `a sentence of ${n} words (over 28): "${sent.slice(0, 50)}..."`);
       const seps = (sent.match(/,\s*(and\s+)?|\s+and\s+/gi) || []).length;
-      if (seps >= 2) add('warning', b, `a sentence packs ${seps + 1} clauses with "and" or commas, hard to take in at speaking pace (L17): "${sent.slice(0, 50)}..."`);
+      if (seps >= 2) add('warning', b, `a sentence packs ${seps + 1} clauses with "and" or commas, hard to take in at speaking pace: "${sent.slice(0, 50)}..."`);
     }
   }
   // repeated word within 12 words, across beat boundaries; short and very common words are ignored
@@ -124,7 +124,7 @@ export function lint(s, rules) {
   const last = new Map();
   all.forEach(({ b, n }, k) => {
     if (n.length >= 4 && !COMMON.has(n)) {
-      if (last.has(n) && k - last.get(n) <= 12) add('warning', b, `"${n}" repeats within 12 words (L16): read it aloud`);
+      if (last.has(n) && k - last.get(n) <= 12) add('warning', b, `"${n}" repeats within 12 words: read it aloud`);
       last.set(n, k);
     }
   });

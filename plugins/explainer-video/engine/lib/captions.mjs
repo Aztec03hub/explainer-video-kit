@@ -84,7 +84,7 @@ export function validateWords(script, takeWords) {
   }
   let prev = 0;
   takeWords.forEach((w, i) => {
-    if (/[\[\]]/.test(w.w)) throw new Error(`word ${i + 1} "${w.w}" contains a voice tag bracket (L66).`);
+    if (/[\[\]]/.test(w.w)) throw new Error(`word ${i + 1} "${w.w}" contains a voice tag bracket.`);
     if (!(w.start >= prev) || !(w.end >= w.start)) throw new Error(`word ${i + 1} "${w.w}" has times ${w.start}-${w.end} that go backwards (previous start ${prev}).`);
     prev = w.start;
   });
@@ -114,7 +114,7 @@ const clock = (t, sep) => {
   const p = (n, w = 2) => String(n).padStart(w, '0');
   return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)}${sep}${p(ms % 1000, 3)}`;
 };
-const screenText = (c) => c.text.replace(/(?<!\.)\.$/, ''); // no trailing period (L62); "..." stays
+const screenText = (c) => c.text.replace(/(?<!\.)\.$/, ''); // no trailing period; "..." stays
 
 export const toSrt = (cap) => cap.chunks.map((c, n) => `${n + 1}\n${clock(c.words[0].start, ',')} --> ${clock(c.words.at(-1).end, ',')}\n${screenText(c)}\n`).join('\n');
 export const toVtt = (cap) => `WEBVTT\n\n${cap.chunks.map((c) => `${clock(c.words[0].start, '.')} --> ${clock(c.words.at(-1).end, '.')}\n${screenText(c)}\n`).join('\n')}`;

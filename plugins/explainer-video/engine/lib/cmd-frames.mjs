@@ -1,8 +1,8 @@
 // ev frames <project>: capture the picture states of an HTML page (or URL) as full-page PNGs, plus the page-space boxes of
 // named elements, for film.js to aim cursors and callouts at. Ported from the old frames.js and check.js to puppeteer-core.
-// Browser settings are fixed so the same page always gives the same pixels (L70): reduced motion, en-US, a fixed time zone,
+// Browser settings are fixed so the same page always gives the same pixels: reduced motion, en-US, a fixed time zone,
 // no animations, transitions or caret, fonts ready, images decoded, the window grown to the page's full height.
-// `--check <ref dir>` re-renders at device scale 1 and pixel-compares against reference PNGs (L71).
+// `--check <ref dir>` re-renders at device scale 1 and pixel-compares against reference PNGs.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

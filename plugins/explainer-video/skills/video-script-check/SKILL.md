@@ -1,6 +1,6 @@
 ---
 name: video-script-check
-description: Check a video script before any voice money is spent: lint by script (banned and ruled words, repeats, packed sentences, word counts), a cold-viewer read by a fresh agent, and a fact check of every claim against the product's real behaviour. Use when the user wants to review, proof, fact-check or approve narration, script or subtitles text for a video.
+description: Check a video script before any voice money is spent: lint by script (banned words, repeats, packed sentences, word counts), a cold-viewer read by a fresh agent, and a fact check of every claim against the product's real behaviour. Use when the user wants to review, proof, fact-check or approve narration, script or subtitles text for a video.
 ---
 
 # video-script-check
@@ -13,8 +13,8 @@ Three orthogonal checks, because each is blind to the other's job: a cold viewer
 
 `EV script <project> --lint` reads `rules.json`:
 - `banned`: words that must not be spoken (error).
-- `ruled`: the product's own vocabulary; use these exact words.
-Also flags repeated words, sentences over 28 words, packed sentences (three or more clauses), digits, empty beats, unbalanced `[ ]`, and sound-cue-looking tags like `[beat]`. Fix every error; read every warning.
+- `ruled`: the product's own vocabulary. Not checked by the lint yet (it prints an info line); read the spoken file against it yourself.
+Also flags repeated words, sentences over 28 words, packed sentences (three or more clauses), digits (info), empty beats, unbalanced `[ ]`, sound-cue-looking tags like `[beat]`, and a plan that disagrees with the word count. Fix every error; read every warning.
 
 Read `references/script-lint-checklist.md` for what the lint can't catch.
 

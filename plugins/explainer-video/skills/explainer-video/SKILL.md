@@ -36,7 +36,7 @@ Pick the form first. **Quick** (default): about 60 to 90 seconds, 12 beats or fe
 | 1. Script | video-script | edit `script.md`, `EV script <dir>` | counts by script, length plausible |
 | 2. Script checks | video-script-check | `EV script <dir> --lint`, cold-viewer and fact-check reviewers | lint clean, cold viewer passes, fact check clean; the owner approves the exact words |
 | 3. Picture | video-picture | `EV frames <dir>`, edit `film.js` | frames render with 0 page errors; crop rules written down |
-| 4. Voice | video-voice | `EV voice <dir> --dry-run`, then `EV voice <dir>` | spend reported; Whisper says every word is there and no tag was spoken |
+| 4. Voice | video-voice | `EV voice <dir> --dry-run`, then `EV voice <dir>` | spend reported; `EV align <dir> --transcript-only` then `EV gates <dir> --only tags,whisper` say every word is there and no tag was spoken |
 | 5. Captions | video-captions | `EV captions <dir>` | caption words equal the spoken words |
 | 6. Build | video-render | `EV build <dir>` | gates pass: on-screen text, wipes, captions, tags, audio |
 | 7. Review | video-review | fresh reviewers, fix as they go | a round that comes back with nothing |

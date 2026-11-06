@@ -17,7 +17,7 @@ const HELP = `usage: ev align <project> --audio <file> [--engine whisper] [--shi
                      gates have something to read (ev gates <project> --only tags,whisper).
   --shift  seconds added to every Whisper time. Default -0.3: whisper.cpp small.en ran about 0.3 s late on average
            against faster-whisper on one 80 s take (median 0.31, p90 0.59). Use --shift 0 to turn it off.
-  Fails below 90% of script words matched, warns below 98% (L147).
+  Fails below 90% of script words matched, warns below 98%.
   First use builds whisper.cpp and downloads a model, which can take minutes.`;
 
 // Longest-matching-block recursion, like Python's difflib.SequenceMatcher(autojunk=False).get_matching_blocks().
@@ -122,7 +122,7 @@ export default async function (argv) {
   const rate = matched / words.length;
   log(`matched ${matched} of ${words.length} script words to Whisper (${(rate * 100).toFixed(1)}%), shift ${shift} s applied`);
   if (rate < 0.9) throw new Error(`only ${(rate * 100).toFixed(1)}% of the script words were heard (needs 90%). Is this the right recording for this script? Heard: ${heard.slice(0, 20).map((h) => h.text).join(' ')}...`);
-  if (rate < 0.98) log('WARNING: under 98% matched. Listen to the take where the words differ (L147).');
+  if (rate < 0.98) log('WARNING: under 98% matched. Listen to the take where the words differ.');
 
   fs.mkdirSync(proj.voice, { recursive: true });
   if (path.extname(a.audio).toLowerCase() === '.mp3') fs.copyFileSync(a.audio, takeMp3);

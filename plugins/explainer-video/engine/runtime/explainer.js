@@ -27,7 +27,7 @@
 (function () {
   const EVC = typeof EVClock !== 'undefined' ? EVClock : require('./clock.js');
 
-  // Caption timing (lessons L63, L64): a chunk starts 0.08 s before its first word and ends at the earlier of 0.1 s before
+  // Caption timing a chunk starts 0.08 s before its first word and ends at the earlier of 0.1 s before
   // the next chunk or 0.8 s after its own last word. No minimum on-screen time: a floor made short chunks overlap the next.
   // A word is highlighted from its start until the next word starts (or 0.15 s after the last word).
   function captionWindows(chunks) {
@@ -146,7 +146,7 @@
     const rect = (ref) => { if (Array.isArray(ref)) return ref; const b = box(ref); return [b.x, b.y, b.w, b.h]; };
     const win = (v) => ({ x: v[0], y: v[1], w: v[2] });
     // A cut at 0 s goes straight onto the element, outside the timeline: a timeline set at exactly 0 is reverted when
-    // the renderer seeks to 0, so frame 0 showed an empty screen (L85).
+    // the renderer seeks to 0, so frame 0 showed an empty screen.
     const cut = (el, vars, t) => (t <= 0 ? gsap.set(el, vars) : tl.set(el, vars, t));
     // A fade tweens; a cut is a set.
     const fadeTo = (el, vars, d, t) => (d ? tl.to(el, { ...vars, duration: d }, t) : cut(el, vars, t));

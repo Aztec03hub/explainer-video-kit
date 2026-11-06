@@ -17,12 +17,12 @@ Captions and callouts must differ from the app on every axis. Fill one row per a
 | Axis | Rule | What failed in the first project |
 |---|---|---|
 | Typeface | A face the app never uses (rounded display face, for instance) | A face close to the app's confused |
-| Colour | A fill and highlight colour that appear nowhere in the app, one for captions, a different one for callouts | Caption highlight and callout tag shared one yellow, and a yellow outline read as a focus ring (lessons 61, 175) |
-| Place | Captions in a band outside the screen, never over it; centred at a fixed x | Captions that followed the cursor sat under buttons like their labels (178); a tag over the app covered the word "Critical" and half of "100.0" |
-| Shape | Callout = corner brackets on an inset box (so no bracket sits on a row line) plus a plain square-cornered tag in the band, with no pointer or notch | A notched tag read as a tooltip for a cell 700 px away (176); brackets on row lines read as selection handles (177); a round yellow pointer dot passed for a severity dot |
-| Change style | Cuts between chunks, no half-fades | Half-faded words looked murky olive or brown (179) |
-| Punctuation | No trailing period on screen (spoken words unchanged); commas and question marks stay | A trailing period read as a sign-off and the underline ended in a dot (62) |
-| Echo | Callout text must not echo the app's own wording; where an echo is the intended payoff, decide it once in the frame list | "Undo" and "Back in your queue" echoed app text (68, 69) |
+| Colour | A fill and highlight colour that appear nowhere in the app, one for captions, a different one for callouts | Caption highlight and callout tag shared one yellow, and a yellow outline read as a focus ring |
+| Place | Captions in a band outside the screen, never over it; centred at a fixed x | Captions that followed the cursor sat under buttons like their labels; a tag over the app covered the word "Critical" and half of "100.0" |
+| Shape | Callout = corner brackets on an inset box (so no bracket sits on a row line) plus a plain square-cornered tag in the band, with no pointer or notch | A notched tag read as a tooltip for a cell 700 px away; brackets on row lines read as selection handles; a round yellow pointer dot passed for a severity dot |
+| Change style | Cuts between chunks, no half-fades | Half-faded words looked murky olive or brown |
+| Punctuation | No trailing period on screen (spoken words unchanged); commas and question marks stay | A trailing period read as a sign-off and the underline ended in a dot |
+| Echo | Callout text must not echo the app's own wording; where an echo is the intended payoff, decide it once in the frame list | "Undo" and "Back in your queue" echoed app text |
 
 Also decide which things on screen the viewer could take for a callout: a drawn cursor (white arrow, drop shadow, ripple on click) is a drawn object, not a callout. Tell the checker so.
 
@@ -72,7 +72,7 @@ Write the report to {{REPORT_PATH}}: a per-frame line (time, caption text, callo
 ## Reading the result
 
 - FAIL: change the design (frame list first, then code), re-render the sample frames, run a FRESH checker. The first project needed four rounds (FAIL, FAIL, FAIL, PASS), each fixing a different class: a callout covering text and a pointer dot; shared yellow and captions under buttons; tooltip-like notch, brackets on row lines and trailing periods; then PASS with two echo nits.
-- "Only FAIL for something a viewer could actually confuse with the app, not for taste" is the sentence that lets the loop end (lesson 34 applies here too).
+- "Only FAIL for something a viewer could actually confuse with the app, not for taste" is the sentence that lets the loop end.
 - Record the history line in the frame list so a later change doesn't undo a fix.
-- Opaque beats translucent: a see-through caption pill let page text bleed through (lesson 174). Prefer a band outside the screen.
+- Opaque beats translucent: a see-through caption pill let page text bleed through. Prefer a band outside the screen.
 - A pass here says nothing about timing or facts. The cut review checks that captions match the voice word for word and that the highlighted word is the one being spoken.

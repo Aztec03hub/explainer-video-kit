@@ -1,5 +1,5 @@
 // Tests for `ev gates` and every gate behind it. Offline: media is made with ffmpeg at test time (2 to 6 s clips at
-// 640x360), nothing touches a real cut. Every gate has a pass case and a must-fail case (L140).
+// 640x360), nothing touches a real cut. Every gate has a pass case and a must-fail case.
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -75,7 +75,7 @@ describe('ocr gate', { skip: ocrSkip }, () => {
     assert.equal(r.status, 'FAIL');
     assert.match(r.lines[0], /\(poster\).*frame 0 reads as blank/);
   });
-  test('"TKT-12" matches the term "TKT-" (L138)', async () => {
+  test('"TKT-12" matches the term "TKT-"', async () => {
     const r = await ocrGate(ctx(proj(['TKT-']), clip('ask', [...POSTER, dt('TKT-12', 200, 60, 'between(t,1,4)')].join(','))));
     assert.equal(r.status, 'FAIL', 'TKT-12 was not found');
     assert.match(r.lines.at(-1) ?? r.lines[0], /'TKT-'/);
