@@ -13,6 +13,9 @@ import { themeCss } from './theme.mjs';
 // with fontCss, the same two functions and the same inputs as the composition, so the measure sees the fonts the render will use.
 function page(opts, width, height, theme) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-endcard-fit-'));
+  try { return pageIn(dir, opts, width, height, theme); } catch (e) { fs.rmSync(dir, { recursive: true, force: true }); throw e; }
+}
+function pageIn(dir, opts, width, height, theme) {
   const gsapDir = path.join(ENGINE, 'node_modules', 'hyperframes', 'dist', 'vendor', 'npm');
   fs.copyFileSync(path.join(gsapDir, fs.readdirSync(gsapDir).find((d) => d.startsWith('gsap@')), 'dist', 'gsap.min.js'), path.join(dir, 'gsap.min.js'));
   for (const f of ['clock.js', 'explainer.js', 'evolv-endcard.js']) fs.copyFileSync(path.join(RUNTIME, f), path.join(dir, f));
@@ -35,12 +38,13 @@ window.FILM = { id: 'main', duration: 6, page: 1280, events: [{ t: 0, scene: 'en
 // plan: the card plan ({ opts }). Returns { errors, warnings }.
 export async function checkEndcardFit(plan, { width = 1920, height = 1080, theme = { css: '', files: [] } } = {}) {
   if (!plan) return { errors: [], warnings: [] };
-  const els = fitElements(plan.opts), could = (why) => ({ errors: [], warnings: [`could not measure the end card text (${why}); the build continues, but a line that is too long would be cut off the edge of the card.`] });
+  const els = fitElements(plan.opts), could = (why) => ({ errors: [], warnings: [`could not measure the end card text: ${why}; continuing (a line that is too long would be cut off the edge of the card).`] });
   if (!els.length) return { errors: [], warnings: [] };
   let exe;
   try { exe = chromePath(); } catch (e) { return could('no Chrome found'); }
-  const { dir, file } = page(plan.opts, width, height, theme);
+  let dir;
   try {
+    const made = page(plan.opts, width, height, theme); dir = made.dir; const file = made.file;
     const { default: puppeteer } = await import('puppeteer-core');
     const browser = await puppeteer.launch({ executablePath: exe, headless: true, args: ['--font-render-hinting=none', '--force-color-profile=srgb', ...(process.env.EV_NO_SANDBOX ? ['--no-sandbox'] : [])] });
     try {
@@ -57,7 +61,7 @@ export async function checkEndcardFit(plan, { width = 1920, height = 1080, theme
       return { errors, warnings: [] };
     } finally { await browser.close(); }
   } catch (e) { return could(e.message.split('\n')[0]); }
-  finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  finally { if (dir) fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
 // ev doctor --project: the same check for a project folder (null when the project has no card).

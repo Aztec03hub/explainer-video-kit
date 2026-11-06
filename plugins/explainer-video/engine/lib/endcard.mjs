@@ -64,7 +64,7 @@ export function evolvLogoReason(proj) {
       const f = path.join(dir, e.name);
       if (/evolv-(logo|icon)/.test(e.name)) return path.relative(proj.root, f);
       if (e.isDirectory() && depth < 4 && e.name !== 'node_modules') { const r = walk(f, depth + 1); if (r) return r; }
-      else if (e.isFile() && TEXT_FILE.test(e.name) && fs.statSync(f).size < 2e6 && /evolv-(logo|icon)/.test(fs.readFileSync(f, 'utf8'))) return path.relative(proj.root, f);
+      else if (e.isFile() && TEXT_FILE.test(e.name)) { let hit = false; try { hit = fs.statSync(f).size < 2e6 && /evolv-(logo|icon)/.test(fs.readFileSync(f, 'utf8')); } catch { /* unreadable: not a match */ } if (hit) return path.relative(proj.root, f); }
     }
     return null;
   };
@@ -178,6 +178,20 @@ export function evolvThemeDefaults(proj, plan) {
     ...Object.keys((cfg.theme && typeof cfg.theme === 'object' && cfg.theme.vars) || {}),
   ]);
   return Object.fromEntries(Object.entries({ '--ev-highlight': orange, '--ev-callout': orange, '--ev-callout-ink': CALLOUT_INK, '--ev-callout-shadow': CALLOUT_SHADOW }).filter(([k]) => !own.has(k)));
+}
+// A blank (whitespace-only) style or theme value for a colour the evolv defaults set would blank the evolv orange, so it is an error, but only
+// when the defaults apply (the card, an explicit endcard block or the evolv logo). Other projects keep exactly the v0.1.1 behaviour.
+export function blankColourErrors(proj, plan) {
+  const cfg = proj.cfg || {}, c = cfg.endcard;
+  if (!plan && !evolvLogoReason(proj) && !(c !== undefined && c !== null && !off(c))) return [];
+  const blank = (v) => typeof v === 'string' && !v.trim(), errors = [];
+  for (const k of ['highlight', 'callout', 'calloutInk', 'calloutShadow']) {
+    if (blank(cfg.style?.[k])) errors.push(`project.json style.${k}: the value is blank, which would replace the evolv colour default: give style.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
+  }
+  for (const k of ['--ev-highlight', '--ev-callout', '--ev-callout-ink', '--ev-callout-shadow']) {
+    if (blank(cfg.theme?.vars?.[k])) errors.push(`project.json theme.vars.${k}: the value is blank, which would replace the evolv colour default: give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
+  }
+  return errors;
 }
 export const defaultsCss = (d) => (Object.keys(d).length ? `:root { ${Object.entries(d).map(([k, v]) => `${k}: ${v};`).join(' ')} }` : '');
 

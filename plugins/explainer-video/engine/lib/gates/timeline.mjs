@@ -17,10 +17,12 @@ export function loadTimeline(proj, gateName) {
   vm.runInNewContext(fs.readFileSync(proj.film, 'utf8'), sandbox, { filename: proj.film });
   const F = sandbox.window.FILM;
   if (!F || !Array.isArray(F.events)) throw new Error(`${proj.film} must set window.FILM = { events: [...] }`);
+  const html = fs.readFileSync(indexFile, 'utf8');
   const card = endcardDecision(proj, sandbox.window);   // the evolv end card is added to the events at build time, so the gates see it too
-  if (card.plan) F.events = [...F.events, card.plan.event];
+  // only when the build really wrote it: an implicit card that did not fit is dropped by ev build (the Chrome result is not known here)
+  if (card.plan && html.includes('assets/evolv-endcard.js')) F.events = [...F.events, card.plan.event];
   const captions = JSON.parse(fs.readFileSync(captionsFile, 'utf8'));
-  const dur = /data-composition-id[^>]*data-duration="([\d.]+)"/.exec(fs.readFileSync(indexFile, 'utf8'));
+  const dur = /data-composition-id[^>]*data-duration="([\d.]+)"/.exec(html);
   if (!dur) throw new Error(`${indexFile} has no root element with data-composition-id and data-duration`);
   const length = Number(dur[1]);
   const { makeClock } = createRequire(import.meta.url)(path.join(RUNTIME, 'clock.js'));

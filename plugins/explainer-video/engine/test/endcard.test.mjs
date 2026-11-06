@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
 import { spawnSync } from 'node:child_process';
+import { chromePath } from '../lib/cmd-frames.mjs';
 import { ENGINE, loadProject } from '../lib/common.mjs';
 import { writeComposition } from '../lib/cmd-build.mjs';
 import { checkEndcardFit, checkProjectFit } from '../lib/endcard-measure.mjs';
@@ -418,7 +419,7 @@ test('no machine Chrome: the fit check says it could not measure and does not fa
   try {
     const r = await checkEndcardFit({ opts: { title: ['T'], lines: [], note: '' } });
     assert.deepEqual(r.errors, []);
-    assert.match(r.warnings[0], /^could not measure the end card text \(.*\); the build continues/);
+    assert.match(r.warnings[0], /^could not measure the end card text: .*; continuing/);
   } finally { if (keep === undefined) delete process.env.CHROME; else process.env.CHROME = keep; }
 });
 
@@ -571,7 +572,8 @@ test('implicit card + no title: no card, a warning, no error; explicit block + n
   const x = made([], (c) => { c.endcard = {}; delete c.title; });
   assert.match(checkProject(x).errors.join('\n'), /the end card has no title/);
 });
-test('implicit card + title too long: skipped with a warning; explicit block: ERROR with element, length, limit; good title: card kept', async () => {
+const noChrome = (() => { try { chromePath(); return false; } catch { console.log('SKIPPING the end card fit test: no Chrome'); return true; } })();
+test('implicit card + title too long: skipped with a warning; explicit block: ERROR with element, length, limit; good title: card kept', { skip: noChrome && 'no Chrome' }, async () => {
   const p = implicit((c) => { c.title = LONG; });
   const d = endcardDecision(p, win(p)); assert.ok(d.plan.implicit);
   const r = await checkEndcardFit(d.plan, { width: 1920, height: 1080 });
@@ -584,4 +586,39 @@ test('implicit card + title too long: skipped with a warning; explicit block: ER
   const rg = await checkEndcardFit(endcardDecision(g, win(g)).plan, { width: 1920, height: 1080 });
   assert.deepEqual(rg, { errors: [], warnings: [] });
   assert.deepEqual(endcardDecision(g, win(g)).plan.opts.title, ['Short name']);
+});
+
+// ---- review 6 fixes ----
+test('M1: the gates add the card event only when the build wrote the card into the composition', async () => {
+  const { loadTimeline } = await import('../lib/gates/timeline.mjs');
+  const p = implicit((c) => { c.title = 'Short name'; });
+  const plan = endcardDecision(p, win(p)).plan; assert.ok(plan);
+  fs.mkdirSync(path.join(p.build, 'frames'), { recursive: true });
+  fs.writeFileSync(path.join(p.build, 'captions.json'), JSON.stringify({ chunks: [], beats: [] }));
+  const events = (card) => { writeComposition(p, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: card }); return loadTimeline(p, 'wipes').F.events.map((e) => e.scene); };
+  assert.ok(!events(null).includes('endcard'), 'card dropped for fit: no phantom event');
+  assert.ok(events(plan).includes('endcard'), 'card built: event present');
+});
+test('M2: a throw while setting up the fit check is a warning, on the implicit and the explicit path alike', async () => {
+  const bad = { css: '', files: [{ from: path.join(tmp, 'no-such-font.ttf'), name: 'x.ttf' }] };
+  for (const implicitCard of [true, false]) {
+    const r = await checkEndcardFit({ implicit: implicitCard, opts: { title: ['T'], lines: [], note: '' } }, { theme: bad });
+    assert.deepEqual(r.errors, []); assert.ok(!r.skip);
+    assert.match(r.warnings[0], /^could not measure the end card text: .*; continuing/);
+  }
+});
+test('L1: an unreadable mockup file is "no match", not a crash', () => {
+  const p = made([], (c) => { delete c.endcard; delete c.brand; });
+  fs.mkdirSync(path.join(p.root, 'mockup'), { recursive: true });
+  const f = path.join(p.root, 'mockup', 'x.html'); fs.writeFileSync(f, '<p>hello</p>'); fs.chmodSync(f, 0o000);   // read throws (unless run as root)
+  assert.doesNotThrow(() => endcardDecision(p, win(p)));
+  assert.equal(endcardDecision(p, win(p)).plan, null);
+});
+test('L2: a blank style or theme colour is an error only where the evolv defaults apply; other projects keep v0.1.1 behaviour', () => {
+  const o = made([], (c) => { delete c.endcard; delete c.brand; c.style = { highlight: ' ' }; c.theme = { vars: { '--ev-callout': ' ' } }; });
+  assert.deepEqual(checkProject(o).errors.filter((m) => /blank/.test(m)), []);
+  fs.mkdirSync(path.join(o.build, 'frames'), { recursive: true });
+  assert.doesNotThrow(() => writeComposition(o, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }));
+  const e = made([], (c) => { c.style = { highlight: ' ' }; });
+  assert.match(checkProject(e).errors.join('\n'), /style\.highlight: .*is blank/);
 });

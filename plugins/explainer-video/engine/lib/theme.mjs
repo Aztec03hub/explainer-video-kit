@@ -9,7 +9,7 @@ export const THEME_VARS = [
   '--ev-font', '--ev-caption-font', '--ev-tag-font', '--ev-caption-size', '--ev-tag-size', '--ev-caption-bg',
   '--ev-callout-shadow', '--ev-cursor', '--ev-cursor-edge', '--ev-ripple',
 ];
-const SAFE = /^(?=.*\S)[^;{}<>\\]+$/; // a CSS value cannot break out of its rule
+const SAFE = /^[^;{}<>\\]+$/; // a CSS value cannot break out of its rule
 const FONT_EXT = /\.(ttf|otf|woff2?)$/i;
 
 export function themeCss(theme, root) {
@@ -17,7 +17,7 @@ export function themeCss(theme, root) {
   const rules = [], files = [];
   const vars = Object.entries(theme.vars || {}).map(([k, v]) => {
     if (!THEME_VARS.includes(k)) throw new Error(`project.json theme.vars.${k}: unknown variable. Use one of: ${THEME_VARS.join(', ')}`);
-    if (!SAFE.test(String(v))) throw new Error(`project.json theme.vars.${k}: use a CSS value without ; { } < > or backslash. The value is blank or has a forbidden character: give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
+    if (!SAFE.test(String(v))) throw new Error(`project.json theme.vars.${k}: use a CSS value without ; { } < > or backslash. Give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
     return `${k}: ${v};`;
   });
   (theme.fonts || []).forEach((f, i) => {
