@@ -79,7 +79,7 @@ export class KeyMissing extends Error {}
 // module. When it's missing, the error names the variable and every place that was looked at.
 export function getKey(name, opts = {}) {
   for (const s of keySources(opts)) {
-    const value = s.file ? readEnvVar(s.file, name) : process.env[name];
+    const value = s.file ? readEnvVar(s.file, name) : process.env[name]?.trim();
     if (value) return { value, source: s.file || `environment variable ${name}` };
   }
   const where = keySources(opts).map((s) => (s.file ? `  - ${s.file}` : `  - the environment variable ${name}`)).join('\n');

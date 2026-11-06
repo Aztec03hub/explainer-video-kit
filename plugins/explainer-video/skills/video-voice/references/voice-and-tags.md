@@ -33,7 +33,7 @@ Tags are in square brackets and are not spoken. Rules that held:
 
 ## 4. Verify the take (measurement, not listening)
 
-- Align the take with Whisper (faster-whisper word timestamps) and compare to the script: the first project matched 211 of 212 words and then 210 of 212; the misses were a hyphenated number that Whisper splits in two. Retake a line only when Whisper shows a misread. Below about 98 percent, listen.
+- Let Whisper listen to the take (`ev align <project> --transcript-only`, then `ev gates <project> --only tags,whisper`) and compare to the script: the first project matched 211 of 212 words and then 210 of 212; the misses were a hyphenated number that Whisper splits in two. Retake a line only when Whisper shows a misread. Below about 98 percent, listen.
 - No tag may be spoken. Check Whisper's heard words, the caption words and the SRT against the tag vocabulary (the words inside your brackets, plus common ones such as curious, wry, exhales, warm, softer, gentle, playful, laugh, serious, steady, firm). Expect false hits where an approved script word equals a tag word (one script line legitimately contained "serious").
 - Duration against the plan, and pace in words per second. Don't promise the owner a fixed length before the take exists.
 - Words Whisper can't match are interpolated between matched neighbours; the script's spelling wins.
@@ -51,7 +51,7 @@ Tags are in square brackets and are not spoken. Rules that held:
 ## 6. Choosing a voice and cloning
 
 - The API does not label gender. Pitch (median F0 per take) is a rough proxy; say so, and leave the final pick to a human listening.
-- Clone only a voice you have the rights to, never a third person, and never ship one in a plugin or sample. Clone from a clean take: one speaker, one style, no music, background-noise removal off. A clone costs no characters. The plugin ships no voice ids; `ev voices` lists the user's own.
+- Clone only a voice you have the rights to, never a third person, and never ship one in a plugin or sample. Clone from a clean take: one speaker, one style, no music, background-noise removal off. A clone costs no characters. The plugin ships no voice ids; `ev voice voices` lists the user's own.
 - Before client use, check the client's contract and any rule that requires disclosing an AI voice. Cost isn't the discriminator for a 90 s script (cents per take); licence and quality are.
 - Tone for the buyer: warm beats zany for enterprise and finance-adjacent audiences.
 

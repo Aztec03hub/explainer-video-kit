@@ -40,3 +40,15 @@ test('binaries, node_modules and --ignore are skipped', () => {
   assert.equal(scan(d).status, 1);
   assert.equal(scan(d, '--ignore', 'fixture').status, 0);
 });
+
+test('getKey trims the environment value and treats a blank one as missing', async () => {
+  const { getKey, KeyMissing } = await import('../lib/common.mjs');
+  const keep = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-key-')); // no user .env here
+  process.env.EV_TEST_KEY = '  abc123\n';
+  try {
+    assert.equal(getKey('EV_TEST_KEY').value, 'abc123');
+    process.env.EV_TEST_KEY = ' \n';
+    assert.throws(() => getKey('EV_TEST_KEY'), KeyMissing);
+  } finally { delete process.env.EV_TEST_KEY; if (keep === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = keep; }
+});
