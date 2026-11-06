@@ -88,18 +88,28 @@ export function getKey(name, opts = {}) {
 }
 export const KEY_HELP = { ELEVENLABS_API_KEY: 'https://elevenlabs.io/app/settings/api-keys' };
 
+// Finds a program by walking PATH ourselves: absolute directories only, so an empty or relative entry (and the current
+// folder, which Windows searches first) can never supply the program. Returns an absolute path or null.
 export function which(bin) {
-  const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', [bin], { encoding: 'utf8', cwd: os.tmpdir() });
-  return r.status === 0 ? r.stdout.split(/\r?\n/)[0].trim() : null;
+  if (path.isAbsolute(bin)) return fs.existsSync(bin) ? bin : null;
+  const exts = process.platform === 'win32' ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';').concat(['']) : [''];
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    if (!dir || !path.isAbsolute(dir)) continue;
+    for (const ext of exts) {
+      const full = path.join(dir, bin + ext);
+      try { if (fs.statSync(full).isFile()) return full; } catch { /* not here */ }
+    }
+  }
+  return null;
 }
 
-// run(cmd, args) -> { status, stdout, stderr }. Throws a clear error when the program isn't installed.
+// run(cmd, args) -> { status, stdout, stderr }. A bare program name is resolved with which() and run by absolute path.
+// Throws a clear error when the program isn't installed.
 export function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 1 << 28, ...opts });
-  if (r.error) {
-    if (r.error.code === 'ENOENT') throw new Error(`${cmd} is not installed or not on PATH. Run: ev doctor`);
-    throw r.error;
-  }
+  const exe = which(cmd);
+  if (!exe) throw new Error(`${cmd} is not installed or not on PATH. Run: ev doctor`);
+  const r = spawnSync(exe, args, { encoding: 'utf8', maxBuffer: 1 << 28, ...opts });
+  if (r.error) throw r.error;
   return r;
 }
 
