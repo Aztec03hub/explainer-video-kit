@@ -1,6 +1,6 @@
 # The hero video's sources
 
-The video at the top of the main README was made by the plugin from these files: the script, the Harbor screens (a fake app, fake data, one HTML page with a `?state=` per screen), the film spec (`film.js`, which also holds the end card as a live scene) and the project settings. The screens and the end card use the evolv Groundwork look through the `theme` setting in `project.json`; the vendored tokens and fonts are in `mockup/`.
+The video at the top of the main README was made by the plugin from these files: the script, the Harbor screens (a fake app, fake data, one HTML page with a `?state=` per screen), the film spec (`film.js`) and the project settings, which include the end card: the `endcard` block in `project.json` holds its title, the two install lines and the note, and the engine plays it over the last beat (see the End card section of the main README). `film.js` only keeps a callout that brackets the two install lines. The screens and the end card use the evolv Groundwork look through the `theme` setting in `project.json`; the vendored tokens and fonts are in `mockup/`.
 
 Not included: the voice take (it costs ElevenLabs credits and you'd pick your own voice), the captured frames, the build output and the music. The music is a Pixabay track and its licence doesn't allow passing the audio on as a file, so get your own copy:
 

@@ -23,6 +23,8 @@ Your key goes in `.env` (copy `.env.example`); it is gitignored and never scanne
 Layout: project.json (settings), script.md (what's said), rules.json (word rules), film.js (picture events),
 mockup/ (the page that gets captured), frames/, voice/, build/ and out/ (generated).
 
+The end card: project.json `endcard` is the evolv end card (the Gleam), played over the last beat of script.md. Replace its placeholder line ("Replace this with your call to action") with your own command or link, and change `title` and `note` as you like. Keep the last beat a short closing line with no picture events. `"endcard": "none"` turns the card off; see the main README's End card section.
+
 The sample page is built for video: 1280x720 (`"fixed": 720` in project.json), headings 44 px and up, body and buttons 28 px and up, content centred. Keep that when you replace it with your own screens. `ev doctor --project .` checks film.js against project.json (states, boxes, anchors, camera windows) without a browser; rewrite film.js and project.json `frames` together with the mockup.
 
 ## Bells and whistles (all used in film.js)

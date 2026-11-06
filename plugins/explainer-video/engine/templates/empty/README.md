@@ -1,8 +1,10 @@
 # Video project (empty skeleton)
 
-Fill in, in this order: script.md (one beat to start), rules.json (your banned words, the product's own words, text that must never be on screen),
+Fill in, in this order: script.md (a hook beat and a closing beat to start), rules.json (your banned words, the product's own words, text that must never be on screen),
 then your page: put it at mockup/index.html (or point project.json frames.page at your own page or URL) and list its states in project.json.
 Then run `ev setup` once per machine, `ev doctor`, `ev script . --lint`, `ev frames`. Your key goes in `.env` (copy `.env.example`).
+
+The end card: project.json `endcard` is the evolv end card (the Gleam), played over the last beat of script.md, which is why the script starts with two beats: a hook and a closing line. Replace the placeholder line ("Replace this with your call to action") with your own command or link, and keep the last beat a short closing line with no picture events. `"endcard": "none"` turns it off.
 
 ## Bells and whistles (all used in film.js)
 

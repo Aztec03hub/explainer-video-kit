@@ -12,6 +12,8 @@ Layout: project.json (settings), script.md (what's said), rules.json (word rules
 mockup/ (the page that gets captured), frames/, voice/, build/ and out/ (generated).
 The .gitignore is named `.gitignore` in your project; `.env` is never committed.
 
+The end card: project.json `endcard` is the evolv end card (the Gleam), played over the last beat of script.md. Replace its placeholder line ("Replace this with your call to action") with your own command or link, and change `title` and `note` as you like. Keep the last beat a short closing line with no picture events. `"endcard": "none"` turns the card off; see the main README's End card section.
+
 rules.json lists:
 - banned: words that must never appear in the script (the lint fails on them).
 - ruled: the product's own vocabulary. The lint warns when a spoken word is spelled or capitalised differently, and notes a ruled term the script never uses. Replace the sample words with your own.

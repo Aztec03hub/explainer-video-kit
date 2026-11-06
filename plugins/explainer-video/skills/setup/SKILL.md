@@ -13,5 +13,5 @@ description: First-run setup for explainer-video. Installs the render browser an
    - ffmpeg and ffprobe (required)
    - tesseract (required: without it the on-screen text gate fails; `--skip-ocr` opts out)
    - an ElevenLabs key (optional, for the voice only; never ask them to paste it into the chat, point them to the "Keys" section of the explainer-video skill)
-3. Once everything needed shows a tick, offer a sample video: ask which folder to use, then run `EV init demo` and `EV build demo` there. It renders with no voice and no key. Tell them where the mp4 landed.
+3. Once everything needed shows a tick, offer a sample video: ask which folder to use, then run `EV init demo` and `EV build demo` there. It renders with no voice and no key. Tell them where the mp4 landed. The sample ends on the evolv end card (the Gleam) with a placeholder line; say that `endcard` in project.json is where its text goes.
 4. Then point them to the explainer-video skill: "Make an explainer video of this app."

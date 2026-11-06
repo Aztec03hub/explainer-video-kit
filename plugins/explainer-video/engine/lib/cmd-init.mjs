@@ -27,7 +27,7 @@ const boxed = (title, body) => {
 
 export default async function (argv) {
   const a = parseArgs(argv, { bool: ['force', 'help', 'empty'] });
-  if (a.help || !a._[0]) return log('usage: ev init <dir> [--form quick|long] [--name <name>] [--empty] [--force]\nCopies the sample project (one minute, or about two minutes with chapters for --form long) into <dir> (must be empty unless --force).\n--empty makes a minimal skeleton instead: a one-beat script, an empty film.js, one frames state, empty rules.');
+  if (a.help || !a._[0]) return log('usage: ev init <dir> [--form quick|long] [--name <name>] [--empty] [--force]\nCopies the sample project (one minute, or about two minutes with chapters for --form long) into <dir> (must be empty unless --force).\n--empty makes a minimal skeleton instead: a two-beat script (a hook and a closing line), an empty film.js, one frames state, empty rules.\nEvery project gets an "endcard" block in project.json (the evolv end card, played over the last beat): replace its placeholder line.');
   const form = a.form || 'quick';
   if (!['quick', 'long'].includes(form)) throw new Error(`--form must be quick or long, not "${form}"`);
   const dir = path.resolve(a._[0]);

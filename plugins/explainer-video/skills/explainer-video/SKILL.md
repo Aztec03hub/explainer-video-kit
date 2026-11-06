@@ -37,13 +37,15 @@ Pick the form first. **Quick** (default): about 60 to 90 seconds, 12 beats or fe
 | 0. Project | this skill | `EV init <dir> --form quick` | doctor passes for the steps you need |
 | 1. Script | video-script | edit `script.md`, `EV script <dir>` | counts by script, length plausible |
 | 2. Script checks | video-script-check | `EV script <dir> --lint`, cold-viewer and fact-check reviewers | lint clean, cold viewer passes, fact check clean; the owner approves the exact words, then `EV script <dir> --approve` locks them (`--diff` shows changes; `EV voice` refuses changed words unless `--force-words`) |
-| 3. Picture | video-picture | `EV frames <dir>`, edit `film.js` | frames render with 0 page errors; crop rules written down |
+| 3. Picture | video-picture | `EV frames <dir>`, edit `film.js`, set the end card's `title` and `lines` in project.json | frames render with 0 page errors; crop rules written down; the end card's placeholder line is replaced |
 | 4. Voice | video-voice | `EV voice <dir> --dry-run`, then `EV voice <dir>` | spend reported; `EV align <dir> --transcript-only` then `EV gates <dir> --only tags,whisper` say every word is there and no tag was spoken |
 | 5. Captions | video-captions | `EV captions <dir>` | caption words equal the spoken words |
 | 6. Build | video-render | `EV build <dir>` | gates pass: on-screen text, wipes, captions, tags, audio |
 | 7. Review | video-review | fresh reviewers, fix as they go | a round that comes back with nothing |
 
 The order is script, script check, picture, voice, captions, build, review. Picture can come before voice because captions can use placeholder timing; voice must come after the words are approved.
+
+Every video ends on the evolv end card (the Gleam) unless project.json says `"endcard": "none"` or film.js has its own end scene. `EV init` writes the `endcard` block with a placeholder line to replace, and the last beat of the script is a short closing line that the card plays over: keep it that way, and put no picture events on it (details in video-picture).
 
 Music is optional and free: `EV music --list`, then `EV music <Pixabay track URL> --project <dir>` (before the build; details in video-render). The user accepts Pixabay's licence; the track is for use in the video only, never to be shared on its own.
 

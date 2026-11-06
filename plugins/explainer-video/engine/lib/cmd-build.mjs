@@ -21,7 +21,9 @@ const HELP = `usage: ev build <project> [--no-render] [--quality draft|delivery]
   --skip-gates   render without running the gates
   --sharpen [a]  after the render, one ffmpeg unsharp-mask pass (amount 0.1 to 1.5, default 0.7) for crisper screen text. Also project.json render.sharpen. Off by default
   --skip-pixel-check  don't compare the frames with project.json frames.approved (a folder of approved PNGs) before rendering
-  --skip-ocr     the on-screen text gate won't fail on a missing tesseract (also: project.json "gates": { "ocr": false })`;
+  --skip-ocr     the on-screen text gate won't fail on a missing tesseract (also: project.json "gates": { "ocr": false })
+  The evolv end card (the Gleam) is added over the last beat from project.json "endcard" ({ title, lines, note }); "endcard": "none" or your own
+  window.SCENES.endcard in film.js turns it off. A project with no "endcard" key gets it only if it uses the evolv logo. One line says what was decided.`;
 
 const TAIL_SECONDS = 5; // the film ends this many seconds after the voice, so the last beat holds while the music fades
 
