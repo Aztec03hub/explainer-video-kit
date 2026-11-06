@@ -1,13 +1,13 @@
-// The picture for the sample film. Numbers are plan seconds (the @windows in script.md); "word:" and "beat:" anchors
-// follow the voice, so the picture lands on its word on any voice.
+// The picture for the sample film. Plain numbers are plan seconds (the @windows in script.md, 72 s in all); "word:" and
+// "beat:" anchors follow the voice, so the picture lands on its word on any voice.
 window.FILM = {
   id: 'main',
-  duration: 90,
+  duration: 72,
   page: 1280,
   screen: { x: 160, y: 24, w: 1600, h: 900 },
   events: [
     { t: 0, show: 'dark/default' },
-    { t: 7, cam: [0, 0, 900], dur: 2 },
+    { t: 'beat:2+0.5', cam: [0, 0, 900], dur: 2 },
     { t: 'beat:3+0.2', cursor: 'dark/default:search', dur: 0.8 },
     { t: 'beat:4', cam: [0, 120, 800], dur: 1.2 },
     { t: 'word:borrow', cursor: 'dark/default:borrow', dur: 0.7 },

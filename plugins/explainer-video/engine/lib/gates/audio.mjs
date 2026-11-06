@@ -40,7 +40,10 @@ export function duckedMusicLufs({ voice, music, bed, offset, length, voiceLen })
 export default async function audioGate({ proj, cut, opts = {} }) {
   const target = Number.isFinite(parseFloat(opts.lufs)) ? parseFloat(opts.lufs) : TARGET;
   const loud = measure(cut);
-  if (loud.lufs === null) return { name, status: 'FAIL', measured: 'the cut is silent', limit: `${target} +/- ${TOLERANCE} LUFS`, margin: 'n/a', lines: [`${cut} has no audio above the gate. Check the mix: ev build <project>`] };
+  const hasInputs = fs.existsSync(path.join(proj.voice, 'take.mp3')) || !!proj.cfg.music;
+  const silent = loud.lufs === null || loud.lufs <= -70 || loud.peak === null; // ebur128 reports silence as -70 LUFS
+  if (silent && !hasInputs) return { name, status: 'SKIP', reason: `${cut} is silent and there is no voice/take.mp3 and no music in project.json: a silent film is not a failure, so loudness was not judged. Run ev voice, or set music, to get an audio check.` };
+  if (silent) return { name, status: 'FAIL', measured: 'the cut is silent', limit: `${target} +/- ${TOLERANCE} LUFS`, margin: 'n/a', lines: [`${cut} has no audio above the gate. Check the mix: ev build <project>`] };
   const lines = [], warnings = [];
   const lufsMargin = TOLERANCE - Math.abs(loud.lufs - target);
   const peakMargin = MAX_PEAK - loud.peak;

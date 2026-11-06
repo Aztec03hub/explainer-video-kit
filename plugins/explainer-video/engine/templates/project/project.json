@@ -17,15 +17,11 @@
      "confirmed": "&state=confirmed"
     },
     "texts": {
-     "search": "Search the shelves",
      "borrow": "Borrow",
-     "confirm": "Confirm loan",
-     "banner": "Loan confirmed"
+     "confirm": "Confirm loan"
     },
     "boxes": {
      "search": "#search",
-     "borrow": "#book-1 .btn",
-     "confirm": "#confirm-btn",
      "banner": "#banner"
     }
    }

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ffprobeDuration, hfEnv, hyperframesBin, loadProject, log, norm, parseArgs, readJson, run, writeJson } from './common.mjs';
+import { ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, norm, parseArgs, readJson, run, writeJson } from './common.mjs';
 import { ensureScript, spokenWords } from './script.mjs';
 
 const HELP = `usage: ev align <project> --audio <file> [--engine whisper] [--shift -0.3] [--force] [--key-file <path>]
@@ -80,8 +80,8 @@ function transcribe(audio, engine) {
   if (!bin) throw new Error('hyperframes is not installed in the engine. Run: ev setup');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-align-'));
   log('Transcribing with Whisper. On first use this builds whisper.cpp and downloads a model, which can take several minutes. Progress goes to stderr.');
-  const r = spawnSync(bin, ['transcribe', path.resolve(audio), '--json', '-e', engine, '-m', 'small.en', '-l', 'en', '-d', dir],
-    { env: hfEnv(), stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', shell: process.platform === 'win32' });
+  const hf = hyperframesCmd(['transcribe', path.resolve(audio), '--json', '-e', engine, '-m', 'small.en', '-l', 'en', '-d', dir]);
+  const r = spawnSync(hf.cmd, hf.args, { env: hfEnv(), stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`hyperframes transcribe failed (exit ${r.status}). Run it by hand for details: hyperframes transcribe ${audio} --json -m small.en -l en`);
   const file = path.join(dir, 'transcript.json');
   if (!fs.existsSync(file)) throw new Error(`hyperframes transcribe wrote no transcript.json in ${dir}`);

@@ -9,8 +9,8 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { PNG } from 'pngjs';
-import { run, hyperframesBin, hfEnv } from '../lib/common.mjs';
-import build, { assertNotFrozen, filmLength, readFilm, styleCss } from '../lib/cmd-build.mjs';
+import { run, hyperframesBin, hyperframesCmd, hfEnv } from '../lib/common.mjs';
+import build, { assertNotFrozen, checkFindings, filmLength, readFilm, styleCss } from '../lib/cmd-build.mjs';
 
 const require = createRequire(import.meta.url);
 const { captionWindows, resolveEvents, defaultScreen } = require('../runtime/explainer.js');
@@ -93,7 +93,25 @@ test('must fail: building with no frames says how to make them', async () => {
   await assert.rejects(build([dir, '--no-render']), /no frames in .*Run: ev frames/s);
 });
 
-const chrome = hyperframesBin() && spawnSync(hyperframesBin(), ['browser', 'path'], { env: hfEnv(), shell: process.platform === 'win32' });
+test('hyperframesCmd runs the CLI through node on every platform, never a .cmd shim', () => {
+  const c = hyperframesCmd(['check', '.']);
+  assert.equal(c.cmd, process.execPath);
+  assert.match(c.args[0], /hyperframes[\\/]bin[\\/]hyperframes\.mjs$/);
+  assert.deepEqual(c.args.slice(1), ['check', '.']);
+  assert.equal(spawnSync(c.cmd, [...c.args.slice(0, 1), '--version'], { encoding: 'utf8', env: hfEnv() }).status, 0);
+});
+
+test('checkFindings lists the error findings from the report a failed check names', () => {
+  const rep = path.join(tmp, 'check-report.json');
+  fs.writeFileSync(rep, JSON.stringify({ ok: false, lint: { findings: [] },
+    runtime: { findings: [{ code: 'page_error', severity: 'error', message: 'explainer: no box "x"' }] },
+    layout: { findings: [{ code: 'sweep_static', severity: 'warning', message: 'still' }] } }));
+  assert.deepEqual(checkFindings(['  Check failed', `  Report: ${rep}`]), ['page_error: explainer: no box "x"']);
+  assert.match(checkFindings(['no path here'])[0], /no readable report path/);
+});
+
+const hfBrowser = hyperframesBin() && hyperframesCmd(['browser', 'path']);
+const chrome = hfBrowser && spawnSync(hfBrowser.cmd, hfBrowser.args, { env: hfEnv() });
 const haveChrome = chrome && chrome.status === 0;
 if (!haveChrome) console.log('SKIPPING the render test: no render browser found. Run: ev setup');
 

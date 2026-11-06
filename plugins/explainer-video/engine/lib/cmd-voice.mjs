@@ -80,7 +80,7 @@ async function speak(a) {
   if (!a.model && !cfg.model) log(`No model in project.json voice.model: using ${RECOMMENDED_MODEL} (the recommended default).`);
   const voice = a.voice || cfg.id;
   const seed = a.seed !== undefined ? parseInt(a.seed, 10) : cfg.seed;
-  if (!voice) throw new Error('no voice id. Run `ev voice voices`, then set project.json voice.id or pass --voice <id>. Voice ids are never shipped with the plugin.');
+  if (!voice && !a['dry-run']) throw new Error('no voice id. Run `ev voice voices`, then set project.json voice.id or pass --voice <id>. Voice ids are never shipped with the plugin.');
   const outDir = path.resolve(a.out || proj.voice);
   const spendFile = path.join(outDir, 'spend.json');
 
@@ -89,10 +89,13 @@ async function speak(a) {
   const chars = reqs.reduce((n, r) => n + r.characters, 0);
   let ratio = null;
   if (fs.existsSync(spendFile)) ratio = readJson(spendFile).ratio ?? null;
-  log(`${script.beats.length} beats, ${script.words} words -> ${reqs.length} request${reqs.length === 1 ? '' : 's'} (model ${model}, voice ${voice}${seed !== undefined ? `, seed ${seed}` : ''})`);
+  log(`${script.beats.length} beats, ${script.words} words -> ${reqs.length} request${reqs.length === 1 ? '' : 's'} (model ${model}, voice ${voice || '(none yet)'}${seed != null && !Number.isNaN(seed) ? `, seed ${seed}` : ''})`);
   reqs.forEach((r, k) => log(`  request ${k + 1}: beats ${r.beats[0] + 1}-${r.beats.at(-1) + 1}, ${r.characters} characters`));
   log(`total ${chars} characters. Estimated credits: ${ratio ? `${Math.round(chars * ratio)} (ratio ${ratio.toFixed(2)} from ${spendFile})` : 'unknown ratio: the first real run records it'}`);
-  if (a['dry-run']) return log('Dry run: nothing was spent.');
+  if (a['dry-run']) {
+    if (!voice) log('no voice id yet: run ev voice voices, then set project.json voice.id or pass --voice <id>. A real run needs one.');
+    return log('Dry run: nothing was spent.');
+  }
 
   const takeMp3 = path.join(outDir, 'take.mp3');
   if (fs.existsSync(takeMp3) && !a.force) throw new Error(`${takeMp3} already exists. A shipped voice is frozen and a new take costs credits: pass --force to replace it.`);
@@ -109,7 +112,7 @@ async function speak(a) {
   for (const [k, r] of reqs.entries()) {
     log(`speaking request ${k + 1}/${reqs.length}...`);
     const body = { text: r.text, model_id: model };
-    if (seed !== undefined && !Number.isNaN(seed)) body.seed = seed;
+    if (seed != null && !Number.isNaN(seed)) body.seed = seed; // the template's "seed": null means no seed
     if (r.previous) body.previous_text = r.previous;
     if (r.next) body.next_text = r.next;
     if (cfg.settings) body.voice_settings = cfg.settings; // none by default: the voice speaks with its own saved settings (L46)

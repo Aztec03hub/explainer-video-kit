@@ -245,6 +245,17 @@ describe('audio gate', () => {
     F.hot = p('hot.mp4');
     ff('-f', 'lavfi', '-i', 'sine=f=300:d=6,volume=0.5', '-f', 'lavfi', '-i', 'color=c=black:s=64x36:d=6:r=5', '-shortest', '-af', 'volume=23dB', '-pix_fmt', 'yuv420p', F.hot);
   });
+  test('a silent cut with no voice and no music SKIPs loudly; with a voice it still fails', async () => {
+    const silent = path.join(dir, 'silent.mp4');
+    ff('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-f', 'lavfi', '-i', 'color=c=black:s=64x36:d=3:r=5', '-t', '3', '-pix_fmt', 'yuv420p', silent);
+    const none = await audioGate(ctx(mkProject(), silent));
+    assert.equal(none.status, 'SKIP');
+    assert.match(none.reason, /silent film is not a failure/);
+    const p = mkProject();
+    fs.mkdirSync(p.voice, { recursive: true });
+    fs.copyFileSync(path.join(dir, 'voice.mp3'), path.join(p.voice, 'take.mp3'));
+    assert.equal((await audioGate(ctx(p, silent))).status, 'FAIL');
+  });
   const withVoice = (bed) => {
     const p = mkProject({ 'project.json': { name: 'lantern', music: { file: path.join(dir, 'music.wav'), bed } } });
     fs.mkdirSync(p.voice, { recursive: true });

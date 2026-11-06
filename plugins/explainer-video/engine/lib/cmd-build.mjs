@@ -4,7 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { ENGINE, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, loadProject, log, parseArgs, readJson, which } from './common.mjs';
+import { ENGINE, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
 import { measureLoudness, mixAudio, DEFAULTS } from './mix.mjs';
 
 const fail = (m) => { throw new Error(m); };
@@ -75,9 +75,9 @@ function syncDir(src, dest) {
 
 const ANSI = /\u001b\[[0-9;]*m/g;
 // Run a long program, print only the lines that match `show` as they come, keep the tail for errors.
-function runLong(cmd, args, { cwd, show = null } = {}) {
+function runLong({ cmd, args }, { cwd, show = null } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, env: hfEnv(), shell: process.platform === 'win32', windowsHide: true });
+    const child = spawn(cmd, args, { cwd, env: hfEnv(), windowsHide: true });
     let tail = [], rest = '';
     const take = (buf) => {
       rest += buf.toString();
@@ -106,14 +106,30 @@ function checkPrerequisites(proj) {
   if (missing.length) throw new Error(`cannot build yet:\n  - ${missing.join('\n  - ')}`);
 }
 
+// Which captions the build uses: 'placeholder' (even timing, no voice) or 'voice'. Placeholder captions left over from an
+// earlier run are re-made once a voice exists, so a real take never gets placeholder timing.
 function ensureCaptions(proj, hasVoice) {
   const file = path.join(proj.build, 'captions.js');
-  if (fs.existsSync(file)) return;
+  const json = path.join(proj.build, 'captions.json');
+  const stale = hasVoice && fs.existsSync(json) && readJson(json).placeholder;
+  if (stale) log('captions in build/ are placeholders from before the voice existed: making them again from the voice.');
+  if (fs.existsSync(file) && !stale) return fs.existsSync(json) && readJson(json).placeholder ? 'placeholder' : 'voice';
   const ev = path.join(ENGINE, 'bin', 'ev.mjs');
   if (!fs.existsSync(path.join(ENGINE, 'lib', 'cmd-captions.mjs'))) throw new Error(`${file} is missing and ev captions is not installed in this checkout. Run: ev captions ${proj.root}${hasVoice ? '' : ' --placeholder'}`);
   if (!hasVoice) log('PLACEHOLDER BUILD: there is no voice/take.mp3, so captions are spread evenly over the beats and the mix has no voice. Run: ev voice <project> for the real thing.');
   const r = spawnSync(process.execPath, [ev, 'captions', proj.root, ...(hasVoice ? [] : ['--placeholder'])], { stdio: 'inherit' });
   if (r.status !== 0) throw new Error('ev captions failed (see above)');
+  return hasVoice ? 'voice' : 'placeholder';
+}
+
+// The findings of a failed "hyperframes check": its output names a JSON report, each section of which lists findings.
+export function checkFindings(tail) {
+  const line = tail.map((l) => /Report:\s*(.+)$/.exec(l)).find(Boolean);
+  if (!line || !fs.existsSync(line[1].trim())) return ['(hyperframes check printed no readable report path)'];
+  const report = readJson(line[1].trim());
+  const out = Object.values(report).flatMap((s) => (s && Array.isArray(s.findings) ? s.findings : []))
+    .filter((f) => f.severity === 'error').map((f) => `${f.code}: ${f.message}`);
+  return out.length ? out : [`(no error findings in ${line[1].trim()})`];
 }
 
 function writeComposition(proj, { id, width, height, duration }) {
@@ -140,7 +156,7 @@ export default async function (argv) {
 
   const take = path.join(proj.voice, 'take.mp3');
   const hasVoice = fs.existsSync(take);
-  ensureCaptions(proj, hasVoice);
+  const captionsUsed = ensureCaptions(proj, hasVoice);
   if (!hasVoice) log('no voice/take.mp3: the film has no voice (music only, or silent).');
 
   const film = readFilm(proj.film);
@@ -164,25 +180,27 @@ export default async function (argv) {
   const m = typeof proj.cfg.music === 'string' ? { file: proj.cfg.music } : proj.cfg.music || {};
   const musicFile = m.file ? path.resolve(proj.root, m.file) : null;
   if (musicFile && !fs.existsSync(musicFile)) fail(`project.json music.file ${musicFile} does not exist. Fix the path or remove "music".`);
-  if (!musicFile) log('no music configured: the mix is voice only.');
+  log(`build inputs: voice ${hasVoice ? 'take.mp3' : 'none'}, music ${musicFile ? path.basename(musicFile) : 'none'}, captions ${captionsUsed === 'placeholder' ? 'PLACEHOLDER (even timing)' : 'from the voice'}`);
   fs.mkdirSync(path.join(proj.build, 'audio'), { recursive: true });
   const mixFile = path.join(proj.build, 'audio', 'mix.wav');
   mixAudio({ voice: hasVoice ? take : null, music: musicFile, out: mixFile, length, bed: m.bed ?? DEFAULTS.bed });
-  const L = measureLoudness(mixFile);
-  log(`mix: ${L.lufs} LUFS integrated, true peak ${L.truePeak} dBTP (target -14 LUFS within 1 LU, <= -1 dBTP)`);
+  if (!hasVoice && !musicFile) log('mix: silent track (no voice, no music)');
+  else {
+    const L = measureLoudness(mixFile);
+    log(`mix: ${L.lufs} LUFS integrated, true peak ${L.truePeak} dBTP (target -14 LUFS within 1 LU, <= -1 dBTP)`);
+  }
 
-  const hf = hyperframesBin();
   log('hyperframes check ...');
-  const chk = await runLong(hf, ['check', '.'], { cwd: proj.build });
+  const chk = await runLong(hyperframesCmd(['check', '.']), { cwd: proj.build });
   chk.tail.slice(-4).forEach((l) => log(`  ${l}`));
-  if (chk.status !== 0) throw new Error(`hyperframes check failed (see above). Fix the composition in ${proj.build}.`);
+  if (chk.status !== 0) throw new Error(`hyperframes check failed. Findings with severity error:\n  - ${checkFindings(chk.tail).join('\n  - ')}\nFix the composition in ${proj.build}.`);
   if (a['no-render']) return log(`prepared and checked ${proj.build}; not rendering (--no-render).`);
 
   if (length > 300 && quality === 'delivery') log(`this film is ${(length / 60).toFixed(1)} minutes: a delivery render takes a while. Consider a first pass with --quality draft.`);
   fs.mkdirSync(proj.out, { recursive: true });
   const t0 = process.hrtime.bigint();
   log(`rendering (${quality}, ${workers} workers) ...`);
-  const r = await runLong(hf, ['render', '.', '-q', quality, '--video-frame-format', 'png', '-w', workers, '-o', outFile], { cwd: proj.build, show: /rendered in|error|fail|warn/i });
+  const r = await runLong(hyperframesCmd(['render', '.', '-q', quality, '--video-frame-format', 'png', '-w', workers, '-o', outFile]), { cwd: proj.build, show: /rendered in|error|fail|warn/i });
   const wall = Number(process.hrtime.bigint() - t0) / 1e9;
   if (r.status !== 0 || !fs.existsSync(outFile)) throw new Error(`render failed after ${wall.toFixed(0)} s:\n${r.tail.slice(-15).join('\n')}`);
   log(`render wall ${wall.toFixed(1)} s`);

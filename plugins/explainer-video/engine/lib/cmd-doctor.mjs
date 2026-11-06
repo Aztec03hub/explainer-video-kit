@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hfEnv } from './common.mjs';
+import { ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv } from './common.mjs';
 
 const HELP = `usage: ev doctor [--need voice,render,ocr,align,frames] [--key-file <path>] [--project <dir>] [--json] [--quick]
 Checks Node, ffmpeg, the engine's dependencies, a render Chrome, tesseract, whisper, disk space and the ElevenLabs key.
@@ -48,7 +48,7 @@ export function runChecks({ envFile, projectDir, quick = false } = {}) {
   if (quick) add({ id: 'chrome', label: 'render Chrome', ok: null, detail: 'skipped by --quick', needs: ['render', 'frames'] });
   else {
     let path_ = '';
-    if (hf) { try { const r = run(hf, ['browser', 'path'], { env: hfEnv(), cwd: ENGINE, timeout: 60000, shell: plat === 'win32' }); if (r.status === 0) path_ = r.stdout.trim().split(/\r?\n/).pop(); } catch { /* reported below */ } }
+    if (hf) { try { const c = hyperframesCmd(['browser', 'path']); const r = run(c.cmd, c.args, { env: hfEnv(), cwd: ENGINE, timeout: 60000 }); if (r.status === 0) path_ = r.stdout.trim().split(/\r?\n/).pop(); } catch { /* reported below */ } }
     add({ id: 'chrome', label: 'render Chrome', ok: !!path_, detail: path_ || 'not downloaded', needs: ['render', 'frames'], fix: 'Run: ev setup (downloads the browser HyperFrames renders with)' });
   }
 

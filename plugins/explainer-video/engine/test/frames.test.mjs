@@ -51,12 +51,28 @@ test('captures the PNGs at the dsf-scaled size and writes boxes.js', { skip: !ha
   assert.ok(fs.existsSync(path.join(dir, 'frames', 'app', 'boxes.json')));
 });
 
-test('must fail: a text that is not on the page is reported', { skip: !haveChrome, timeout: 120000 }, async () => {
-  const dir = project('badtext', 1);
+const badText = (name) => {
+  const dir = project(name, 1);
   const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
   cfg.frames.sets.app.texts = { nope: 'No such button' };
   fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify(cfg));
-  await assert.rejects(frames([dir]), /box not found: app\/home:nope/);
+  return dir;
+};
+
+test('must fail: a missing box that film.js uses is an error naming the event', { skip: !haveChrome, timeout: 120000 }, async () => {
+  const dir = badText('badtext');
+  fs.writeFileSync(path.join(dir, 'film.js'), "window.FILM = { id: 'main', events: [{ t: 1, cursor: 'app/home:nope' }] };\n");
+  await assert.rejects(frames([dir]), /box not found: app\/home:nope, used by film\.js event \{"t":1,"cursor":"app\/home:nope"\}/);
+});
+
+test('a missing box that no film.js event uses is only a warning line', { skip: !haveChrome, timeout: 120000 }, async () => {
+  const dir = badText('warntext');
+  fs.writeFileSync(path.join(dir, 'film.js'), "window.FILM = { id: 'main', events: [{ t: 1, cursor: 'app/home:borrow' }] };\n");
+  const lines = [], orig = console.log;
+  console.log = (...a) => lines.push(a.join(' '));
+  try { await frames([dir]); } finally { console.log = orig; }
+  assert.ok(lines.some((l) => /^WARNING: box not found: app\/home:nope/.test(l)), lines.join('\n'));
+  assert.ok(lines.some((l) => /^WARNING: box not found: app\/detail:nope/.test(l)), 'one line per state');
 });
 
 test('--check passes against a dsf 1 copy and fails against a modified reference', { skip: !haveChrome, timeout: 180000 }, async () => {

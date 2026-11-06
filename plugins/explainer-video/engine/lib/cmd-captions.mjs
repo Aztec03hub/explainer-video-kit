@@ -24,7 +24,7 @@ export default async function (argv) {
     if (!fs.existsSync(f)) throw new Error(`no ${f}. Run ev voice or ev align first, or use --placeholder for even timing.`);
     words = readJson(f).words;
   }
-  const cap = buildCaptions(script, words, { max });
+  const cap = { ...buildCaptions(script, words, { max }), ...(a.placeholder ? { placeholder: true } : {}) }; // the flag lets ev build say which captions it used
   fs.mkdirSync(proj.build, { recursive: true });
   fs.mkdirSync(proj.out, { recursive: true });
   fs.writeFileSync(proj.p('build', 'captions.json'), JSON.stringify(cap, null, 1) + '\n');

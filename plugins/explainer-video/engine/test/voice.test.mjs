@@ -56,6 +56,22 @@ test('dry run without a key uses the fallback table and says so', async () => {
   assert.match(r.out, /WARNING: using the fallback limit table/);
 });
 
+test('dry run works with no voice id and no key; a real run still needs a voice id', async () => {
+  const m = await mockEleven({ key: 'x' });
+  const dir = makeProject(SCRIPT, { voice: { model: 'eleven_v4' } });
+  const env0 = { EV_ELEVENLABS_BASE: m.url, ELEVENLABS_API_KEY: '' };
+  const dry = await ev(['voice', dir, '--dry-run'], env0);
+  assert.equal(dry.status, 0, dry.out);
+  assert.match(dry.out, /request 1: beats 1-3/);
+  assert.match(dry.out, /unknown ratio/);
+  assert.match(dry.out, /no voice id yet: run ev voice voices/);
+  const real = await ev(['voice', dir], env0);
+  await m.close();
+  assert.notEqual(real.status, 0);
+  assert.match(real.out, /no voice id/);
+  assert.equal(m.calls.length, 0);
+});
+
 test('long script: two requests cut at beat boundaries, times offset by real durations, one take', async () => {
   const key = fakeKey();
   const probe = (await import('../lib/script.mjs')).parseScript(SCRIPT);

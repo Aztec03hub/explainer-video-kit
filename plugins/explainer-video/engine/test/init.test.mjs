@@ -18,17 +18,27 @@ test('scaffolds a project with the right name and form', () => {
   for (const f of ['project.json', 'script.md', 'rules.json', 'film.js', 'mockup/index.html', '.env.example', '.gitignore', 'README.md']) assert.ok(fs.existsSync(path.join(dir, f)), f);
   const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
   assert.equal(cfg.name, 'demo-one'); assert.equal(cfg.form, 'long'); assert.equal(cfg.output, 'demo-one.mp4');
-  assert.ok(cfg.frames.sets.dark.states.open && cfg.frames.sets.dark.boxes.borrow);
+  assert.ok(cfg.frames.sets.dark.states.open && cfg.frames.sets.dark.texts.borrow);
   assert.match(r.stdout, /ev doctor/);
 });
 
-test('script.md has about 12 beats with windows summing to 90 s and about 190 words', () => {
+test('script.md has about 12 beats with windows summing to 72 s and about 190 words', () => {
   const s = fs.readFileSync(path.join(dir, 'script.md'), 'utf8');
   const wins = [...s.matchAll(/^### .* @(\d+)-(\d+)$/gm)];
   assert.equal(wins.length, 12);
-  assert.equal(wins.reduce((n, m) => n + (m[2] - m[1]), 0), 90);
+  assert.equal(wins.reduce((n, m) => n + (m[2] - m[1]), 0), 72);
   const words = s.split('\n').filter((l) => l && !/^(#|>)/.test(l)).join(' ').replace(/\[[^\]]*\]/g, '').split(/\s+/).filter(Boolean).length;
   assert.ok(words > 170 && words < 210, `words=${words}`);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8')).frames.sets.dark.states.default.length > 0, true);
+});
+
+test('the template script lints with 0 errors and 0 warnings, and film.js is as long as the plan', () => {
+  const r = ev('script', dir, '--lint');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /^(error|warning)\b/m, r.stdout);
+  const ctx = { window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(dir, 'film.js'), 'utf8'), ctx);
+  assert.equal(ctx.window.FILM.duration, 72);
 });
 
 test('film.js loads and every anchor is valid and points at an existing beat', () => {
@@ -45,7 +55,7 @@ test('film.js loads and every anchor is valid and points at an existing beat', (
     if (typeof ref === 'string') {
       const [set, rest] = ref.split('/'); const [state, box] = rest.split(':');
       assert.ok(cfg.frames.sets[set].states[state], ref);
-      if (box) assert.ok(cfg.frames.sets[set].boxes[box] && cfg.frames.sets[set].texts[box], ref);
+      if (box) assert.ok(cfg.frames.sets[set].boxes?.[box] || cfg.frames.sets[set].texts?.[box], ref);
     }
   }
 });

@@ -126,8 +126,15 @@ export const hhmmss = (t, sep = ',') => {
 };
 
 // The HyperFrames CLI is a dependency of the engine, so it's found in the engine's own node_modules.
+// It's always run as `node hyperframes.mjs ...`: the .bin shim is a .cmd on Windows, which Node 22 refuses to spawn without a shell.
 export const hyperframesBin = () => {
-  const bin = path.join(ENGINE, 'node_modules', '.bin', process.platform === 'win32' ? 'hyperframes.cmd' : 'hyperframes');
+  const bin = path.join(ENGINE, 'node_modules', 'hyperframes', 'bin', 'hyperframes.mjs');
   return fs.existsSync(bin) ? bin : null;
+};
+// hyperframesCmd(['check', '.']) -> { cmd, args } to hand to spawn, spawnSync or run (no shell needed on any platform).
+export const hyperframesCmd = (args) => {
+  const bin = hyperframesBin();
+  if (!bin) throw new Error('the HyperFrames CLI is not installed in the engine. Run: ev setup');
+  return { cmd: process.execPath, args: [bin, ...args] };
 };
 export const hfEnv = () => ({ ...process.env, HYPERFRAMES_NO_TELEMETRY: '1', DO_NOT_TRACK: '1', NO_COLOR: '1' });

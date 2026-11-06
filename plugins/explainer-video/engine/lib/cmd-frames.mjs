@@ -9,7 +9,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
-import { hfEnv, hyperframesBin, loadProject, log, parseArgs, run } from './common.mjs';
+import { readFilm } from './cmd-build.mjs';
+import { hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, run } from './common.mjs';
 
 const fail = (m) => { throw new Error(m); };
 const HELP = `usage: ev frames <project> [--check <reference dir>] [--set <name>]
@@ -24,7 +25,7 @@ const HELP = `usage: ev frames <project> [--check <reference dir>] [--set <name>
   --set <name>   only this set`;
 
 const NO_MOTION = '*{animation:none!important;transition:none!important;caret-color:transparent!important}';
-const PAGE_BOX = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height }; };
+const PAGE_BOX = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); if (!r.width || !r.height) return null; return { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height }; };
 const TEXT_BOX = (t) => {
   const e = [...document.querySelectorAll('button, a, summary, td, th, label')].find((x) => x.textContent.trim() === t && x.getBoundingClientRect().width > 0);
   if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height };
@@ -34,7 +35,8 @@ export function chromePath() {
   if (process.env.CHROME) return process.env.CHROME;
   const bin = hyperframesBin();
   if (bin) {
-    const r = run(bin, ['browser', 'path'], { env: hfEnv(), shell: process.platform === 'win32' });
+    const hf = hyperframesCmd(['browser', 'path']);
+    const r = run(hf.cmd, hf.args, { env: hfEnv() });
     const line = r.status === 0 ? r.stdout.replace(/\u001b\[[0-9;]*m/g, '').trim().split(/\r?\n/).pop() : '';
     if (line && fs.existsSync(line)) return line;
   }
@@ -46,6 +48,16 @@ export function stateUrl(proj, page, theme, query = '') {
   const base = /^(https?|file):\/\//.test(page) ? page : pathToFileURL(path.resolve(proj.root, page)).href;
   const q = [theme ? `theme=${theme}` : '', String(query).replace(/^[&?]/, '')].filter(Boolean).join('&');
   return q ? `${base}${base.includes('?') ? '&' : '?'}${q}` : base;
+}
+
+// Every "set/state:box" that film.js names (cursor, at, ...), each with the first event that uses it.
+export function filmBoxRefs(file) {
+  const refs = new Map();
+  if (!fs.existsSync(file)) return refs;
+  for (const e of readFilm(file).events || []) {
+    for (const v of Object.values(e)) if (typeof v === 'string' && /^[^\s/:]+\/[^\s/:]+:[^\s/:]+$/.test(v) && !refs.has(v)) refs.set(v, e);
+  }
+  return refs;
 }
 
 // Capture every state of one set. Returns { boxes, errors, missing }; PNGs go into outDir.
@@ -109,6 +121,8 @@ export default async function (argv) {
   const { default: puppeteer } = await import('puppeteer-core');
   const browser = await puppeteer.launch({ executablePath: chromePath(), headless: true, args: process.env.EV_NO_SANDBOX ? ['--no-sandbox'] : [] });
   const problems = [];
+  let refs = new Map();
+  try { refs = filmBoxRefs(proj.film); } catch (e) { log(`WARNING: could not read ${proj.film} (${e.message}), so a missing box can't be matched to film.js; every one is a warning.`); }
   const tmp = a.check ? fs.mkdtempSync(path.join(os.tmpdir(), 'ev-frames-')) : null;
   try {
     for (const name of names) {
@@ -120,7 +134,10 @@ export default async function (argv) {
         // The same boxes for the composition, keyed by the set name: window.BOXES['dark'].home.search
         fs.writeFileSync(path.join(dir, 'boxes.js'), `(window.BOXES = window.BOXES || {})[${JSON.stringify(name)}] = ${JSON.stringify(boxes)};\n`);
         if (errors) problems.push(`${errors} page error(s) in set ${name}`);
-        for (const m of missing) problems.push(`box not found: ${m} (check the text or selector in project.json)`);
+        for (const m of missing) {
+          if (refs.has(m)) problems.push(`box not found: ${m}, used by film.js event ${JSON.stringify(refs.get(m))} (check the text or selector in project.json, or change the event)`);
+          else log(`WARNING: box not found: ${m} (no film.js event uses it; fine if that state doesn't show it)`);
+        }
         continue;
       }
       const dir = path.join(tmp, name);
