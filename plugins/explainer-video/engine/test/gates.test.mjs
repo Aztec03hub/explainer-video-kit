@@ -64,6 +64,12 @@ describe('ocr gate', { skip: ocrSkip }, () => {
     assert.equal(r.status, 'PASS', r.lines.join('\n'));
     assert.match(r.margin, /poster \+\d+ words/);
   });
+  test('an empty neverOnScreen list passes the strings check only with a loud warning', async () => {
+    const r = await ocrGate(ctx(proj([]), clip('clean2', POSTER.join(','))));
+    assert.equal(r.status, 'PASS', r.lines.join('\n'));
+    assert.match(r.warnings[0], /neverOnScreen is empty/);
+    assert.deepEqual((await ocrGate(ctx(proj(['localhost']), clip('clean3', POSTER.join(','))))).warnings, []);
+  });
   test('a blank clip fails the poster rule even with no strings', async () => {
     const r = await ocrGate(ctx(proj([]), clip('blank')));
     assert.equal(r.status, 'FAIL');

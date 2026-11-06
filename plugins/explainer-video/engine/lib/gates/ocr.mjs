@@ -104,7 +104,8 @@ export default async function ocrGate({ proj, cut, opts = {}, requireOcr = false
       name, status: hits.length ? 'FAIL' : 'PASS',
       measured: `${frames.length} frames, ${terms.length} strings, ${hits.length} hits, poster ${posterWords} words`,
       limit: `0 hits, poster >= ${POSTER_WORDS} words`, margin: `poster +${posterWords - POSTER_WORDS} words`,
-      lines: hits, data: { frames: frames.length, terms: terms.length, hits: hits.length, posterWords },
+      lines: hits, warnings: terms.length ? [] : ['rules.json neverOnScreen is empty, so only frame 0 was judged: list what must never show (names, ids, demo controls) and run again'],
+      data: { frames: frames.length, terms: terms.length, hits: hits.length, posterWords },
     };
   } finally {
     cleanup();
