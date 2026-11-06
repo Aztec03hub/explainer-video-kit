@@ -106,13 +106,25 @@ function checkPrerequisites(proj) {
   if (missing.length) throw new Error(`cannot build yet:\n  - ${missing.join('\n  - ')}`);
 }
 
+// True when build/captions.json is older than script.md or the voice take: it was timed to other words or another voice.
+export function captionsOutdated(proj, hasVoice) {
+  const json = path.join(proj.build, 'captions.json');
+  if (!fs.existsSync(json)) return false;
+  const made = fs.statSync(json).mtimeMs;
+  const newer = (f) => fs.existsSync(f) && fs.statSync(f).mtimeMs > made;
+  return newer(proj.script) || (hasVoice && (newer(path.join(proj.voice, 'take.json'))));
+}
+
 // Which captions the build uses: 'placeholder' (even timing, no voice) or 'voice'. Placeholder captions left over from an
 // earlier run are re-made once a voice exists, so a real take never gets placeholder timing.
 function ensureCaptions(proj, hasVoice) {
   const file = path.join(proj.build, 'captions.js');
   const json = path.join(proj.build, 'captions.json');
-  const stale = hasVoice && fs.existsSync(json) && readJson(json).placeholder;
-  if (stale) log('captions in build/ are placeholders from before the voice existed: making them again from the voice.');
+  const placeholderLeft = hasVoice && fs.existsSync(json) && readJson(json).placeholder;
+  const outdated = captionsOutdated(proj, hasVoice);
+  const stale = placeholderLeft || outdated;
+  if (placeholderLeft) log('captions in build/ are placeholders from before the voice existed: making them again from the voice.');
+  else if (outdated) log('captions in build/ are older than script.md or the voice take: making them again.');
   if (fs.existsSync(file) && !stale) return fs.existsSync(json) && readJson(json).placeholder ? 'placeholder' : 'voice';
   const ev = path.join(ENGINE, 'bin', 'ev.mjs');
   if (!fs.existsSync(path.join(ENGINE, 'lib', 'cmd-captions.mjs'))) throw new Error(`${file} is missing and ev captions is not installed in this checkout. Run: ev captions ${proj.root}${hasVoice ? '' : ' --placeholder'}`);

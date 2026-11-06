@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { PNG } from 'pngjs';
 import { run, hyperframesBin, hyperframesCmd, hfEnv } from '../lib/common.mjs';
-import build, { assertNotFrozen, checkFindings, filmLength, readFilm, styleCss } from '../lib/cmd-build.mjs';
+import build, { assertNotFrozen, captionsOutdated, checkFindings, filmLength, readFilm, styleCss } from '../lib/cmd-build.mjs';
 
 const require = createRequire(import.meta.url);
 const { captionWindows, resolveEvents, defaultScreen } = require('../runtime/explainer.js');
@@ -51,6 +51,24 @@ test('filmLength: voice plus 5 s, else the plan, else the last caption plus 5 s'
   assert.equal(filmLength({ film: { duration: 90 } }), 90);
   assert.equal(filmLength({ captions: { chunks: [{ words: [{ end: 40.2 }] }] } }), 46);
   assert.throws(() => filmLength({}), /cannot size the film/);
+});
+
+test('captionsOutdated: a newer take or script means the captions are made again; a fresh set is kept', () => {
+  const root = fs.mkdtempSync(path.join(tmp, 'cap-'));
+  const f = (rel, text, secondsAgo) => {
+    const p = path.join(root, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text);
+    const t = new Date(Date.now() - secondsAgo * 1000); fs.utimesSync(p, t, t);
+  };
+  const proj = { script: path.join(root, 'script.md'), build: path.join(root, 'build'), voice: path.join(root, 'voice') };
+  f('script.md', '# t', 100); f('voice/take.json', '{}', 100);
+  assert.equal(captionsOutdated(proj, true), false, 'no captions yet: nothing to be outdated');
+  f('build/captions.json', '{}', 50);
+  assert.equal(captionsOutdated(proj, true), false, 'captions newer than everything are kept');
+  f('voice/take.json', '{}', 10);
+  assert.equal(captionsOutdated(proj, true), true, 'a new take after the captions: outdated');
+  assert.equal(captionsOutdated(proj, false), false, 'without a voice the take is ignored');
+  f('voice/take.json', '{}', 100); f('script.md', '# edited', 5);
+  assert.equal(captionsOutdated(proj, false), true, 'an edited script: outdated');
 });
 
 test('readFilm and styleCss', () => {
