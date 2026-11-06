@@ -1,0 +1,12 @@
+.env
+*.env
+.env.*
+!.env.example
+node_modules/
+build/
+out/
+*.mp4
+*.wav
+__pycache__/
+.hyperframes/
+.serena/

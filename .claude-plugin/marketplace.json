@@ -1,0 +1,12 @@
+{
+  "name": "explainer-video-kit",
+  "owner": { "name": "explainer-video-kit contributors" },
+  "metadata": { "description": "Make explainer videos for any project: script, voice, picture, captions, render, checks." },
+  "plugins": [
+    {
+      "name": "explainer-video",
+      "source": "./plugins/explainer-video",
+      "description": "Script, voice, picture, subtitles, render and review for explainer videos (quick or long)."
+    }
+  ]
+}
