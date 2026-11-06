@@ -31,7 +31,7 @@ const AT = /^beat:[1-9]\d*([+-]\d+(\.\d+)?)?$/;
 const off = (v) => v === false || (typeof v === 'string' && v.trim().toLowerCase() === 'none');
 const asList = (v) => (v === undefined || v === null || v === '' ? [] : Array.isArray(v) ? v : [v]);
 
-// The optional designed lower half: { kind: 'pipeline', stages: [2 to 8 short labels], credit? } or { kind: 'proof', facts: [1 to 3 of { big, small }], credit? }.
+// The optional designed lower half: { kind: 'pipeline', stages: [2 to 8 short labels], credit? } or { kind: 'proof', facts: [1 to 3 of { big, small }] } (the sign-off `credit` is pipeline only).
 // The text is not measured in Chrome, so the lengths are limited here instead (they fit the 1128 px strip at the design sizes).
 const LOWER_LIMITS = { stage: 14, credit: 80, big: 10, small: 22 };
 function lowerCheck(c) {
@@ -42,7 +42,8 @@ function lowerCheck(c) {
   if (l.kind !== 'pipeline' && l.kind !== 'proof') errors.push(`${at}.kind: "pipeline" or "proof" (got ${JSON.stringify(l.kind)}).`);
   if (l.kind === 'pipeline' && !(Array.isArray(l.stages) && l.stages.length >= 2 && l.stages.length <= 8 && l.stages.every((s) => str(s, LOWER_LIMITS.stage)))) errors.push(`${at}.stages: a list of 2 to 8 labels, each 1 to ${LOWER_LIMITS.stage} characters.`);
   if (l.kind === 'proof' && !(Array.isArray(l.facts) && l.facts.length >= 1 && l.facts.length <= 3 && l.facts.every((f) => f && str(f.big, LOWER_LIMITS.big) && str(f.small, LOWER_LIMITS.small)))) errors.push(`${at}.facts: a list of 1 to 3 { "big": up to ${LOWER_LIMITS.big} characters, "small": up to ${LOWER_LIMITS.small} characters }.`);
-  if (l.credit !== undefined && !str(l.credit, LOWER_LIMITS.credit)) errors.push(`${at}.credit: one line of up to ${LOWER_LIMITS.credit} characters.`);
+  if (l.credit !== undefined && l.kind === 'proof') errors.push(`${at}.credit: only the "pipeline" kind shows a sign-off; remove it, or use kind "pipeline".`);
+  else if (l.credit !== undefined && !str(l.credit, LOWER_LIMITS.credit)) errors.push(`${at}.credit: one line of up to ${LOWER_LIMITS.credit} characters.`);
   if (asList(c.lines).length > 1) errors.push(`${at}: with a lower half the card shows one prompt bar, so endcard.lines may hold one entry (it has ${asList(c.lines).length}).`);
   return errors;
 }

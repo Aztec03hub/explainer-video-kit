@@ -252,6 +252,25 @@ test('text is HTML-escaped, and a card with no lines and no note has neither ele
   });
 });
 
+test('the designed lower half renders for both kinds: stage labels and credit, or fact tiles', { skip, timeout: 120000 }, async () => {
+  const textAt = async (browser, lower) => {
+    const page = await browser.newPage();
+    try {
+      await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+      await page.goto('file://' + makePage('plugin', { opts: { ...HERO, lines: ['one line'], lower } }), { waitUntil: 'load' });
+      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(() => { window.__timelines.main.seek(5.9); });
+      return await page.evaluate(() => document.getElementById('root').innerText);
+    } finally { await page.close(); }
+  };
+  await withBrowser(async (browser) => {
+    const pipe = await textAt(browser, { kind: 'pipeline', stages: ['Research', 'Build', 'Score'], credit: 'The Test Team' });
+    for (const s of ['Research', 'Build', 'Score', 'The Test Team']) assert.ok(pipe.includes(s), `pipeline shows "${s}"`);
+    const proof = await textAt(browser, { kind: 'proof', facts: [{ big: '36 of 36', small: 'rules pass' }] });
+    for (const s of ['36 of 36', 'rules pass']) assert.ok(proof.includes(s), `proof shows "${s}"`);
+  });
+});
+
 // ---- round 4 ----
 test('Low a: the install-line limit the scene reports is the real text width of the code box', { skip, timeout: 120000 }, async () => {
   await withBrowser(async (browser) => {

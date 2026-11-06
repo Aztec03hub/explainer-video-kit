@@ -85,7 +85,7 @@ When the card is on, or the project uses the evolv logo, the caption highlight a
 
 ### A designed lower half (optional)
 
-For a closing card that recaps the film, add a `lower` block to the `endcard` block. `{"kind": "pipeline", "stages": ["Research", "Interview", "Spec"], "credit": "Your team, your event"}` draws a strip of stages with a light that travels along it at the Gleam's own speed and lights each stage; the one `lines` entry becomes a centred prompt bar under it, and `credit` a small centred sign-off. `{"kind": "proof", "facts": [{"big": "36 of 36", "small": "rules pass"}]}` draws up to three tiles instead. Use only figures you can source. The Gleam, the logo and the title do not change.
+For a closing card that recaps the film, add a `lower` block to the `endcard` block. `{"kind": "pipeline", "stages": ["Research", "Interview", "Spec"], "credit": "Your team, your event"}` draws a strip of stages with a light that travels along it at the Gleam's own speed and lights each stage; the one `lines` entry becomes a centred prompt bar under it, and `credit` (pipeline only) a small centred sign-off. `{"kind": "proof", "facts": [{"big": "36 of 36", "small": "rules pass"}]}` draws up to three tiles instead. Use only figures you can source. The Gleam, the logo and the title do not change.
 
 ## Quick or long
 

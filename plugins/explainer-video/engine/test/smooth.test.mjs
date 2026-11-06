@@ -18,10 +18,9 @@ const flat = (n, v) => Array(n).fill(v);
 
 test('smooth motion, a still hold and a scheduled cut are clean', () => {
   const d = [0, ...flat(40, 0.3), 9, ...flat(40, 0.3), ...flat(60, 0.003), 7, ...flat(30, 0.25)];
-  const cutAt = 41, cut2 = 41 + 40 + 60 + 1 - 1 + 0;
+  const cutAt = 41;
   const r = findHiccups(d, (i) => i === cutAt || i === d.length - 31);
   assert.deepEqual(r, [], JSON.stringify(r));
-  void cut2;
 });
 
 test('MUST FAIL: one repeated frame in the middle of a camera move is a freeze', () => {
@@ -147,6 +146,7 @@ test('project.json endcard.lower: a good block passes; bad kinds, labels, facts 
     [{ kind: 'pipeline', stages: ['a', 'x'.repeat(40)] }, /stages/],
     [{ kind: 'proof', facts: [null] }, /facts/],
     [{ ...ok, credit: 5 }, /credit/],
+    [{ kind: 'proof', facts: [{ big: '1', small: 'x' }], credit: 'Team' }, /credit/],
   ]) assert.match(bad(lower), re, JSON.stringify(lower));
   assert.notEqual(bad(ok, ['one', 'two']), '', 'two lines with a lower half is an error');
 });
