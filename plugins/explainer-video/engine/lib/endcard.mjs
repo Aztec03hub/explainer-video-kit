@@ -135,11 +135,12 @@ export function endcardDecision(proj, win) {
   const length = dur || (() => { try { const ch = readJson(cap).chunks?.at(-1); return ch ? Math.ceil(ch.words.at(-1).end + 5) : null; } catch { return null; } })();
   if (typeof at === 'number' && length && at >= length) errors.push(`project.json endcard.at: ${at} s is past the end of the film (${length} s). Use a time before ${length}, or "last-beat".`);
   if (typeof at === 'number' && !length) warnings.push(`project.json endcard.at: ${at} s cannot be checked against the film length yet (no FILM.duration and no voice). ev build checks it once the length is known.`);
+  if (!title.length && c === undefined) return none('end card: skipped (no title)', { warning: 'the evolv end card was skipped: no title to put on it. Add an "endcard" block to project.json with a title that fits, or set "endcard": "none" to silence this.' });   // implicit card: never fails the project
   if (!title.length) errors.push('the end card has no title: set project.json endcard.title (or the project "title"). The card is not drawn with an empty title.');
   const lines = asList(bl.lines);
   if (lines.includes(PLACEHOLDER)) warnings.push(`the end card's call to action is still the placeholder "${PLACEHOLDER}". Replace it in project.json endcard.lines (or remove "lines" for no code box), or set "endcard": "none".`);
   const opts = { title, lines, note: typeof bl.note === 'string' ? bl.note.trim() : '' };
-  return { plan: { opts, event: { t, scene: 'endcard', dur: bl.dur || DEFAULT_DUR, fade: FADE }, reason: `end card: evolv, ${why}` }, reason: `end card: evolv, ${why}`, warnings, errors };
+  return { plan: { implicit: c === undefined, opts, event: { t, scene: 'endcard', dur: bl.dur || DEFAULT_DUR, fade: FADE }, reason: `end card: evolv, ${why}` }, reason: `end card: evolv, ${why}`, warnings, errors };
 }
 export const endcardPlan = (proj, win) => endcardDecision(proj, win).plan;
 

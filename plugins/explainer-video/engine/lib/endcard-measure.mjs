@@ -51,7 +51,10 @@ export async function checkEndcardFit(plan, { width = 1920, height = 1080, theme
       await p.evaluate(() => { window.__timelines.main.seek(0.5); });
       const reps = await p.evaluate(() => document.querySelector('.xp-scene .ec').__ecFit());
       if (reps.length !== els.length) return could(`the card has ${reps.length} lines, expected ${els.length}`);
-      return { errors: fitErrors(els.map((e, i) => ({ ...e, natural: reps[i].natural, width: reps[i].width, avail: reps[i].avail }))), warnings: [] };
+      const errors = fitErrors(els.map((e, i) => ({ ...e, natural: reps[i].natural, width: reps[i].width, avail: reps[i].avail })));
+      // an implicit card (no "endcard" key) never fails the project: it is skipped with a warning; an explicit block keeps the errors
+      if (plan.implicit && errors.length) return { errors: [], skip: true, warnings: errors.map((m) => `the evolv end card was skipped: ${m} Add an "endcard" block with a title that fits, or set "endcard": "none" to silence this.`) };
+      return { errors, warnings: [] };
     } finally { await browser.close(); }
   } catch (e) { return could(e.message.split('\n')[0]); }
   finally { fs.rmSync(dir, { recursive: true, force: true }); }

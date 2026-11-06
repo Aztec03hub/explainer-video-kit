@@ -557,3 +557,31 @@ test('Low f2: an implicit (evolv logo, no endcard key) project with page != 1280
 test('Low g: video-render SKILL lists all four evolv defaults', () => {
   assert.match(fs.readFileSync(path.join(REPO, 'plugins', 'explainer-video', 'skills', 'video-render', 'SKILL.md'), 'utf8'), /--ev-callout-ink`[^.]*`--ev-callout-shadow`/);
 });
+
+// ---- fix 5: an implicit card (no "endcard" key) never fails the project ----
+const LONG = 'A very long product name for a very long film that cannot possibly fit on the card at all, even shrunk, no way';
+const implicit = (edit) => made([], (c) => { delete c.endcard; c.brand = 'evolv'; edit(c); });
+test('implicit card + no title: no card, a warning, no error; explicit block + no title: still an ERROR', () => {
+  const p = implicit((c) => { delete c.title; });
+  const d = endcardDecision(p, win(p));
+  assert.equal(d.plan, null); assert.deepEqual(d.errors, []);
+  assert.match(d.warning, /skipped: no title.*"endcard": "none"/);
+  const r = checkProject(p); assert.deepEqual(r.errors, []); assert.match(r.warnings.join('\n'), /skipped: no title/);
+  assert.ok(Object.keys(evolvThemeDefaults(p, d.plan)).length, 'orange default still applies, as for the other skips');
+  const x = made([], (c) => { c.endcard = {}; delete c.title; });
+  assert.match(checkProject(x).errors.join('\n'), /the end card has no title/);
+});
+test('implicit card + title too long: skipped with a warning; explicit block: ERROR with element, length, limit; good title: card kept', async () => {
+  const p = implicit((c) => { c.title = LONG; });
+  const d = endcardDecision(p, win(p)); assert.ok(d.plan.implicit);
+  const r = await checkEndcardFit(d.plan, { width: 1920, height: 1080 });
+  assert.equal(r.skip, true); assert.deepEqual(r.errors, []);
+  assert.match(r.warnings[0], /skipped: end card title line 1 is too long.*"endcard": "none"/);
+  const e = made([], (c) => { c.endcard = { title: LONG }; });
+  const re = await checkEndcardFit(endcardDecision(e, win(e)).plan, { width: 1920, height: 1080 });
+  assert.ok(!re.skip); assert.match(re.errors[0], /title line 1 is too long.*\d+ characters.*percent\), but the card has \d+ px/);
+  const g = implicit((c) => { c.title = 'Short name'; });
+  const rg = await checkEndcardFit(endcardDecision(g, win(g)).plan, { width: 1920, height: 1080 });
+  assert.deepEqual(rg, { errors: [], warnings: [] });
+  assert.deepEqual(endcardDecision(g, win(g)).plan.opts.title, ['Short name']);
+});

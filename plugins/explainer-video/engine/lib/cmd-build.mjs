@@ -260,6 +260,7 @@ export default async function (argv) {
     const fit = await checkEndcardFit(card.plan, { width, height, theme: themeCss(proj.cfg.theme, proj.root) });
     fit.warnings.forEach((w) => log(`WARNING: ${w}`));
     if (fit.errors.length) fail(fit.errors.join('\n'));
+    if (fit.skip) { card.plan = null; log('end card: skipped (implicit card does not fit; see the warning above)'); }
   }
   writeComposition(proj, { id: film.id || 'main', width, height, duration: length, endcard: card.plan });
 
