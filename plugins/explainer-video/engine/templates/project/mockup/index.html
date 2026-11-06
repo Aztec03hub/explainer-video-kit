@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Lantern Library</title>
+<style>
+  :root { --bg:#f6f3ec; --card:#fff; --ink:#26211b; --mute:#6f665a; --line:#e3ddd0; --accent:#d9822b; --accent-ink:#fff; --ok:#2f8f5b; }
+  [data-theme="dark"] { --bg:#16181d; --card:#1f232b; --ink:#eef0f4; --mute:#9aa3b2; --line:#2e3440; --accent:#f0a24a; --accent-ink:#1a1308; --ok:#4cc38a; }
+  * { box-sizing: border-box; }
+  body { margin:0; width:1280px; height:720px; overflow:hidden; background:var(--bg); color:var(--ink); font:16px/1.4 system-ui, Segoe UI, Roboto, sans-serif; }
+  header { display:flex; align-items:center; gap:24px; padding:18px 40px; border-bottom:1px solid var(--line); }
+  .logo { font-weight:700; font-size:22px; } .logo span { color:var(--accent); }
+  #search { flex:1; max-width:520px; padding:11px 16px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); font-size:16px; }
+  .me { margin-left:auto; color:var(--mute); }
+  main { display:flex; gap:28px; padding:28px 40px; }
+  .list { flex:1; display:grid; grid-template-columns:repeat(2, 1fr); gap:18px; align-content:start; }
+  .card { display:flex; gap:16px; padding:16px; background:var(--card); border:1px solid var(--line); border-radius:14px; }
+  .cover { width:64px; height:92px; border-radius:6px; flex:none; }
+  .card h3 { margin:0 0 2px; font-size:18px; } .card p { margin:0 0 10px; color:var(--mute); }
+  .btn { padding:8px 18px; border:0; border-radius:8px; background:var(--accent); color:var(--accent-ink); font:600 15px system-ui, sans-serif; }
+  .panel { display:none; width:380px; padding:24px; background:var(--card); border:1px solid var(--line); border-radius:14px; align-self:flex-start; }
+  .panel h2 { margin:0 0 4px; } .panel dl { margin:16px 0; display:grid; grid-template-columns:auto 1fr; gap:8px 16px; }
+  .panel dt { color:var(--mute); } .panel dd { margin:0; font-weight:600; }
+  #banner { display:none; margin-top:14px; padding:12px 16px; border-radius:10px; background:var(--ok); color:#fff; font-weight:600; }
+  body[data-state="open"] .panel, body[data-state="confirmed"] .panel { display:block; }
+  body[data-state="confirmed"] #banner { display:block; }
+  body[data-state="confirmed"] #confirm-btn { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Lantern <span>Library</span></div>
+  <input id="search" placeholder="Search the shelves" aria-label="Search the shelves">
+  <div class="me">Riverside branch</div>
+</header>
+<main>
+  <section class="list" id="list"></section>
+  <aside class="panel">
+    <h2>The Salt Orchard</h2>
+    <div style="color:var(--mute)">Maren Voss</div>
+    <dl><dt>Due</dt><dd>Mar 14</dd><dt>Branch</dt><dd>Riverside</dd><dt>In line</dt><dd>2 readers</dd></dl>
+    <button class="btn" id="confirm-btn">Confirm loan</button>
+    <div id="banner">Loan confirmed</div>
+  </aside>
+</main>
+<script>
+  // Fake data only. ?theme=dark|light and ?state=default|open|confirmed pick what's drawn.
+  const q = new URLSearchParams(location.search);
+  document.documentElement.dataset.theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+  document.body.dataset.state = ['open', 'confirmed'].includes(q.get('state')) ? q.get('state') : 'default';
+  const books = [['The Salt Orchard', 'Maren Voss', 3, '#c2603a'], ['Paper Lanterns', 'Ines Okafor', 1, '#3a7bc2'],
+    ['A Quiet Harbour', 'Tomas Reyes', 5, '#3aa07a'], ['Field Notes on Rain', 'Priya Nandel', 2, '#8a5cc2']];
+  document.getElementById('list').innerHTML = books.map(([t, a, n, c], i) =>
+    `<div class="card" id="book-${i + 1}"><div class="cover" style="background:${c}"></div><div><h3>${t}</h3>` +
+    `<p>${a} - ${n} on the shelf</p><button class="btn">Borrow</button></div></div>`).join('');
+</script>
+</body>
+</html>

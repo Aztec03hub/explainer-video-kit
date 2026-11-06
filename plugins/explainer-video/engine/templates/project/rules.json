@@ -1,0 +1,5 @@
+{
+ "banned": ["utilize", "leverage"],
+ "ruled": ["loan", "return", "reserve"],
+ "neverOnScreen": ["localhost", "demo.user", "TODO", "lorem"]
+}

@@ -1,0 +1,37 @@
+{
+ "name": "lantern-library",
+ "form": "quick",
+ "title": "Lantern Library in a minute",
+ "screen": { "x": 160, "y": 24, "w": 1600, "h": 900 },
+ "page": 1280,
+ "frames": {
+  "page": "mockup/index.html",
+  "width": 1280,
+  "sets": {
+   "dark": {
+    "theme": "dark",
+    "dsf": 4,
+    "states": {
+     "default": "&state=default",
+     "open": "&state=open",
+     "confirmed": "&state=confirmed"
+    },
+    "texts": {
+     "search": "Search the shelves",
+     "borrow": "Borrow",
+     "confirm": "Confirm loan",
+     "banner": "Loan confirmed"
+    },
+    "boxes": {
+     "search": "#search",
+     "borrow": "#book-1 .btn",
+     "confirm": "#confirm-btn",
+     "banner": "#banner"
+    }
+   }
+  }
+ },
+ "voice": { "id": "", "model": "eleven_v4", "seed": null },
+ "music": null,
+ "output": "lantern-library.mp4"
+}
