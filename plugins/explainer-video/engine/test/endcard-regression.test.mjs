@@ -1,0 +1,137 @@
+// Regression lock for the evolv end card (the Gleam). Needs Chrome; skipped loudly without it, and skipped when the machine is busy
+// (load1 above 10) so a slow render never makes a flaky failure.
+//
+// The harness mounts the scene exactly as the engine does (gsap, clock.js, explainer.js, FILM with one scene event) and seeks the
+// timeline to fixed times, screenshotting at 1920x1080, device scale factor 1.
+//   Check A (exact): the plugin scene and the locked FIXTURE scene (test/fixtures/endcard-scene-final.js.txt) must give 0 differing pixels
+//     at every time. Any change to the light, the motion, the rims, the glint, the letters or the text rendering fails.
+//   Check B (reference clip): the same times against frames of final-gleam.mp4 (the clip Phil approved), stored in test/fixtures/endcard/
+//     (see the README there). Mockup Lock defaults: fail above 0.5 percent of pixels differing by more than 0.1 (max channel delta / 255).
+//     The clip is h264 (yuv420p), so B is the looser lock; A is the exact one.
+//
+// final-gleam.mp4 was made from a project with FILM { duration: 6, events: [{ t: 0, scene: 'endcard', dur: 6, fade: 0.3 }] }, the locked
+// scene as film.js and the hero text, rendered by ev build; frame n of the clip is timeline time n / 30 s. So the harness uses the same
+// FILM and the clip times below are plain timeline seconds (frame numbers 27, 45, 63, 81, 99, 126, 165).
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { PNG } from 'pngjs';
+import { ENGINE, RUNTIME } from '../lib/common.mjs';
+import { chromePath } from '../lib/cmd-frames.mjs';
+import { BRAND_DIR, BRAND_FONTS, ICON_FILE } from '../lib/endcard.mjs';
+
+const FIXTURES = path.join(ENGINE, 'test', 'fixtures');
+const TIMES = [0.9, 1.5, 2.1, 2.7, 3.3, 4.2, 5.5]; // before the sweep, mid-sweep, slow-down, letters decaying, settled
+const HERO = { title: ['explainer-video,', 'a Claude Code plugin'], lines: ['/plugin marketplace add evolvconsulting/explainer-video-kit', '/plugin install explainer-video@explainer-video-kit'], note: 'Needs: Claude Code, Node 22+, ffmpeg, tesseract. ElevenLabs key for the voice.' };
+const FILM = "{ id: 'main', duration: 6, page: 1280, events: [{ t: 0, scene: 'endcard', dur: 6, fade: 0.3 }] }";
+const THRESHOLD = 0.1, MAX_FRACTION = 0.005;
+// Check B masks two bands of rows, each for a stated reason (measured on this machine, 7 times; see the report):
+//   - y >= 990: the approved clip came from a scratch project that had placeholder captions ("Two commands install it") in the caption band
+//     (y 1005 to 1075); the harness has no captions, and the card is what the lock is about.
+//   - y 556 to 740: the two install lines. Their monospace text differs from the clip along every glyph edge (about 0.8 percent of the frame on
+//     its own) while every other part of the card matches to 0.12 percent or better. The face is the generic `monospace` of the machine's
+//     Chrome, which the clip's renderer may resolve differently. Check A pins these lines exactly, so the plugin cannot drift there.
+const CAPTION_ROWS_FROM = 990, CODE_ROWS = [556, 740];
+const checkBRows = (y) => y < CAPTION_ROWS_FROM && !(y >= CODE_ROWS[0] && y <= CODE_ROWS[1]);
+
+let haveChrome = true;
+try { chromePath(); } catch { haveChrome = false; console.log('SKIPPING the end card regression test: no Chrome'); }
+const load1 = os.loadavg()[0];
+const busy = load1 > 10;
+if (haveChrome && busy) console.log(`SKIPPING the end card regression test: load1 is ${load1.toFixed(1)} (needs 10 or less)`);
+const skip = !haveChrome || busy;
+
+// Fraction of pixels whose largest channel difference is above `tol` (of 255), over the rows `keep(y)` accepts (default: all).
+function diffFraction(a, b, tol = THRESHOLD, keep = () => true) {
+  assert.equal(a.length, b.length, 'images differ in size');
+  let n = 0, total = 0;
+  for (let y = 0; y < 1080; y++) {
+    if (!keep(y)) continue;
+    for (let i = y * 1920 * 4; i < (y + 1) * 1920 * 4; i += 4) { total++; if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])) / 255 > tol) n++; }
+  }
+  return n / total;
+}
+
+// A page with the engine runtime, the two brand faces and one scene, built in a scratch folder. kind: 'plugin' or 'fixture'.
+function makePage(kind, { opts = HERO } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `ev-endcard-${kind}-`));
+  const gsapDir = path.join(ENGINE, 'node_modules', 'hyperframes', 'dist', 'vendor', 'npm');
+  fs.copyFileSync(path.join(gsapDir, fs.readdirSync(gsapDir).find((d) => d.startsWith('gsap@')), 'dist', 'gsap.min.js'), path.join(dir, 'gsap.min.js'));
+  for (const f of ['clock.js', 'explainer.js']) fs.copyFileSync(path.join(RUNTIME, f), path.join(dir, f));
+  fs.copyFileSync(kind === 'plugin' ? path.join(RUNTIME, 'evolv-endcard.js') : path.join(FIXTURES, 'endcard-scene-final.js.txt'), path.join(dir, 'scene.js'));
+  fs.mkdirSync(path.join(dir, 'fonts'));
+  for (const f of BRAND_FONTS) fs.copyFileSync(path.join(BRAND_DIR, 'fonts', f.file), path.join(dir, 'fonts', f.file));
+  const faces = BRAND_FONTS.map((f) => `@font-face { font-family: '${f.family}'; src: url('fonts/${f.file}'); font-weight: ${f.weight}; }`).join('\n');
+  const make = kind === 'plugin' ? `window.SCENES = { endcard: window.evolvEndCard(${JSON.stringify({ ...opts, icon: fs.readFileSync(ICON_FILE, 'utf8') }).replaceAll('<', '\\u003c')}) };` : '';
+  fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><html><head><style>${faces}
+:root { --ev-canvas-from: #2E3952; --ev-canvas-mid: #1D2536; --ev-canvas-to: #141A27; }
+* { margin: 0; padding: 0; box-sizing: border-box; } html, body { width: 1920px; height: 1080px; overflow: hidden; background: #141A27; }
+#root { position: relative; width: 100%; height: 100%; overflow: hidden; }</style></head><body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="6" data-width="1920" data-height="1080"></div>
+<script src="gsap.min.js"></script><script src="clock.js"></script><script src="explainer.js"></script><script src="scene.js"></script>
+<script>${make} window.CAPTIONS = { chunks: [] }; window.FILM = ${FILM}; explainer(window.FILM, 6);</script></body></html>`);
+  return path.join(dir, 'index.html');
+}
+
+// One browser session: open the page, wait for the fonts, seek to each time and screenshot.
+async function shoot(browser, file, times) {
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+    await page.goto('file://' + file, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    const out = [];
+    for (const t of times) {
+      await page.evaluate((s) => { window.__timelines.main.seek(s); }, t);   // no return value: the timeline cannot be serialised
+      out.push(PNG.sync.read(await page.screenshot({ type: 'png' })));
+    }
+    return out;
+  } finally { await page.close(); }
+}
+
+async function withBrowser(fn) {
+  const { default: puppeteer } = await import('puppeteer-core');
+  // The renderer (hyperframes) launches Chrome with these two flags; without them the glyph advances differ from the approved clip.
+  const args = ['--font-render-hinting=none', '--force-color-profile=srgb', ...(process.env.EV_NO_SANDBOX ? ['--no-sandbox'] : [])];
+  const browser = await puppeteer.launch({ executablePath: chromePath(), headless: true, args });
+  try { return await fn(browser); } finally { await browser.close(); }
+}
+
+test('the plugin scene is pixel-identical to the locked scene, and close to the approved clip, at 7 times', { skip, timeout: 240000 }, async () => {
+  await withBrowser(async (browser) => {
+    const plugin = await shoot(browser, makePage('plugin'), TIMES);
+    const locked = await shoot(browser, makePage('fixture'), TIMES);
+    const lines = [];
+    TIMES.forEach((t, i) => {
+      const exact = Math.round(diffFraction(plugin[i].data, locked[i].data, 0) * 1920 * 1080);   // count of pixels that differ at all
+      assert.equal(exact, 0, `check A: the plugin scene differs from the locked scene in ${exact} pixels at ${t} s`);
+      const clip = PNG.sync.read(fs.readFileSync(path.join(FIXTURES, 'endcard', `clip-${t}.png`)));
+      const f = diffFraction(plugin[i].data, clip.data, THRESHOLD, checkBRows);
+      lines.push(`${t} s: ${(f * 100).toFixed(3)} percent`);
+      assert.ok(f <= MAX_FRACTION, `check B: ${(f * 100).toFixed(3)} percent of pixels differ from the approved clip at ${t} s (limit ${MAX_FRACTION * 100})`);
+    });
+    console.log(`check B, share of pixels over ${THRESHOLD} from final-gleam.mp4: ${lines.join(', ')}`);
+  });
+});
+
+// Must-fail proofs: each check can really fail.
+test('check A fails when the plugin scene\'s light engine is changed (GLINT 0.5 to 0.9 in a copy)', { skip, timeout: 240000 }, async () => {
+  await withBrowser(async (browser) => {
+    const bad = makePage('plugin'), f = path.join(path.dirname(bad), 'scene.js'), src = fs.readFileSync(f, 'utf8');
+    assert.ok(src.includes('const GLINT = 0.5;'));
+    fs.writeFileSync(f, src.replace('const GLINT = 0.5;', 'const GLINT = 0.9;'));
+    const [a] = await shoot(browser, bad, [2.1]), [b] = await shoot(browser, makePage('fixture'), [2.1]);
+    assert.ok(diffFraction(a.data, b.data, 0) > 0, 'a changed glint must change the frame');
+  });
+});
+
+test('check B fails when the frame is from the wrong moment (plugin at 2.1 s against the clip at 2.7 s)', { skip, timeout: 240000 }, async () => {
+  await withBrowser(async (browser) => {
+    const [a] = await shoot(browser, makePage('plugin'), [2.1]);
+    const clip = PNG.sync.read(fs.readFileSync(path.join(FIXTURES, 'endcard', 'clip-2.7.png')));
+    const f = diffFraction(a.data, clip.data, THRESHOLD, checkBRows);
+    assert.ok(f > MAX_FRACTION, `a frame from another moment must fail check B (it differs by ${(f * 100).toFixed(3)} percent)`);
+  });
+});
