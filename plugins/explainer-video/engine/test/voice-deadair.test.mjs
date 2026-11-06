@@ -35,7 +35,7 @@ test('strayBursts flags a short sound alone in silence, with its time and the si
   const found = strayBursts(voiceLevels(path.join(p.voice, 'take.mp3')));
   assert.equal(found.length, 1);
   assert.ok(Math.abs(found[0].start - 1.55) < 0.05, `start ${found[0].start}`);
-  assert.ok(found[0].dur < 0.15 && found[0].before >= 0.45 && found[0].after >= 0.3);
+  assert.ok(found[0].dur < 0.2 && found[0].before >= 0.45 && found[0].after >= 0.3);
 });
 
 test('a short word after a pause that runs straight into speech is not a stray sound', () => {
@@ -119,4 +119,19 @@ test('the gate\'s --trim span starts before the stray sound even when the silenc
   const r = await audioGate({ proj: p, cut, opts: { lufs } });
   const m = /--trim ([\d.]+)-([\d.]+)/.exec(r.lines.join('\n'));
   assert.ok(m && Number(m[1]) < 1.3 - 0.01, `span ${m && m[0]}`);   // the burst starts at 1.30 s
+});
+
+// IDEA-141 / DV-5: thresholds are SILENT_DB -60, SOUND_MAX 0.2 s, SIDE_MIN 0.3 s, TOTAL_MIN 0.8 s (see lib/gates/audio.mjs).
+const found = (name, parts) => strayBursts(voiceLevels(path.join(project(name, parts).voice, 'take.mp3')));
+test('DV-5: an 80 ms thump in 1 s of silence between two words is flagged at its time', () => {
+  const f = found('dv5-thump', [['speech', 1], ['silence', 0.5], ['burst', 0.08], ['silence', 0.5], ['speech', 1]]);
+  assert.equal(f.length, 1);
+  assert.ok(Math.abs(f[0].start - 1.5) < 0.05, `start ${f[0].start}`);
+});
+test('DV-5: a 180 ms burst alone in silence is flagged, a 300 ms burst is speech and passes', () => {
+  assert.equal(found('dv5-180', [['speech', 1], ['silence', 0.5], ['burst', 0.18], ['silence', 0.5], ['speech', 1]]).length, 1);
+  assert.deepEqual(found('dv5-300', [['speech', 1], ['silence', 0.5], ['burst', 0.3], ['silence', 0.5], ['speech', 1]]), []);
+});
+test('DV-5: clean control (two words, 1 s pause) passes', () => {
+  assert.deepEqual(found('dv5-clean', [['speech', 1], ['silence', 1], ['speech', 1]]), []);
 });

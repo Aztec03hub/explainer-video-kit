@@ -49,7 +49,7 @@ A failed gate fails the build.
 - **Muddy wipes:** cross-fades between different layouts get flagged.
 - **Captions match the audio:** same words, same order, no stray tags.
 - **Tags not spoken:** voice directions never reach the ear or the screen.
-- **Audio spec:** -16 LUFS, true peak under -1 dBTP, music about 6.5 dB under the voice (gap band 5 to 8 dB). The voice take is also checked for a stray thump or click alone in silence (the message gives its time, and `ev voice --trim` cuts it out for free). These levels are taste calls set from a listener's ear: change them in project.json with `gates.audio.lufs`, `gates.audio.gap` and `music.bed`.
+- **Audio spec:** -16 LUFS, true peak under -1 dBTP, music about 6.5 dB under the voice (gap band 5 to 8 dB). The voice take is also checked for a stray thump or click alone in silence (a burst under 0.2 s with at least 0.3 s of digital silence, under -60 dBFS, on each side and 0.8 s in all; a sound of 0.2 s or more counts as speech; the message gives its time, and `ev voice --trim` cuts it out for free). These levels are taste calls set from a listener's ear: change them in project.json with `gates.audio.lufs`, `gates.audio.gap` and `music.bed`.
 - **Whisper match:** your script heard back by a second listener. Under 98 percent warns, under 90 fails.
 - **Camera windows:** no forbidden part of the page swept into view.
 - **Callout fit:** every callout's brackets frame the real element, stay inside the frame, and vanish when their time is up.

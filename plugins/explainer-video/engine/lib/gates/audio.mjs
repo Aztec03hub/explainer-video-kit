@@ -44,9 +44,9 @@ export function duckedMusicLufs({ voice, music, bed, offset, length, voiceLen })
 // ---- stray sounds in the voice take --------------------------------------------------------------------------------------------
 // A text-to-speech take can carry a short thump or click alone in a long silence. Loudness, peak, captions and word match all pass it (the
 // hero take had an 80 ms thump at 61.00 s after "passes."; the forced alignment stretched that word over it). The check: a sound run
-// shorter than SOUND_MAX with silence (under SILENT_DB) of at least SIDE_MIN on both sides and TOTAL_MIN in all. A real short word
+// shorter than SOUND_MAX (0.2 s; a sound of 0.2 s or more is speech) with silence (under SILENT_DB) of at least SIDE_MIN on both sides and TOTAL_MIN in all. A real short word
 // ("a", "I") after a pause runs straight into the next word, so it has no silence after it and is not flagged.
-export const SILENT_DB = -60, SOUND_MAX = 0.15, SIDE_MIN = 0.3, TOTAL_MIN = 0.8, LEVEL_STEP = 0.01;
+export const SILENT_DB = -60, SOUND_MAX = 0.2, SIDE_MIN = 0.3, TOTAL_MIN = 0.8, LEVEL_STEP = 0.01;
 
 // RMS level in dBFS for every 10 ms of the file, mono.
 export function voiceLevels(file) {

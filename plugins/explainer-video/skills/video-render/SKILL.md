@@ -34,7 +34,7 @@ Set `"music": { "file": "music/bed.mp3", "bed": -11 }` in project.json (a plain 
 | wipes | a cross-fade joins two different layouts (see video-wipe-check) |
 | captions | caption words differ from the spoken words, or a tag leaked into an SRT/VTT |
 | tags | a voice tag was spoken aloud |
-| audio | loudness is not within 1 LU of the target (-16 LUFS by default; set `"gates": { "audio": { "lufs": N } }`), true peak above -1 dBTP, or music is outside the gap band (default 5 to 8 dB under the voice; set `"gates": { "audio": { "gap": [min, max] } }` in project.json), or the voice take has a stray sound: a burst under 0.15 s alone in silence (0.3 s either side, 0.8 s in all). The message gives the time and the `ev voice --trim` span that removes it |
+| audio | loudness is not within 1 LU of the target (-16 LUFS by default; set `"gates": { "audio": { "lufs": N } }`), true peak above -1 dBTP, or music is outside the gap band (default 5 to 8 dB under the voice; set `"gates": { "audio": { "gap": [min, max] } }` in project.json), or the voice take has a stray sound: a burst under 0.2 s alone in silence (0.3 s either side, 0.8 s in all). The message gives the time and the `ev voice --trim` span that removes it |
 | whisper | under 90 percent of script words matched in a transcript (90 to 98 passes with a warning: listen) |
 | secrets | anything key-shaped is in the project folder |
 | windows | a camera window (checked every 0.04 s through film.js's moves) overlaps a `rules.json` `forbiddenRects` rectangle of the state on screen; skipped, loudly, with no `forbiddenRects` |
