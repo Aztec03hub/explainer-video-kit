@@ -16,6 +16,7 @@
   "dependencies": {
     "hyperframes": "0.8.209",
     "pixelmatch": "^7.2.0",
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "25.16.0"
   }
 }
