@@ -1,0 +1,99 @@
+/* groundwork for Tailwind v4: maps the groundwork tokens to utilities (bg-gw-page, text-gw-text-muted,
+   border-gw-control-border, font-heading, rounded-md, shadow-gw-md).
+
+   Import it last, after Tailwind and groundwork.css. Start the stylesheet with the layer order, or the
+   groundwork layer lands above Tailwind's utilities and beats them:
+
+     @layer theme, base, groundwork, components, utilities;
+     @import "tailwindcss";
+     @import "./groundwork/groundwork-fonts.css";
+     @import "./groundwork/groundwork.css";
+     @import "./groundwork/groundwork-tailwind.css";
+
+   With that order your own rules beat the groundwork defaults when they're unlayered, in @layer components,
+   or utilities. A rule of your own in @layer base loses to them, which is what lets groundwork beat
+   Tailwind's preflight.
+
+   Colors read the CSS variables, so they switch with the theme. You shouldn't need dark: anywhere
+   (doc section 11); the variant is here for the odd case. It replaces your app's own dark: variant (a
+   .dark class, for example). Delete the @custom-variant block to keep yours.
+
+   Most names carry gw-, but the font and radius names don't: --font-heading, --font-body and --font-mono
+   (font-heading, font-body, font-mono) and --radius-sm, -md, -lg and -pill (rounded-sm and so on). They
+   replace your app's values of the same names. The sm, md and lg radii equal Tailwind's defaults (4, 6 and 8px).
+   Delete those lines to keep your own. */
+
+/* dark: matches data-theme="dark", and the OS dark preference unless data-theme="light" forces light */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+@theme inline {
+  --color-gw-page: var(--gw-page);
+  --color-gw-surface: var(--gw-surface);
+  --color-gw-band: var(--gw-band);
+  --color-gw-input: var(--gw-input);
+  --color-gw-header: var(--gw-header);
+  --color-gw-scrim: var(--gw-scrim);
+  --color-gw-text: var(--gw-text);
+  --color-gw-text-muted: var(--gw-text-muted);
+  --color-gw-placeholder: var(--gw-placeholder);
+  --color-gw-text-navy: var(--gw-text-navy);
+  --color-gw-on-header: var(--gw-on-header);
+  --color-gw-on-header-muted: var(--gw-on-header-muted);
+  --color-gw-accent: var(--gw-accent);
+  --color-gw-accent-ink: var(--gw-accent-ink);
+  --color-gw-accent-fill: var(--gw-accent-fill);
+  --color-gw-accent-fill-hover: var(--gw-accent-fill-hover);
+  --color-gw-accent-fill-border: var(--gw-accent-fill-border);
+  --color-gw-on-accent: var(--gw-on-accent);
+  --color-gw-tan: var(--gw-tan);
+  --color-gw-border: var(--gw-border);
+  --color-gw-control-border: var(--gw-control-border);
+  --color-gw-focus: var(--gw-focus);
+  --color-gw-focus-on-header: var(--gw-focus-on-header);
+  --color-gw-danger-fill: var(--gw-danger-fill);
+  --color-gw-danger-fill-hover: var(--gw-danger-fill-hover);
+  --color-gw-danger-fill-border: var(--gw-danger-fill-border);
+  --color-gw-on-danger: var(--gw-on-danger);
+  --color-gw-danger-ground: var(--gw-danger-ground);
+  --color-gw-ok: var(--gw-ok);
+  --color-gw-ok-ground: var(--gw-ok-ground);
+  --color-gw-warn: var(--gw-warn);
+  --color-gw-warn-ground: var(--gw-warn-ground);
+  --color-gw-bad: var(--gw-bad);
+  --color-gw-bad-ground: var(--gw-bad-ground);
+  --color-gw-info: var(--gw-info);
+  --color-gw-info-ground: var(--gw-info-ground);
+  --color-gw-neutral: var(--gw-neutral);
+  --color-gw-neutral-ground: var(--gw-neutral-ground);
+  --color-gw-chart-1: var(--gw-chart-1);
+  --color-gw-chart-2: var(--gw-chart-2);
+  --color-gw-chart-3: var(--gw-chart-3);
+  --color-gw-chart-4: var(--gw-chart-4);
+  --color-gw-chart-5: var(--gw-chart-5);
+  --color-gw-chart-highlight: var(--gw-chart-highlight);
+  --color-gw-chart-axis: var(--gw-chart-axis);
+  --color-gw-on-chart-1: var(--gw-on-chart-1);
+
+  --font-heading: var(--gw-font-heading);
+  --font-body: var(--gw-font-body);
+  --font-mono: var(--gw-font-mono);
+
+  --radius-sm: var(--gw-radius-sm);
+  --radius-md: var(--gw-radius-md);
+  --radius-lg: var(--gw-radius-lg);
+  --radius-pill: var(--gw-radius-pill);
+
+  --shadow-gw-sm: var(--gw-shadow-sm);
+  --shadow-gw-md: var(--gw-shadow-md);
+  --shadow-gw-lg: var(--gw-shadow-lg);
+}
