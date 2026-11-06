@@ -190,7 +190,7 @@
     const cut = (el, vars, t) => (t <= 0 ? gsap.set(el, vars) : tl.set(el, vars, t));
     // A fade tweens; a cut is a set.
     const fadeTo = (el, vars, d, t) => (d ? tl.to(el, { ...vars, duration: d }, t) : cut(el, vars, t));
-    let shown = null, phone = null, aim = [cur.x, cur.y];
+    let shown = null, phone = null, aim = [cur.x, cur.y], camMove = null, camAt = { x: cam.x, y: cam.y, w: cam.w };
     const resolve = EVC.makeClock({ captions: window.CAPTIONS, planEnd: F.duration, length });
     const events = resolveEvents(F.events, resolve);
     for (const e of events.sort((a, b) => a.t - b.t)) {
@@ -222,8 +222,24 @@
         window.SCENES[e.scene].build(el, tl, t, dur);
       }
       if (e.cam) {
-        if (e.dur) tl.to(cam, { ...win(e.cam), duration: e.dur, ease: e.ease || 'power2.inOut' }, t);
-        else cut(cam, win(e.cam), t);
+        // One camera, one winner: a move still running when the next camera event starts is ended at that moment, at the place it
+        // had reached (its end value is replaced and its length shortened before the first render). Left running, it kept
+        // overwriting the newer event on every seek and the picture flipped between the two cameras.
+        if (camMove && camMove.end > t + 1e-6) {
+          const m = camMove, p = Math.min(1, Math.max(0, (t - m.start) / (m.end - m.start))), k = gsap.parseEase(m.ease)(p);
+          const at = {};
+          for (const key of ['x', 'y', 'w']) at[key] = m.from[key] + (m.to[key] - m.from[key]) * k;
+          Object.assign(m.tween.vars, at);
+          m.tween.duration(t - m.start).invalidate();
+          camAt = at;
+        }
+        const to = win(e.cam), from = { ...camAt };
+        if (e.dur) {
+          const ease = e.ease || 'power2.inOut', tween = gsap.to(cam, { ...to, duration: e.dur, ease });
+          tl.add(tween, t);
+          camMove = { tween, start: t, end: t + e.dur, from, to, ease };
+          camAt = to;
+        } else { cut(cam, to, t); camMove = null; camAt = to; }
       }
       if (e.cursor) {
         aim = centre(e.cursor);

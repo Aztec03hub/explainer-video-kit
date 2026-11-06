@@ -105,6 +105,19 @@ export function checkProject(proj) {
     if (pageH && y + h > pageH) errors.push(`${where}: the window's bottom ${Math.round(y + h)} is below the screen's ${pageH} px height.`);
   });
 
+  // 3b. a camera move still running when the next camera event starts (the engine ends it there; the film.js probably meant it to run on)
+  {
+    const resolve = fs.existsSync(capFile) ? makeClock({ captions: readJson(capFile), planEnd: film.duration, length: film.duration }) : null;
+    const at = (e) => { try { return typeof e.t === 'number' ? e.t : resolve ? resolve(e.t) : null; } catch { return null; } };
+    const cams = events.map((e, i) => ({ e, i, t: at(e) })).filter((c) => Array.isArray(c.e.cam) && Number.isFinite(c.t)).sort((a, b) => a.t - b.t);
+    for (let k = 1; k < cams.length; k++) {
+      const prev = cams[k - 1], next = cams[k];
+      if (prev.e.dur && prev.t + prev.e.dur > next.t + 1e-6) {
+        warnings.push(`event ${prev.i + 1} (cam move at ${prev.t.toFixed(1)} s, ${prev.e.dur} s long) is still running when the camera event ${next.i + 1} starts at ${next.t.toFixed(1)} s, so the engine ends the move there, ${(prev.t + prev.e.dur - next.t).toFixed(1)} s early. Shorten its dur to ${Math.max(0.1, next.t - prev.t).toFixed(1)} or less if you meant it to finish first.`);
+      }
+    }
+  }
+
   // 4. a page much taller than the screen
   for (const [name, set] of Object.entries(sets)) {
     const b = boxesOf(name);

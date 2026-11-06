@@ -14,11 +14,12 @@ import * as secrets from './gates/secrets.mjs';
 import * as windows from './gates/windows.mjs';
 import * as captionfit from './gates/captionfit.mjs';
 import * as callouts from './gates/callouts.mjs';
+import * as smooth from './gates/smooth.mjs';
 
-const GATES = [ocr, wipes, captions, tags, audio, whisper, secrets, windows, captionfit, callouts];
-const NEEDS_CUT = new Set(['ocr', 'wipes', 'audio']);
+const GATES = [ocr, wipes, captions, tags, audio, whisper, secrets, windows, captionfit, callouts, smooth];
+const NEEDS_CUT = new Set(['ocr', 'wipes', 'audio', 'smooth']);
 
-const USAGE = `usage: ev gates <project> [<cut.mp4>] [--only ocr,wipes,captions,tags,audio,whisper,secrets,windows,captionfit,callouts] [--skip-ocr] [--json]
+const USAGE = `usage: ev gates <project> [<cut.mp4>] [--only ocr,wipes,captions,tags,audio,whisper,secrets,windows,captionfit,callouts,smooth] [--skip-ocr] [--json]
   cut       defaults to out/<output> from project.json
   --only    run just these gates
   --skip-ocr      don't fail on a missing tesseract (same as project.json "gates": { "ocr": false })
