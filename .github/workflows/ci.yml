@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install ffmpeg and tesseract
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg tesseract-ocr fonts-dejavu-core
+      - name: Engine dependencies
+        working-directory: plugins/explainer-video/engine
+        run: npm ci
+      - name: Tests
+        working-directory: plugins/explainer-video/engine
+        run: node --test
+      - name: No keys in the repo
+        run: node plugins/explainer-video/engine/bin/ev.mjs scan-secrets .
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Validate
+        run: claude plugin validate . --strict && claude plugin validate plugins/explainer-video --strict
