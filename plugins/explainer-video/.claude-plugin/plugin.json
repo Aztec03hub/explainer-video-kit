@@ -1,6 +1,6 @@
 {
   "name": "explainer-video",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Make an explainer video for any project: write and check the script, record the voice (ElevenLabs), capture the picture, word-timed subtitles, render with HyperFrames, and run the gates (forbidden text, muddy wipes, loudness). A quick one-minute explainer by default; longer videos with chapters too.",
   "author": { "name": "explainer-video-kit contributors" },
   "license": "MIT",
