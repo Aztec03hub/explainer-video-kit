@@ -7,13 +7,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Install ffmpeg and tesseract
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg tesseract-ocr fonts-dejavu-core
+        # Retries and a per-request timeout, so a slow mirror fails fast instead of hanging the job.
+        run: |
+          APT='-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30'
+          sudo apt-get $APT update && sudo apt-get $APT install -y ffmpeg tesseract-ocr fonts-dejavu-core
       - name: Engine dependencies
         working-directory: plugins/explainer-video/engine
         run: npm ci
