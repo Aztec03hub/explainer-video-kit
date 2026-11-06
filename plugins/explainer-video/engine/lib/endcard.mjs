@@ -126,6 +126,7 @@ export function endcardDecision(proj, win) {
   const title = asList(bl.title).length ? asList(bl.title) : asList(cfg.title);
   const warnings = [], errors = [];
   const page = win?.FILM?.page;
+  if (page !== undefined && +page !== 1280 && c === undefined) return none(`end card: skipped for page ${page}`, { warning: `the evolv end card is designed on 1280 scene units; skipped for film.js page ${JSON.stringify(page)}; set page: 1280 in film.js to get it, or set endcard: none to silence this` });
   if (page !== undefined && +page !== 1280) errors.push(`film.js sets page: ${JSON.stringify(page)}, but the end card is designed on 1280 scene units and would be laid out wrong at another page width. Set page: 1280 in film.js (or leave it out), or set "endcard": "none".`);
   if (at === 'last-beat' && !beats) return none('end card: none (the script has no beats to place it after)');
   if (at === 'last-beat' && beats === 1) warnings.push('the end card starts at the last beat and the script has one beat, so the card covers the whole film. Add a closing beat to script.md.');

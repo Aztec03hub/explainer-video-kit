@@ -540,6 +540,20 @@ test('Low f: a film.js page other than 1280 is an error with the card on (the sc
   assert.match(fs.readFileSync(path.join(ENGINE, 'runtime', 'explainer.js'), 'utf8'), /PAGE = F\.page \|\| 1280/, 'the scene is sized from film.js page, so the check is needed');
 });
 
+test('Low f2: an implicit (evolv logo, no endcard key) project with page != 1280 gets no card and a warning, never an error; explicit endcard still errors', () => {
+  const imp = made([], (c) => { delete c.endcard; c.brand = 'evolv'; });
+  const w = win(imp); w.FILM.page = 1000;
+  const d = endcardDecision(imp, w);
+  assert.equal(d.plan, null); assert.deepEqual(d.errors, []);
+  assert.match(d.warning, /designed on 1280 scene units; skipped for film\.js page 1000; set page: 1280.*endcard: none/);
+  assert.match(d.reason, /skipped for page 1000/);
+  assert.ok(Object.keys(evolvThemeDefaults(imp, d.plan)).length, 'orange defaults follow the logo rule, as for the non-16:9 skip');
+  const exp = made([]); const w2 = win(exp); w2.FILM.page = 1000;
+  assert.match(endcardDecision(exp, w2).errors.join('\n'), /page: 1000, but the end card is designed on 1280/);
+  const w3 = win(imp); w3.FILM.page = 1280;
+  assert.ok(endcardDecision(imp, w3).plan);
+});
+
 test('Low g: video-render SKILL lists all four evolv defaults', () => {
   assert.match(fs.readFileSync(path.join(REPO, 'plugins', 'explainer-video', 'skills', 'video-render', 'SKILL.md'), 'utf8'), /--ev-callout-ink`[^.]*`--ev-callout-shadow`/);
 });
