@@ -68,7 +68,7 @@ export const userEnvFile = () => path.join(process.env.XDG_CONFIG_HOME || path.j
 // Where a key may come from, in order. The first one that has a value wins.
 export const keySources = ({ envFile, projectDir } = {}) => [
   { label: 'the environment variable', file: null },
-  ...(envFile ? [{ label: '--env-file', file: path.resolve(envFile) }] : []),
+  ...(envFile ? [{ label: '--key-file', file: path.resolve(envFile) }] : []),
   ...(projectDir ? [{ label: 'the project .env', file: path.join(path.resolve(projectDir), '.env') }] : []),
   { label: 'your user .env', file: userEnvFile() },
 ];

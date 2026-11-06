@@ -9,7 +9,7 @@ description: Record the narration for a video with ElevenLabs: choose a model (E
 
 ## Keys
 
-`ELEVENLABS_API_KEY` is read inside the engine from the environment, `<project>/.env`, `~/.config/explainer-video/.env` or `--env-file <path>`. Never ask the user to paste it into chat, never put it on a command line or in a file you create. If it's missing, tell the user the variable name and the file to put it in (the error message already says both). Get one at https://elevenlabs.io/app/settings/api-keys.
+`ELEVENLABS_API_KEY` is read inside the engine from the environment, `<project>/.env`, `~/.config/explainer-video/.env` or `--key-file <path>`. Never ask the user to paste it into chat, never put it on a command line or in a file you create. If it's missing, tell the user the variable name and the file to put it in (the error message already says both). Get one at https://elevenlabs.io/app/settings/api-keys.
 
 ## Steps
 

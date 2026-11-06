@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hfEnv } from './common.mjs';
 
-const HELP = `usage: ev doctor [--need voice,render,ocr,align,frames] [--env-file <path>|--key-file <path>] [--project <dir>] [--json] [--quick]
+const HELP = `usage: ev doctor [--need voice,render,ocr,align,frames] [--key-file <path>] [--project <dir>] [--json] [--quick]
 Checks Node, ffmpeg, the engine's dependencies, a render Chrome, tesseract, whisper, disk space and the ElevenLabs key.
 --need picks what must be present (default: voice,render,frames; ocr and align are optional). Exit 1 if a needed check fails.
 --quick skips the slow checks (the Chrome lookup).`;
@@ -82,7 +82,7 @@ export default async function (argv) {
   const a = parseArgs(argv, { bool: ['json', 'quick', 'help'] });
   if (a.help) return log(HELP);
   const need = a.need ? String(a.need).split(',').map((s) => s.trim()).filter(Boolean) : DEFAULT_NEED;
-  const checks = runChecks({ envFile: a['env-file'] || a['key-file'], projectDir: a.project, quick: !!a.quick });
+  const checks = runChecks({ envFile: a['key-file'], projectDir: a.project, quick: !!a.quick });
   // Disk is a warning only; tesseract fails the run only when --need names ocr.
   const hard = checks.filter((c) => c.ok === false && c.needs.some((n) => need.includes(n)) && !c.id.startsWith('disk'));
   if (a.json) log(JSON.stringify(checks.map((c) => ({ ...c, needed: need.some((n) => c.needs.includes(n)) })), null, 1));

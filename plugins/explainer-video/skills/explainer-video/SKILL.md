@@ -24,7 +24,7 @@ node "<this skill's base directory>/../../engine/bin/ev.mjs"
 
 ## Keys
 
-The voice step needs an ElevenLabs API key. **Never** paste it into a chat, a script, a config file or a command line. Put `ELEVENLABS_API_KEY=...` in one of: the environment, the project's `.env`, `~/.config/explainer-video/.env`, or a file named with `--env-file`. Get a key at https://elevenlabs.io/app/settings/api-keys. `.env.example` in every project shows the line; `.env` is gitignored. If the key is missing, `EV doctor` and `EV voice` name the variable and every place they looked.
+The voice step needs an ElevenLabs API key. **Never** paste it into a chat, a script, a config file or a command line. Put `ELEVENLABS_API_KEY=...` in one of: the environment, the project's `.env`, `~/.config/explainer-video/.env`, or a file named with `--key-file`. Get a key at https://elevenlabs.io/app/settings/api-keys. `.env.example` in every project shows the line; `.env` is gitignored. If the key is missing, `EV doctor` and `EV voice` name the variable and every place they looked.
 
 ## The path
 

@@ -14,7 +14,7 @@ The voice step uses ElevenLabs. **You supply your own key. None is included.**
 
 | What | Where to get it | Where to put it |
 |---|---|---|
-| `ELEVENLABS_API_KEY` | https://elevenlabs.io/app/settings/api-keys | One of: the environment variable, `<project>/.env`, `~/.config/explainer-video/.env`, or a file you name with `--env-file` |
+| `ELEVENLABS_API_KEY` | https://elevenlabs.io/app/settings/api-keys | One of: the environment variable, `<project>/.env`, `~/.config/explainer-video/.env`, or a file you name with `--key-file` |
 
 - Copy `.env.example` to `.env` and fill in the line. `.env` is gitignored.
 - The engine reads the key inside the process that calls the API. It never prints it, logs it, writes it to a file or puts it on a command line. Don't paste it into a chat or a script.

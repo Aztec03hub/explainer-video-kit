@@ -30,7 +30,7 @@ test('key in the environment: found, value never printed', () => {
   assert.ok(!r.stdout.includes(FAKE.slice(0, 12)));
 });
 
-test('key in --env-file: found there, value never printed', () => {
+test('key in --key-file: found there, value never printed', () => {
   const f = path.join(home, 'k.env');
   fs.writeFileSync(f, `ELEVENLABS_API_KEY=${FAKE}\n`);
   const r = doctor(['--need', 'voice', '--key-file', f]);
