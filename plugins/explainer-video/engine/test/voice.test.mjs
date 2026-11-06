@@ -111,6 +111,23 @@ test('long script: two requests cut at beat boundaries, times offset by real dur
   assert.match(r.out, /credits billed/);
 });
 
+test('a long run that fails part way records what was already sent and writes no take', async () => {
+  const key = fakeKey();
+  const probe = (await import('../lib/script.mjs')).parseScript(SCRIPT);
+  const limit = Math.ceil(Math.max(...probe.beats.map((b) => b.text.length)) / 0.9) + 1; // about one beat per request
+  const m = await mockEleven({ key, models: smallModels(limit), failFrom: 2 });
+  const dir = makeProject(SCRIPT, cfg);
+  const r = await ev(['voice', dir], env(m, key));
+  await m.close();
+  assert.equal(r.status, 1);
+  assert.match(r.out, /FAILED after 1 of \d+ requests: \d+ characters were already sent/);
+  assert.equal(fs.existsSync(path.join(dir, 'voice', 'take.mp3')), false);
+  const spend = JSON.parse(fs.readFileSync(path.join(dir, 'voice', 'spend.json')));
+  assert.equal(spend.partial, true);
+  assert.equal(spend.requests.length, 1);
+  assert.ok(!JSON.stringify(spend).includes(key) && !r.out.includes(key));
+});
+
 test('refuses to overwrite a take without --force, replaces with it', async () => {
   const key = fakeKey(); const m = await mockEleven({ key });
   const dir = makeProject(SCRIPT, cfg);

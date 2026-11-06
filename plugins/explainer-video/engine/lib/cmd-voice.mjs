@@ -109,6 +109,7 @@ async function speak(a) {
   const spend = { requests: [], charactersSent: 0, billed: 0 };
   const words = [];
   let offset = 0;
+  try {
   for (const [k, r] of reqs.entries()) {
     log(`speaking request ${k + 1}/${reqs.length}...`);
     const body = { text: r.text, model_id: model };
@@ -124,6 +125,14 @@ async function speak(a) {
     spend.requests.push({ characters: r.characters, billed: res.cost });
     spend.charactersSent += r.characters;
     if (res.cost !== null) spend.billed += res.cost;
+  }
+  } catch (e) {
+    // Requests already made were paid for: say so and keep the numbers, so a failed long run isn't an invisible spend.
+    if (spend.requests.length) {
+      writeJson(spendFile, { ...spend, partial: true, failedAt: spend.requests.length + 1, of: reqs.length, counterBefore, model, voice, seed: seed ?? null, at: new Date().toISOString() });
+      log(`FAILED after ${spend.requests.length} of ${reqs.length} requests: ${spend.charactersSent} characters were already sent (recorded in ${spendFile}). No take was written; fix the problem and run again (add --force if a take already exists).`);
+    }
+    throw e;
   }
   const list = path.join(segDir, 'list.txt');
   if (reqs.length === 1) fs.copyFileSync(path.join(segDir, '01.mp3'), takeMp3); else join(list, takeMp3);

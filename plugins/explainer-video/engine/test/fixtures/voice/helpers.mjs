@@ -33,7 +33,7 @@ export function tinyMp3(file, seconds = 1) {
 }
 
 // mockEleven({ key, models, status }) -> { url, calls, close }. Speech: 1 s of sine per request, 0.01 s per character.
-export async function mockEleven({ key, models, speakStatus } = {}) {
+export async function mockEleven({ key, models, speakStatus, failFrom } = {}) {
   const audio = tinyMp3(path.join(tmp(), 'seg.mp3')).toString('base64');
   const calls = [];
   let counter = 100;
@@ -48,7 +48,7 @@ export async function mockEleven({ key, models, speakStatus } = {}) {
       if (req.url === '/user/subscription') return send(200, { character_count: counter });
       if (req.url === '/voices') return send(200, { voices: [{ voice_id: 'v1', name: 'Test Voice', category: 'cloned', labels: { accent: 'neutral' } }] });
       if (req.url.startsWith('/text-to-speech/')) {
-        if (speakStatus) return send(speakStatus, { detail: 'nope' });
+        if (speakStatus || (failFrom && calls.filter((c) => c.url.startsWith('/text-to-speech/')).length >= failFrom)) return send(speakStatus || 400, { detail: 'nope' });
         const text = JSON.parse(body).text;
         counter += Math.round(text.length / 2);
         const chars = [...text];
