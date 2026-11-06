@@ -1,0 +1,13 @@
+// Fixture film for the build test: a fictional Lantern Library app, six events, one of them on a spoken word.
+window.FILM = {
+  id: 'main',
+  duration: 6,
+  events: [
+    { t: 0, show: 'app/home' },
+    { t: 0.4, cursor: 'app/home:search', dur: 0.6 },
+    { t: 1.2, click: true },
+    { t: 'word:peek', show: 'app/detail', fade: 0.3 },
+    { t: 'word:peek+0.2', label: 'A peek', at: 'app/detail:title', dur: 1.5 },
+    { t: 4, hideCursor: true },
+  ],
+};
