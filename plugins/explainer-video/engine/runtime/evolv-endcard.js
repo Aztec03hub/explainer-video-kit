@@ -131,9 +131,10 @@ window.evolvEndCard = (opts) => {
       const fitter = (e, avail, size, ln) => {
         const spans = ln ? [...e.querySelectorAll('.ch')] : null, node = ln ? null : [...e.childNodes].filter((n) => n.nodeType === 3).pop();
         if (spans) spans.forEach((s) => { s.dataset.c = s.dataset.c || s.textContent; });
+        const gaps = spans ? spans.map((s) => (s.previousSibling && s.previousSibling.nodeType === 3 ? [s.previousSibling, s.previousSibling.data] : null)) : [];   // the spaces between words
         const full = node ? node.data : '', n = spans ? spans.length : full.length;
         const set = (s) => { e.style.fontSize = s === size ? '' : s + 'px'; if (ln) e.style.lineHeight = s === size ? '' : size * 1.16 + 'px'; };
-        const cut = (k) => { if (spans) spans.forEach((s, i) => { s.style.display = i > k ? 'none' : ''; s.textContent = i === k ? '\u2026' : s.dataset.c; }); else node.data = k >= n ? full : full.slice(0, k).trimEnd() + '\u2026'; };
+        const cut = (k) => { if (spans) spans.forEach((s, i) => { s.style.display = i > k ? 'none' : ''; s.textContent = i === k ? '\u2026' : s.dataset.c; if (gaps[i]) gaps[i][0].data = i >= k ? '' : gaps[i][1]; }); else node.data = k >= n ? full : full.slice(0, k).trimEnd() + '\u2026'; };
         return () => {
           let s = size; set(s); cut(n);
           while (wide(e) > avail && s > size * 0.7) { s = Math.max(size * 0.7, s - 1); set(s); }
@@ -141,7 +142,7 @@ window.evolvEndCard = (opts) => {
         };
       };
       const fits = [...all('h1 .ln')].map((e) => fitter(e, 1128, 66, true))
-        .concat([...all('.code')].map((e) => fitter(e, 1098, 28, false)), [...all('.needs')].map((e) => fitter(e, 1128, 28, false)));
+        .concat([...all('.code')].map((e) => fitter(e, 1070, 28, false)), [...all('.needs')].map((e) => fitter(e, 1128, 28, false)));
       let fitSeen = null;
       const fit = () => { fits.forEach((f) => f()); fitSeen = document.fonts ? document.fonts.status : 'loaded'; };
       const refit = () => { if (fitSeen !== 'loaded' && (!document.fonts || document.fonts.status === 'loaded')) fit(); };

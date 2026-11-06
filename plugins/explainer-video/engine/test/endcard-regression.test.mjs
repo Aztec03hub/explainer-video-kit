@@ -135,3 +135,47 @@ test('check B fails when the frame is from the wrong moment (plugin at 2.1 s aga
     assert.ok(f > MAX_FRACTION, `a frame from another moment must fail check B (it differs by ${(f * 100).toFixed(3)} percent)`);
   });
 });
+
+// Auto-fit: text that fits keeps its design size exactly (the hero); text that does not fit shrinks to at most 70 percent, then ends in an ellipsis.
+async function fitOf(browser, opts) {
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+    await page.goto('file://' + makePage('plugin', { opts }), { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => { window.__timelines.main.seek(0.5); });   // draw() runs refit() once the fonts are in
+    return await page.evaluate(() => {
+      const w = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width / 1.5; };
+      const shown = (e) => [...e.childNodes].map((n) => (n.nodeType === 3 ? n.data : n.style && n.style.display === 'none' ? '' : n.textContent)).join('');   // what is visible: cut letters are display:none
+      const info = (e) => ({ size: parseFloat(getComputedStyle(e).fontSize), text: shown(e), width: Math.round(w(e)) });
+      const q = (s) => [...document.querySelectorAll(`.xp-scene ${s}`)].map(info);
+      return { ln: q('h1 .ln'), code: q('.code'), needs: q('.needs') };
+    });
+  } finally { await page.close(); }
+}
+
+test('auto-fit: the hero text keeps its design sizes; a long title and long lines shrink to the floor and end in an ellipsis', { skip, timeout: 120000 }, async () => {
+  await withBrowser(async (browser) => {
+    const hero = await fitOf(browser, HERO);
+    assert.deepEqual([...hero.ln, ...hero.code, ...hero.needs].map((e) => e.size), [66, 66, 28, 28, 28]);
+    assert.ok([...hero.ln, ...hero.code, ...hero.needs].every((e) => !e.text.includes('…')));
+    const long = await fitOf(browser, {
+      title: ['A very long product name for a very long film,', 'an automation plugin for enterprise reporting teams'],
+      lines: ['/plugin marketplace add enterprise-reporting-automation-org/quarterly-reporting-automation-suite', '/plugin install quarterly-reporting-automation-suite@enterprise-reporting-automation-org'],
+      note: 'Requires an enterprise license, single sign-on, a read-only reporting database connection and a quarterly planning calendar and more words to be sure it is too long',
+    });
+    for (const e of long.ln) { assert.ok(e.size >= 66 * 0.7 - 0.01 && e.size < 66, `title size ${e.size}`); assert.ok(e.width <= 1128 + 1, `title width ${e.width}`); }
+    assert.ok(long.ln[1].text.endsWith('…') && !long.ln[1].text.includes(' …'), long.ln[1].text);
+    for (const e of long.code) { assert.ok(e.size < 28 && e.size >= 28 * 0.7 - 0.01); assert.ok(e.width <= 1070 + 1, `code width ${e.width}`); }
+    assert.ok(long.code[0].text.endsWith('…'));
+    assert.ok(long.needs[0].size < 28 && long.needs[0].width <= 1128 + 1 && long.needs[0].text.endsWith('…'), JSON.stringify(long.needs));
+  });
+});
+
+test('text is HTML-escaped, and a card with no lines and no note has neither element', { skip, timeout: 120000 }, async () => {
+  await withBrowser(async (browser) => {
+    const r = await fitOf(browser, { title: ['<b>x</b> & "q"'] });
+    assert.deepEqual(r.ln.map((e) => e.text), ['<b>x</b> & "q"']);
+    assert.deepEqual([r.code.length, r.needs.length], [0, 0]);
+  });
+});
