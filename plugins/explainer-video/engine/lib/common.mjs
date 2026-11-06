@@ -38,6 +38,7 @@ export const writeJson = (p, v) => { fs.mkdirSync(path.dirname(p), { recursive: 
 
 // A project is a folder with project.json (see templates/project). Paths are always inside it.
 export function loadProject(dir) {
+  if (dir === true) throw new Error('--project needs a folder, like --project ./my-video');
   const root = path.resolve(dir || '.');
   const file = path.join(root, 'project.json');
   if (!fs.existsSync(file)) die(`no project.json in ${root}. Run: ev init <folder>`);
