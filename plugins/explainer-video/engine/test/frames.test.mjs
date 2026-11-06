@@ -7,7 +7,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import frames, { chromePath, stateUrl } from '../lib/cmd-frames.mjs';
+import frames, { chromePath, pixelCheck, stateUrl, themeOf } from '../lib/cmd-frames.mjs';
 
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'render');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-frames-test-'));
@@ -19,6 +19,14 @@ test('stateUrl puts the state query after ?theme=', () => {
   assert.equal(stateUrl(proj, 'https://x.test/a?z=1', 'dark', 'state=b'), 'https://x.test/a?z=1&theme=dark&state=b');
   assert.equal(stateUrl(proj, 'https://x.test/a', null, ''), 'https://x.test/a');
   assert.match(stateUrl(proj, 'm.html', 'dark', ''), /^file:\/\/.*\/m\.html\?theme=dark$/);
+});
+
+test('dark is the default theme; "none" sends no theme query; an explicit theme wins', () => {
+  const proj = { root: '/p' };
+  const url = (set) => stateUrl(proj, 'https://x.test/a', themeOf(set), '&state=b');
+  assert.equal(url({}), 'https://x.test/a?theme=dark&state=b');
+  assert.equal(url({ theme: 'none' }), 'https://x.test/a?state=b');
+  assert.equal(url({ theme: 'light' }), 'https://x.test/a?theme=light&state=b');
 });
 
 let haveChrome = true;
@@ -67,7 +75,7 @@ test('must fail: a missing box that film.js uses is an error naming the event', 
 
 test('a missing box that no film.js event uses is only a warning line', { skip: !haveChrome, timeout: 120000 }, async () => {
   const dir = badText('warntext');
-  fs.writeFileSync(path.join(dir, 'film.js'), "window.FILM = { id: 'main', events: [{ t: 1, cursor: 'app/home:borrow' }] };\n");
+  fs.writeFileSync(path.join(dir, 'film.js'), "window.FILM = { id: 'main', events: [{ t: 1, show: 'app/home' }] };\n");
   const lines = [], orig = console.log;
   console.log = (...a) => lines.push(a.join(' '));
   try { await frames([dir]); } finally { console.log = orig; }
@@ -88,4 +96,19 @@ test('--check passes against a dsf 1 copy and fails against a modified reference
   for (let y = 40; y < 120; y++) for (let x = 40; x < 120; x++) { const i = (y * png.width + x) * 4; png.data[i] = 255 - png.data[i]; png.data[i + 1] = 255 - png.data[i + 1]; png.data[i + 2] = 255 - png.data[i + 2]; }
   fs.writeFileSync(f, PNG.sync.write(png));
   await assert.rejects(frames([dir, '--check', path.join(tmp, 'badref')]), /app\/home differs/);
+});
+
+test('pixelCheck (what ev build runs): passes on the approved images, fails naming the state on a modified one', { skip: !haveChrome, timeout: 180000 }, async () => {
+  const ref = project('pxref', 1);
+  await frames([ref]);
+  const dir = project('pxbuild', 3);
+  const proj = { root: dir, cfg: JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8')) };
+  await pixelCheck(proj, path.join(ref, 'frames'));
+  const bad = path.join(tmp, 'pxbad', 'app');
+  fs.mkdirSync(bad, { recursive: true });
+  for (const s of ['home', 'detail']) fs.copyFileSync(path.join(ref, 'frames', 'app', `${s}.png`), path.join(bad, `${s}.png`));
+  const f = path.join(bad, 'detail.png'), png = PNG.sync.read(fs.readFileSync(f));
+  for (let y = 40; y < 120; y++) for (let x = 40; x < 120; x++) { const i = (y * png.width + x) * 4; png.data[i] = 255 - png.data[i]; png.data[i + 1] = 255 - png.data[i + 1]; png.data[i + 2] = 255 - png.data[i + 2]; }
+  fs.writeFileSync(f, PNG.sync.write(png));
+  await assert.rejects(pixelCheck(proj, path.join(tmp, 'pxbad')), /pixel check against .* failed:[\s\S]*app\/detail differs from .*: \d+\.\d+% \(\d+ px\)/);
 });

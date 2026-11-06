@@ -51,3 +51,10 @@ test('--json prints an array of checks', () => {
   assert.ok(Array.isArray(list) && list.some((c) => c.id === 'key' && c.ok === true));
   assert.ok(!r.stdout.includes(FAKE));
 });
+
+test('no key with the default --need: the failing line names only voice, and the rest are reported ready', () => {
+  const r = doctor(['--key-file', path.join(home, 'nothing.env')]);
+  assert.match(r.stdout, /1 needed check\(s\) failed for: voice\n/);
+  assert.match(r.stdout, /Still ready for: render, frames\n/);
+  assert.ok(!/failed for: voice, render/.test(r.stdout));
+});

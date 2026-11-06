@@ -1,0 +1,19 @@
+{
+ "banned": [
+  "utilize",
+  "leverage"
+ ],
+ "ruled": [],
+ "neverOnScreen": [
+  "Lorem ipsum",
+  "TODO"
+ ],
+ "heardAs": {
+  "Claude": [
+   "clod"
+  ],
+  "explainer-video": [
+   "explainer"
+  ]
+ }
+}

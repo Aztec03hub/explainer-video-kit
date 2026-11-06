@@ -47,6 +47,9 @@ export async function mockEleven({ key, models, speakStatus, failFrom } = {}) {
       if (req.url === '/models') return send(200, models || [{ model_id: 'eleven_v4', name: 'Eleven v4', can_do_text_to_speech: true, max_characters_request_free_user: 5000, max_characters_request_subscribed_user: 10000 }]);
       if (req.url === '/user/subscription') return send(200, { character_count: counter });
       if (req.url === '/voices') return send(200, { voices: [{ voice_id: 'v1', name: 'Test Voice', category: 'cloned', labels: { accent: 'neutral' } }] });
+      if (req.url === '/voices/add' && req.method === 'POST') return send(200, { voice_id: 'newvoice123' });
+      const one = /^\/voices\/([\w-]+)$/.exec(req.url);
+      if (one && req.method === 'GET') return send(200, { voice_id: one[1], name: one[1] === 'v1' ? 'Test Voice' : `Voice ${one[1]}`, category: 'cloned' });
       if (req.url.startsWith('/text-to-speech/')) {
         if (speakStatus || (failFrom && calls.filter((c) => c.url.startsWith('/text-to-speech/')).length >= failFrom)) return send(speakStatus || 400, { detail: 'nope' });
         const text = JSON.parse(body).text;

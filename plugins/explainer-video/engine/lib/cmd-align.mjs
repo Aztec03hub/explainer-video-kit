@@ -10,7 +10,8 @@ import { ensureScript, spokenWords } from './script.mjs';
 
 const HELP = `usage: ev align <project> --audio <file> [--engine whisper] [--shift -0.3] [--force]
        ev align <project> --transcript-only [--audio <file>]
-  Transcribes the recording with Whisper (hyperframes transcribe, model small.en, English), matches the heard words to
+  Transcribes the recording with Whisper (hyperframes transcribe, model small.en, English; the first run builds whisper.cpp and
+  downloads the model: about 3 minutes for an 80 s recording, about 30 s after), matches the heard words to
   script.md's spoken words and writes voice/take.json, voice/take.mp3 and voice/transcript.json (the heard words).
   --transcript-only  only listen: transcribe voice/take.mp3 (or --audio) into voice/transcript.json and report the match
                      rate, leaving take.json and take.mp3 alone. Use it on an ElevenLabs take so the tags and whisper

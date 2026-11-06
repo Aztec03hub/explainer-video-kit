@@ -1,0 +1,21 @@
+{
+ "name": "my-video",
+ "form": "quick",
+ "title": "Your title",
+ "screen": { "x": 160, "y": 24, "w": 1600, "h": 900 },
+ "page": 1280,
+ "frames": {
+  "page": "mockup/index.html",
+  "width": 1280,
+  "sets": {
+   "dark": {
+    "theme": "dark",
+    "dsf": 4,
+    "states": { "default": "&state=default" }
+   }
+  }
+ },
+ "voice": { "id": "", "model": "eleven_v4", "seed": null },
+ "music": { "file": "music/bed.mp3" },
+ "output": "my-video.mp4"
+}

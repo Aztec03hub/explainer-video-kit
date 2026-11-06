@@ -11,12 +11,13 @@ import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 import { readFilm } from './cmd-build.mjs';
 import { hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, run } from './common.mjs';
+import { checkProject, formatCheck } from './project-check.mjs';
 
 const fail = (m) => { throw new Error(m); };
 const HELP = `usage: ev frames <project> [--check <reference dir>] [--set <name>]
   Reads project.json "frames":
     { "page": "mockup.html" | "https://...", "width": 1280, "sets": { "<set>": {
-        "theme": "dark", "dsf": 3, "width": 1280, "fixed": 0,
+        "theme": "dark" (default; "none" sends no theme query), "dsf": 3, "width": 1280, "fixed": 0,
         "states":  { "<state>": "&state=x" },          query appended after ?theme=<theme>
         "texts":   { "<box>": "exact visible text" },  first visible button, link, summary or table cell with that text
         "boxes":   { "<box>": "css selector" } } } }
@@ -50,6 +51,9 @@ export function stateUrl(proj, page, theme, query = '') {
   return q ? `${base}${base.includes('?') ? '&' : '?'}${q}` : base;
 }
 
+// Dark is the engine default; "none" renders the page with no theme query (a page with no theme switch).
+export const themeOf = (set) => (set.theme === 'none' ? null : set.theme ?? 'dark');
+
 // Every "set/state:box" that film.js names (cursor, at, ...), each with the first event that uses it.
 export function filmBoxRefs(file) {
   const refs = new Map();
@@ -76,7 +80,7 @@ async function captureSet(browser, proj, cfg, name, set, outDir, dsfOverride) {
     const cdp = await page.createCDPSession();
     await cdp.send('Emulation.setLocaleOverride', { locale: 'en-US' });
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US' });
-    await page.goto(stateUrl(proj, cfg.page, set.theme, query), { waitUntil: 'load' });
+    await page.goto(stateUrl(proj, cfg.page, themeOf(set), query), { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready);
     await page.addStyleTag({ content: NO_MOTION });
     await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode().catch(() => {}))));
@@ -110,10 +114,43 @@ export function comparePng(refFile, gotFile) {
   return { ok: pct <= 0.5, pct, text: `${pct.toFixed(3)}% (${n} px)` };
 }
 
+// Re-render one set at dsf 1 into tmp and compare each state with the approved PNG; returns the problem lines.
+async function checkSet(browser, proj, cfg, name, set, tmp, refRoot) {
+  const problems = [], dir = path.join(tmp, name);
+  const { errors } = await captureSet(browser, proj, cfg, name, set, dir, 1);
+  if (errors) problems.push(`${errors} page error(s) in set ${name}`);
+  for (const state of Object.keys(set.states || { default: '' })) {
+    const ref = [path.join(refRoot, name, `${state}.png`), path.join(refRoot, `${state}-${name}.png`)].find((f) => fs.existsSync(f));
+    if (!ref) { problems.push(`no reference PNG for ${name}/${state} in ${refRoot}`); continue; }
+    const r = comparePng(ref, path.join(dir, `${state}.png`));
+    log(`${r.ok ? 'ok  ' : 'FAIL'} ${r.text}  ${name}/${state}`);
+    if (!r.ok) problems.push(`${name}/${state} differs from ${ref}: ${r.text}`);
+  }
+  return problems;
+}
+
+// The pixel check ev build runs: every set against project.json frames.approved. Throws on any mismatch.
+export async function pixelCheck(proj, refRoot) {
+  const cfg = proj.cfg.frames;
+  const { default: puppeteer } = await import('puppeteer-core');
+  const browser = await puppeteer.launch({ executablePath: chromePath(), headless: true, args: process.env.EV_NO_SANDBOX ? ['--no-sandbox'] : [] });
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-frames-'));
+  const problems = [];
+  try {
+    for (const [name, set] of Object.entries(cfg.sets)) problems.push(...await checkSet(browser, proj, cfg, name, set, tmp, refRoot));
+  } finally {
+    await browser.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  if (problems.length) throw new Error(`pixel check against ${refRoot} failed:\n  - ${problems.join('\n  - ')}`);
+  log('pixel check: frames match the approved images.');
+}
+
 export default async function (argv) {
   const a = parseArgs(argv, { bool: ['help'] });
   if (a.help || argv.includes('-h')) return log(HELP);
   const proj = loadProject(a._[0]);
+  { const r = checkProject(proj); formatCheck(r).forEach((l) => log(l)); if (r.errors.length) throw new Error('project check failed: fix film.js or project.json (see ERROR lines above)'); }
   const cfg = proj.cfg.frames;
   if (!cfg?.page || !cfg.sets) fail('project.json has no "frames": { "page": ..., "sets": { ... } }. Run: ev frames --help');
   const names = Object.keys(cfg.sets).filter((n) => !a.set || n === a.set);
@@ -140,17 +177,7 @@ export default async function (argv) {
         }
         continue;
       }
-      const dir = path.join(tmp, name);
-      const { errors } = await captureSet(browser, proj, cfg, name, set, dir, 1);
-      if (errors) problems.push(`${errors} page error(s) in set ${name}`);
-      const refRoot = path.resolve(a.check);
-      for (const state of Object.keys(set.states || { default: '' })) {
-        const ref = [path.join(refRoot, name, `${state}.png`), path.join(refRoot, `${state}-${name}.png`)].find((f) => fs.existsSync(f));
-        if (!ref) { problems.push(`no reference PNG for ${name}/${state} in ${refRoot}`); continue; }
-        const r = comparePng(ref, path.join(dir, `${state}.png`));
-        log(`${r.ok ? 'ok  ' : 'FAIL'} ${r.text}  ${name}/${state}`);
-        if (!r.ok) problems.push(`${name}/${state} differs from ${ref}: ${r.text}`);
-      }
+      problems.push(...await checkSet(browser, proj, cfg, name, set, tmp, path.resolve(a.check)));
     }
   } finally {
     await browser.close();

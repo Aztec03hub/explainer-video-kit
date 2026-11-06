@@ -17,7 +17,7 @@ description: Make word-timed subtitles for a video: burned-in captions where the
 ## Rules
 
 - Captions come from the script's own words, so they can't drift. Every spoken word appears exactly once, in order; the command fails on the first mismatch. Voice tags never appear in a caption.
-- Chunks are 2 to 6 words, broken at punctuation first, never across a beat. A chunk shows from 0.08 s before its first word to the earlier of 0.1 s before the next chunk or 0.8 s after its last word. **No minimum on-screen time**: a floor made short chunks overlap the next one.
+- Chunks are 2 to 5 words, broken at punctuation first, never ending on a small word like "on" or "to", never across a beat. To choose the breaks yourself, put a lone `/` between words in script.md (it is not spoken or counted). A chunk shows from 0.08 s before its first word to the earlier of 0.1 s before the next chunk or 0.8 s after its last word. **No minimum on-screen time**: a floor made short chunks overlap the next one.
 - The spoken word is coloured and underlined; changes are cuts, never fades (a half-faded word looks muddy). Trailing periods are dropped on screen.
 - Captions sit in their own band under the screen, centred and fixed, in a face and colours the app never uses, so nobody reads a caption as a button label. Colours are CSS variables in the runtime (`project.json` `style`).
 - Word times come from the voice step (ElevenLabs character timestamps) or `EV align` (whisper). Words the aligner can't match are interpolated between neighbours.

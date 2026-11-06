@@ -11,6 +11,7 @@
    "dark": {
     "theme": "dark",
     "dsf": 4,
+    "fixed": 720,
     "states": {
      "default": "&state=default",
      "open": "&state=open",
@@ -22,12 +23,13 @@
     },
     "boxes": {
      "search": "#search",
-     "banner": "#banner"
+     "banner": "#banner",
+     "due": ".panel dd"
     }
    }
   }
  },
  "voice": { "id": "", "model": "eleven_v4", "seed": null },
- "music": null,
+ "music": { "file": "music/bed.mp3" },
  "output": "lantern-library.mp4"
 }

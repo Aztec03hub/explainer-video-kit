@@ -1,0 +1,357 @@
+/* groundwork 0.2.0: evolv's design system, as CSS custom properties.
+   Doc: ../../references/groundwork.md. Keep this file and tokens.json in step: scripts/check_contrast.py
+   checks the colors, and the rest is by hand.
+   Light by default. Dark follows the OS (prefers-color-scheme) unless <html data-theme="light"> forces light;
+   <html data-theme="dark"> forces dark. Remove data-theme to go back to System.
+   Names: --gw-<color|space|gutter|measure|container|duration-*|ease|skeleton-cycle>, --gw-font-<role>,
+   --gw-type-<step>-<size|line|weight|tracking>, --gw-radius-<size>, --gw-shadow-<size>, --gw-focus-<width|offset>.
+   Colors are the semantic tokens of doc section 4.3. Load groundwork-fonts.css first for the faces. */
+
+/* Layer order: groundwork sits above Tailwind's base (so its preflight can't undo the defaults below)
+   and below components and utilities (so a class like text-lg beats them). See groundwork-tailwind.css. */
+@layer theme, base, groundwork, components, utilities;
+
+:root {
+  color-scheme: light;
+
+  /* color: grounds */
+  --gw-page: #FFFFFF;
+  --gw-surface: #F5F5F5;
+  --gw-band: #D9D9D9;
+  --gw-input: #FFFFFF;
+  --gw-header: #2E3952;
+  --gw-scrim: rgb(20 26 39 / 0.6);
+
+  /* color: text */
+  --gw-text: #343434;
+  --gw-text-muted: #4D4D4D;
+  --gw-placeholder: #757575;
+  --gw-text-navy: #2E3952;
+  --gw-on-header: #FFFFFF;
+  --gw-on-header-muted: #D9D9D9;
+
+  /* color: orange and tan */
+  --gw-accent: #D15635;
+  --gw-accent-ink: #B84A2D;
+  --gw-accent-fill: #B84A2D;
+  --gw-accent-fill-hover: #A24128;
+  --gw-accent-fill-border: #B84A2D;
+  --gw-on-accent: #FFFFFF;
+  --gw-tan: #D68B60;
+
+  /* color: lines and focus */
+  --gw-border: #D9D9D9;
+  --gw-control-border: #7A8499;
+  --gw-focus: #B84A2D;
+  --gw-focus-on-header: #FFFFFF;
+
+  /* color: danger */
+  --gw-danger-fill: #9B2C1B;
+  --gw-danger-fill-hover: #882718;
+  --gw-danger-fill-border: #9B2C1B;
+  --gw-on-danger: #FFFFFF;
+  --gw-danger-ground: #FDECEA;
+
+  /* color: status */
+  --gw-ok: #1D6B3C;
+  --gw-ok-ground: #E8F4EC;
+  --gw-warn: #7A4B00;
+  --gw-warn-ground: #FFF4DD;
+  --gw-bad: #9B2C1B;
+  --gw-bad-ground: #FDECEA;
+  --gw-info: #2E3952;
+  --gw-info-ground: #E8ECF4;
+  --gw-neutral: #4A4A4A;
+  --gw-neutral-ground: #EFEFEF;
+
+  /* color: charts */
+  --gw-chart-1: #2E3952;
+  --gw-chart-2: #D15635;
+  --gw-chart-3: #7A8499;
+  --gw-chart-4: #D68B60;
+  --gw-chart-5: #D9D9D9;
+  --gw-chart-highlight: #D15635;
+  --gw-chart-axis: #666666;
+  --gw-on-chart-1: #FFFFFF;
+
+  /* fonts */
+  --gw-font-heading: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --gw-font-body: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --gw-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* type: size, line height, weight and tracking for each step */
+  --gw-type-display-size: clamp(2.1rem, 5vw, 3.4rem);
+  --gw-type-display-line: 1.2;
+  --gw-type-display-weight: 300;
+  --gw-type-display-tracking: 0.04em;
+  --gw-type-h1-size: 2.25rem;
+  --gw-type-h1-line: 1.2;
+  --gw-type-h1-weight: 300;
+  --gw-type-h1-tracking: 0.02em;
+  --gw-type-h2-size: 1.875rem;
+  --gw-type-h2-line: 1.25;
+  --gw-type-h2-weight: 400;
+  --gw-type-h2-tracking: 0;
+  --gw-type-h3-size: 1.5rem;
+  --gw-type-h3-line: 1.3;
+  --gw-type-h3-weight: 700;
+  --gw-type-h3-tracking: 0;
+  --gw-type-h4-size: 1.25rem;
+  --gw-type-h4-line: 1.4;
+  --gw-type-h4-weight: 700;
+  --gw-type-h4-tracking: 0;
+  --gw-type-body-size: 1rem;
+  --gw-type-body-line: 1.5;
+  --gw-type-body-weight: 400;
+  --gw-type-body-tracking: 0;
+  --gw-type-prose-size: 1rem;
+  --gw-type-prose-line: 1.65;
+  --gw-type-prose-weight: 400;
+  --gw-type-prose-tracking: 0;
+  --gw-type-body-sm-size: 0.875rem;
+  --gw-type-body-sm-line: 1.43;
+  --gw-type-body-sm-weight: 400;
+  --gw-type-body-sm-tracking: 0;
+  --gw-type-label-size: 0.875rem;
+  --gw-type-label-line: 1.43;
+  --gw-type-label-weight: 600;
+  --gw-type-label-tracking: 0;
+  --gw-type-caption-size: 0.75rem;
+  --gw-type-caption-line: 1.33;
+  --gw-type-caption-weight: 400;
+  --gw-type-caption-tracking: 0;
+  --gw-type-overline-size: 0.75rem;
+  --gw-type-overline-line: 1.33;
+  --gw-type-overline-weight: 600;
+  --gw-type-overline-tracking: 0.05em;
+  --gw-type-code-size: 0.875rem;
+  --gw-type-code-line: 1.6;
+  --gw-type-code-weight: 400;
+  --gw-type-code-tracking: 0;
+
+  /* space and layout */
+  --gw-space: 0.25rem;
+  --gw-gutter: 1.5rem;
+  --gw-measure: 42rem;
+  --gw-container: 62rem;
+
+  /* radius */
+  --gw-radius-sm: 4px;
+  --gw-radius-md: 6px;
+  --gw-radius-lg: 8px;
+  --gw-radius-pill: 9999px;
+
+  /* shadow (light) */
+  --gw-shadow-sm: 0 1px 2px rgb(46 57 82 / 0.08);
+  --gw-shadow-md: 0 6px 18px rgb(46 57 82 / 0.09);
+  --gw-shadow-lg: 0 16px 40px rgb(46 57 82 / 0.16);
+
+  /* motion */
+  --gw-duration-fast: 120ms;
+  --gw-duration-base: 200ms;
+  --gw-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --gw-skeleton-cycle: 1.5s;
+
+  /* focus */
+  --gw-focus-width: 2px;
+  --gw-focus-offset: 2px;
+}
+
+/* phones: the 1.5rem gutter crowds a 320px screen (doc section 6) */
+@media (max-width: 39.99rem) {
+  :root {
+    --gw-gutter: 1rem;
+  }
+}
+
+/* reduced motion: durations drop to 0.01ms. Skeletons sitting still and the hover lift (translateY(-2px))
+   running only under no-preference are the app's job (doc section 7). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gw-duration-fast: 0.01ms;
+    --gw-duration-base: 0.01ms;
+  }
+}
+
+/* dark: only tokens whose value changes. The same set sits under both selectors. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --gw-page: #141A27;
+    --gw-surface: #1D2536;
+    --gw-band: #252F45;
+    --gw-input: #141A27;
+    --gw-scrim: rgb(0 0 0 / 0.6);
+    --gw-text: #E6E8EC;
+    --gw-text-muted: #AAB2C2;
+    --gw-placeholder: #7A8499;
+    --gw-text-navy: #A9B4CC;
+    --gw-accent-ink: #E8794F;
+    --gw-accent-fill-border: #E8794F;
+    --gw-border: #3A4560;
+    --gw-control-border: #AAB2C2;
+    --gw-focus: #E8794F;
+    --gw-danger-fill: #C13F2E;
+    --gw-danger-fill-hover: #AA3728;
+    --gw-danger-fill-border: #F07F7F;
+    --gw-danger-ground: #332833;
+    --gw-ok: #5FBF8F;
+    --gw-ok-ground: #1E3136;
+    --gw-warn: #E5B454;
+    --gw-warn-ground: #31302D;
+    --gw-bad: #F07F7F;
+    --gw-bad-ground: #332833;
+    --gw-info: #A9B4CC;
+    --gw-info-ground: #29303E;
+    --gw-neutral: #AAB2C2;
+    --gw-neutral-ground: #292F3D;
+    --gw-chart-1: #A9B4CC;
+    --gw-chart-2: #E8794F;
+    --gw-chart-highlight: #E8794F;
+    --gw-chart-axis: #7A8499;
+    --gw-on-chart-1: #141A27;
+    --gw-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --gw-shadow-md: 0 6px 18px rgb(0 0 0 / 0.45);
+    --gw-shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --gw-page: #141A27;
+  --gw-surface: #1D2536;
+  --gw-band: #252F45;
+  --gw-input: #141A27;
+  --gw-scrim: rgb(0 0 0 / 0.6);
+  --gw-text: #E6E8EC;
+  --gw-text-muted: #AAB2C2;
+  --gw-placeholder: #7A8499;
+  --gw-text-navy: #A9B4CC;
+  --gw-accent-ink: #E8794F;
+  --gw-accent-fill-border: #E8794F;
+  --gw-border: #3A4560;
+  --gw-control-border: #AAB2C2;
+  --gw-focus: #E8794F;
+  --gw-danger-fill: #C13F2E;
+  --gw-danger-fill-hover: #AA3728;
+  --gw-danger-fill-border: #F07F7F;
+  --gw-danger-ground: #332833;
+  --gw-ok: #5FBF8F;
+  --gw-ok-ground: #1E3136;
+  --gw-warn: #E5B454;
+  --gw-warn-ground: #31302D;
+  --gw-bad: #F07F7F;
+  --gw-bad-ground: #332833;
+  --gw-info: #A9B4CC;
+  --gw-info-ground: #29303E;
+  --gw-neutral: #AAB2C2;
+  --gw-neutral-ground: #292F3D;
+  --gw-chart-1: #A9B4CC;
+  --gw-chart-2: #E8794F;
+  --gw-chart-highlight: #E8794F;
+  --gw-chart-axis: #7A8499;
+  --gw-on-chart-1: #141A27;
+  --gw-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --gw-shadow-md: 0 6px 18px rgb(0 0 0 / 0.45);
+  --gw-shadow-lg: 0 16px 40px rgb(0 0 0 / 0.55);
+}
+
+/* Element defaults. Inside a layer, so any unlayered app style beats them. */
+@layer groundwork {
+  body {
+    font-family: var(--gw-font-body);
+    font-size: var(--gw-type-body-size);
+    font-weight: var(--gw-type-body-weight);
+    line-height: var(--gw-type-body-line);
+    color: var(--gw-text);
+    background-color: var(--gw-page);
+    font-variant-numeric: tabular-nums; /* T4 sets tnum on its body: numbers line up in tables and dashboards */
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--gw-font-heading);
+  }
+
+  h1 {
+    font-size: var(--gw-type-h1-size);
+    line-height: var(--gw-type-h1-line);
+    font-weight: var(--gw-type-h1-weight);
+    letter-spacing: var(--gw-type-h1-tracking);
+  }
+
+  h2 {
+    font-size: var(--gw-type-h2-size);
+    line-height: var(--gw-type-h2-line);
+    font-weight: var(--gw-type-h2-weight);
+    letter-spacing: var(--gw-type-h2-tracking);
+    color: var(--gw-accent);
+  }
+
+  h3 {
+    font-size: var(--gw-type-h3-size);
+    line-height: var(--gw-type-h3-line);
+    font-weight: var(--gw-type-h3-weight);
+    letter-spacing: var(--gw-type-h3-tracking);
+  }
+
+  h4 {
+    font-size: var(--gw-type-h4-size);
+    line-height: var(--gw-type-h4-line);
+    font-weight: var(--gw-type-h4-weight);
+    letter-spacing: var(--gw-type-h4-tracking);
+  }
+
+  /* Orange Ink fails on Light Grey, the navy header band and the light info ground: see doc section 4.5. */
+  a {
+    color: var(--gw-accent-ink);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  :focus-visible {
+    outline: var(--gw-focus-width) solid var(--gw-focus);
+    outline-offset: var(--gw-focus-offset);
+  }
+
+  code, pre {
+    font-family: var(--gw-font-mono);
+    font-size: var(--gw-type-code-size);
+    line-height: var(--gw-type-code-line);
+  }
+
+  .gw-display {
+    font-family: var(--gw-font-heading);
+    font-size: var(--gw-type-display-size);
+    line-height: var(--gw-type-display-line);
+    font-weight: var(--gw-type-display-weight);
+    letter-spacing: var(--gw-type-display-tracking);
+  }
+
+  .gw-overline {
+    font-family: var(--gw-font-body);
+    font-size: var(--gw-type-overline-size);
+    line-height: var(--gw-type-overline-line);
+    font-weight: var(--gw-type-overline-weight);
+    letter-spacing: var(--gw-type-overline-tracking);
+    text-transform: uppercase;
+    color: var(--gw-text-muted);
+  }
+
+  .gw-caption {
+    font-size: var(--gw-type-caption-size);
+    line-height: var(--gw-type-caption-line);
+    font-weight: var(--gw-type-caption-weight);
+    color: var(--gw-text-muted);
+  }
+
+  .gw-prose {
+    font-size: var(--gw-type-prose-size);
+    line-height: var(--gw-type-prose-line);
+    max-width: var(--gw-measure);
+  }
+}

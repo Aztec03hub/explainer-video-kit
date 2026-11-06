@@ -57,7 +57,7 @@ Each chapter 5 to 10 beats, 2 to 4 minutes. Define the noun again at the top of 
 - Don't describe a state the picture can't draw ("even after it's gone"). Check general claims ("every", "most") against the rows shown.
 - Don't pack two or three facts into one sentence. A line with four ideas was "too much at speaking pace" for two reviewers and still shipped because the owner approved it; split it when the length allows.
 - A repeated word can be a flaw. Read the script aloud for repeats and for three sentences in a row starting the same way.
-- Keep a banned-words list in `rules.json` and let lint check it (a `ruled` list is for you to read against; the lint does not check it yet). Turn the owner's style guide into a lint on the spoken file.
+- Keep a banned-words list in `rules.json` and let lint check it (a `ruled` list is checked for spelling and capitalisation; a `style` block can add checks for em dashes, repeated openers and contractions). Turn the owner's style guide into a lint on the spoken file.
 - Voice tags are allowed in the script as `[tag]`; they are not part of the words. Never change the words when adding tags (see `video-voice`).
 - Plan windows: write them, and let the engine report whether each beat's words fit at the planned pace. The final cut length comes from the real take, not the plan.
 - Spell numbers the way the voice should say them ("ninety-four").

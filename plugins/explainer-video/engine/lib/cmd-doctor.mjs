@@ -3,7 +3,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv } from './common.mjs';
+import { checkProject, formatCheck } from './project-check.mjs';
+import { ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv, loadProject } from './common.mjs';
 
 const HELP = `usage: ev doctor [--need voice,render,ocr,align,frames] [--key-file <path>] [--project <dir>] [--json] [--quick]
 Checks Node, ffmpeg, the engine's dependencies, a render Chrome, tesseract, whisper, disk space and the ElevenLabs key.
@@ -53,7 +54,7 @@ export function runChecks({ envFile, projectDir, quick = false } = {}) {
   }
 
   const tess = which('tesseract') ? version('tesseract', ['--version']) : '';
-  add({ id: 'ocr', label: 'tesseract (optional, OCR gate)', ok: !!tess, detail: tess || 'not on PATH; the OCR gate will say it was skipped', optional: true, needs: ['ocr'],
+  add({ id: 'ocr', label: 'tesseract (needed by the on-screen text gate)', ok: !!tess, detail: tess || 'not on PATH; the on-screen text gate will fail without it (or pass --skip-ocr)', optional: true, needs: ['ocr'],
     fix: `Install: ${hint({ apt: 'sudo apt install tesseract-ocr', brew: 'brew install tesseract', winget: 'winget install UB-Mannheim.TesseractOCR' })}` });
 
   add({ id: 'whisper', label: 'whisper (optional, ev align)', ok: null, detail: 'not checked; ev align reports it when you use it', optional: true, needs: ['align'] });
@@ -76,6 +77,12 @@ export function runChecks({ envFile, projectDir, quick = false } = {}) {
   return out;
 }
 
+// One line each for macOS/Linux and Windows, with this engine's real folder, so a user can type `ev` instead of the long command.
+export const pathHint = () => {
+  const bin = path.join(ENGINE, 'bin');
+  return `Tip: to type "ev" instead of the long node command, put the engine's bin folder on PATH.\n  macOS/Linux: export PATH="${bin}:$PATH"   (add it to your shell profile to keep it)\n  Windows:     setx PATH "%PATH%;${bin}"   (then open a new terminal)`;
+};
+
 export const DEFAULT_NEED = ['voice', 'render', 'frames'];
 
 export default async function (argv) {
@@ -92,7 +99,17 @@ export default async function (argv) {
       log(`${mark} ${c.label}: ${c.detail}`);
       if (c.ok === false && c.fix) log(`    fix: ${c.fix.replace(/\n/g, '\n    ')}`);
     }
-    log(hard.length ? `\n${hard.length} needed check(s) failed for: ${need.join(', ')}` : `\nReady for: ${need.join(', ')}`);
+    if (a.project && fs.existsSync(path.join(path.resolve(a.project), 'SAMPLE.md'))) log(`\nReminder: ${path.resolve(a.project)} is still the SAMPLE project (SAMPLE.md says what to replace). Delete SAMPLE.md when it is yours.`);
+    const failing = need.filter((n) => hard.some((c) => c.needs.includes(n)));
+    const ready = need.filter((n) => !failing.includes(n));
+    if (hard.length) log(`\n${hard.length} needed check(s) failed for: ${failing.join(', ')}`);
+    if (ready.length) log(`${hard.length ? '' : '\n'}${hard.length ? 'Still ready' : 'Ready'} for: ${ready.join(', ')}`);
+    log(`\n${pathHint()}`);
+  }
+  if (a.project && fs.existsSync(path.join(a.project, 'project.json'))) { // film.js against project.json, no browser
+    const r = checkProject(loadProject(a.project));
+    if (!a.json) for (const l of formatCheck(r)) log(l);
+    if (r.errors.length) process.exitCode = 1;
   }
   if (hard.length) process.exitCode = 1;
 }

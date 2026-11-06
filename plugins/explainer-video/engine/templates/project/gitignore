@@ -2,7 +2,12 @@
 *.env
 !.env.example
 build/
-out/
+# The finished out/*.mp4, .srt and .vtt are meant to be committed. To keep the video out of git, remove the # below.
+# out/*.mp4
+out/*.tmp
 voice/*.mp3
+voice/take.before-*.json
+# the music track: its licence forbids passing the audio on, so it is never committed
+music/*.mp3
 frames/
 node_modules/

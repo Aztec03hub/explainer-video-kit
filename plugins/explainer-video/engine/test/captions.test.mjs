@@ -4,6 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { buildCaptions, chunkBeat, placeholderTimes, toSrt } from '../lib/captions.mjs';
 import { parseScript, spokenWords } from '../lib/script.mjs';
+import captionsGate from '../lib/gates/captions.mjs';
+import { loadProject } from '../lib/common.mjs';
 import { ev, makeProject } from './fixtures/voice/helpers.mjs';
 
 const MD = `# Lantern Library
@@ -89,4 +91,33 @@ test('cli: real take.json is used; a take with a missing word exits 1', async ()
   assert.equal(bad.status, 1);
   assert.match(bad.out, /script says|missing/);
   assert.match(toSrt({ chunks: [{ text: 'Hi there.', words: W('Hi there.') }] }), /Hi there\n/);
+});
+
+// Golden beat (made-up words, same shape as a hand-broken caption beat): six phrases of 4, 5, 5, 4, 4 and 3 words.
+const GOLDEN = "Every one's a mark / on a library card number, / and on the late ones, / the system's smart enough / to hold for you / before anything moves.";
+const GOLDEN_CHUNKS = ["Every one's a mark", 'on a library card number,', 'and on the late ones,', "the system's smart enough", 'to hold for you', 'before anything moves.'];
+const FUNCTION_WORDS = new Set('a an the on to of in for with at so and but'.split(' '));
+
+test('forced breaks: a lone / splits the beat exactly there and is not a word', () => {
+  const s = parseScript(`# T\n### A\n${GOLDEN}\n`);
+  assert.equal(s.beats[0].words, 25);
+  assert.ok(!s.beats[0].spoken.includes('/') && !s.beats[0].text.includes('/'));
+  assert.deepEqual(buildCaptions(s, timed(s)).chunks.map((c) => c.text), GOLDEN_CHUNKS);
+});
+
+test('no markers, max 5: no chunk over 5 words and none ends on a function word', () => {
+  const s = parseScript(`# T\n### A\n${GOLDEN.replaceAll(' / ', ' ')}\n`);
+  const cap = buildCaptions(s, timed(s), { max: 5 });
+  for (const c of cap.chunks) {
+    assert.ok(c.words.length <= 5, c.text);
+    assert.ok(!FUNCTION_WORDS.has(c.words.at(-1).w.toLowerCase().replace(/[^a-z]/g, '')), `ends on a function word: ${c.text}`);
+  }
+});
+
+test('cli: a script with / passes the captions gate and the SRT has no slash', async () => {
+  const dir = makeProject(`# T\n### A @0-8\n${GOLDEN}\n`);
+  assert.equal((await ev(['captions', dir, '--placeholder'])).status, 0);
+  assert.ok(!fs.readFileSync(path.join(dir, 'out', 'lantern.srt'), 'utf8').includes('/'));
+  const g = await captionsGate({ proj: loadProject(dir) });
+  assert.equal(g.status, 'PASS', JSON.stringify(g));
 });

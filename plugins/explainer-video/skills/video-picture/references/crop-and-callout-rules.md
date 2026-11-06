@@ -6,6 +6,16 @@ Purpose: the rules for what the camera shows of your app screens, how callouts a
 
 When you write the frame list (the document that says, per beat, which state shows, which camera window, which callouts), when you write the film events, and when you review a cut. Every rule below was paid for by a defect that three or more reviewers missed or a human found.
 
+## 0. Size guide: design the page for video, not for a browser
+
+The screen is a 16:9 picture shown full width. A 1600x900 screen shows 1280 px of page at 1.25x, so 16 px page text is 20 px on screen and unreadable at phone size. Design the mockup for video:
+
+- Page 1280 wide, fixed 720 tall (16:9): set `"fixed": 720` in the frames set so every state is exactly one screen.
+- Text about 28 px or larger at page size when shown full width: headings 44 px or more, body and buttons 28 px or more.
+- Centre the content vertically and horizontally so it fills the frame; nothing cropped, no empty lower half.
+- Zoom with the camera (`cam`) only for detail, never to rescue small type. Keep camera windows `[x, y, w]` (h = w * 9 / 16) inside 1280 x 720.
+- `ev doctor --project <dir>` warns when a set has no `fixed` height and its page is much taller than the screen, and fails a camera window outside the page.
+
 ## 1. Capture the states, prove fidelity
 
 - Screenshot each app state headlessly with fixed settings: reduced motion, one locale and time zone, `animation:none; transition:none; caret-color:transparent`, fonts ready, images decoded, the window grown to the page's full height (repeat up to 4 times until the height holds), two animation frames, then the shot.

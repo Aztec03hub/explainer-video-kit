@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { lengthReport, lint, parseScript, spokenWords } from '../lib/script.mjs';
+import { applyIgnore, lengthReport, lint, parseScript, spokenWords } from '../lib/script.mjs';
 import { ev, makeProject } from './fixtures/voice/helpers.mjs';
 
 const MD = `# Lantern Library
@@ -68,6 +68,83 @@ test('lint: each rule fires on its fixture', () => {
   assert.match(msgs('# T\n### A\n[warm] \n'), /error:no spoken text/);
   assert.match(msgs('# T\n### A\n[warm Hello there.\n'), /error:unbalanced/);
   assert.equal(msgs('# T\n### A\n[warm, kind] Hello there.\n'), '');
+});
+
+test('lint: ruled words warn on a wrong spelling, info when unused, and the old "not checked" line is gone', () => {
+  const ruled = ['Approve', 'Fraud Operations'];
+  const run = (spoken) => lint(parseScript(`# T\n### A\n${spoken}\n`), { ruled });
+  const wrong = run('Then approve it for Fraud Operations.');
+  assert.deepEqual(wrong.filter((i) => i.level === 'warning').map((i) => [i.beat, i.msg]), [[1, '"approve" should read "Approve" (rules.json ruled)']]);
+  assert.equal(wrong.filter((i) => i.level === 'info').length, 0);
+  assert.deepEqual(run('Then Approve it for Fraud Operations.'), []);
+  const unused = run('Then Approve it.');
+  assert.deepEqual(unused.map((i) => [i.level, i.beat]), [['info', 0]]);
+  assert.match(unused[0].msg, /"Fraud Operations".*never appears/);
+  assert.ok(!msgs('# T\n### A\nHello there.\n', { ruled: ['Hello'] }).includes('not checked'));
+  assert.match(msgs('# T\n### A\nsee fraud operations now.\n', { ruled: ['Fraud Operations'] }), /warning:"fraud operations" should read "Fraud Operations"/);
+});
+
+test('lint: style block is off by default and checks em dashes, same openers and contractions when on', () => {
+  const md = '# T\n### A\nThen scan it. Then stamp it. Then file it. We do not wait \u2014 it is fine.\n';
+  assert.equal(msgs(md), msgs(md, { style: {} }));
+  assert.equal(msgs(md, { style: { noEmDash: false, maxSameOpener: 0 } }).includes('em dash'), false);
+  const on = lint(parseScript(md), { style: { noEmDash: true, maxSameOpener: 2, requireContractions: true } });
+  const by = (code) => on.filter((i) => i.code === code);
+  assert.deepEqual(by('em-dash').map((i) => [i.level, i.beat]), [['error', 1]]);
+  assert.equal(by('same-opener').length, 1);
+  assert.match(by('same-opener')[0].msg, /3 sentences in a row start with "Then"/);
+  assert.deepEqual(by('contraction').map((i) => i.msg.match(/"([^"]+)"/)[1]), ['do not', 'it is']);
+  assert.equal(by('contraction')[0].level, 'warning');
+  // two in a row is allowed at maxSameOpener 2
+  assert.equal(lint(parseScript('# T\n### A\nThen scan it. Then stamp it. Now file it.\n'), { style: { maxSameOpener: 2 } }).length, 0);
+});
+
+test('lint: lintIgnore acknowledges warnings by message start or {beat, code}; errors cannot be ignored', () => {
+  const s = parseScript('# T\n### A\nThe shelf stays calm. The shelf stays.\n### B\nThere are 94 books. [beat] Hi.\n');
+  const all = lint(s, {});
+  assert.ok(all.some((i) => i.code === 'repeat') && all.some((i) => i.code === 'sfx-tag'));
+  const a = applyIgnore(all, ['"shelf" repeats', { beat: 2, code: 'sfx-tag' }, 'banned word']);
+  assert.equal(a.acknowledged, 2);
+  assert.ok(!a.issues.some((i) => i.msg.startsWith('"shelf"') || i.code === 'sfx-tag'));
+  assert.ok(a.issues.some((i) => i.msg.startsWith('"stays"')), 'other warnings stay');
+  assert.ok(a.issues.some((i) => i.level === 'info'), 'infos stay');
+  const err = applyIgnore(lint(parseScript('# T\n### A\nThis is seamless.\n'), { banned: ['seamless'] }), ['banned word']);
+  assert.equal(err.acknowledged, 0);
+  assert.equal(err.issues.length, 1);
+});
+
+test('cli: lint prints "N acknowledged" for lintIgnore warnings', async () => {
+  const dir = makeProject('# T\n### A\nThe shelf is calm. The shelf is open.\n');
+  fs.writeFileSync(path.join(dir, 'rules.json'), JSON.stringify({ lintIgnore: ['"shelf" repeats'] }));
+  const r = await ev(['script', dir, '--lint']);
+  assert.equal(r.status, 0, r.out);
+  assert.match(r.out, /1 acknowledged/);
+  assert.ok(!r.out.includes('repeats within'));
+});
+
+test('approved lock: --approve writes approved.json at the project root; --diff and ev script show only word changes', async () => {
+  const dir = makeProject(MD);
+  const file = path.join(dir, 'approved.json');
+  assert.match((await ev(['script', dir, '--diff'])).out, /aren't locked yet.*ev script .* --approve/);
+  const ap = await ev(['script', dir, '--approve']);
+  assert.equal(ap.status, 0, ap.out);
+  const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(saved.beats.length, 3);
+  assert.equal(saved.beats[0].spoken, 'ninetyfour books wait on the shelf');
+  assert.match(saved.sha256, /^[0-9a-f]{64}$/);
+  assert.ok(!fs.existsSync(path.join(dir, 'build', 'approved.json')));
+  // a tag change and an ellipsis change are not word changes
+  fs.writeFileSync(path.join(dir, 'script.md'), MD.replace('[warm]', '[softer, slower]').replace('Done.', 'Done...'));
+  const same = await ev(['script', dir, '--diff']);
+  assert.match(same.out, /match the approved words/);
+  assert.ok(!/differ/.test((await ev(['script', dir])).out));
+  // one changed word shows as one line naming the beat
+  fs.writeFileSync(path.join(dir, 'script.md'), MD.replace('on the shelf', 'on the cart'));
+  const diff = await ev(['script', dir, '--diff']);
+  const lines = diff.out.trim().split('\n').filter((l) => l.startsWith('beat '));
+  assert.equal(lines.length, 1, diff.out);
+  assert.match(lines[0], /beat 1 "Open".*shelf.*cart/);
+  assert.match((await ev(['script', dir])).out, /differ from the approved words in 1 beat.*--diff/);
 });
 
 test('cli: writes build files, prints numbers, exit 1 only on lint errors', async () => {

@@ -20,7 +20,7 @@ Run `ev script --lint` after every edit to the script, before the cold viewer. U
 | Long or packed sentences | A sentence over 28 words, or one with three or more clauses joined by commas and "and" | warning |
 | Repeated words | The same content word (4 or more letters, not a very common word) twice within 12 words, across beats too | warning |
 
-`--lint` exits 1 only for errors. `rules.json` `ruled` is not checked yet (the lint prints an info line saying so): treat it as a list to read aloud against.
+`--lint` exits 1 only for errors. `rules.json` `ruled` is checked for spelling and capitalisation (warning) and for terms the script never uses (info). Optional `style` rules (em dashes, repeated sentence openers, contractions) are off until you turn them on in rules.json, and `lintIgnore` acknowledges a warning on purpose (it is counted as "N acknowledged").
 
 ## 2. What only a human or a reviewer can check
 
@@ -34,7 +34,7 @@ Run `ev script --lint` after every edit to the script, before the cold viewer. U
 | Is any state described that the picture can't draw? | fact checker |
 | Is a label on the screen a claim that is true? | fact checker |
 | Is the hardest idea concrete (a question and an answer)? | cold viewer, owner |
-| Does every `ruled` word appear spelled exactly as ruled (capitalisation, product names, choice names)? | a person, reading the spoken file |
+| Is every ruled word used in the sense the owner means (the lint checks only the spelling)? | a person, reading the spoken file |
 | Does it follow the owner's voice rules (contractions, no em dashes, no hype adjectives)? Write them down and read for them | a person |
 | Does it sound good aloud: rhythm, repeated sounds, awkward phrasing? | a person, reading it aloud |
 | Is the energy right: a hook that is a question with a release, short punches, a bookend? | owner |

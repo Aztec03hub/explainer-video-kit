@@ -13,7 +13,7 @@ import { run, hyperframesBin, hyperframesCmd, hfEnv } from '../lib/common.mjs';
 import build, { assertNotFrozen, captionsOutdated, checkFindings, filmLength, readFilm, styleCss } from '../lib/cmd-build.mjs';
 
 const require = createRequire(import.meta.url);
-const { captionWindows, resolveEvents, defaultScreen } = require('../runtime/explainer.js');
+const { captionWindows, resolveEvents, defaultScreen, captionRect } = require('../runtime/explainer.js');
 const { makeClock } = require('../runtime/clock.js');
 const FIX = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'render');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-build-'));
@@ -111,6 +111,37 @@ test('must fail: building with no frames says how to make them', async () => {
   await assert.rejects(build([dir, '--no-render']), /no frames in .*Run: ev frames/s);
 });
 
+test('must fail: frames.approved naming a folder that is missing stops the build before anything else', async () => {
+  const dir = path.join(tmp, 'noapproved');
+  makeProject(dir);
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
+  fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify({ ...cfg, frames: { page: 'x.html', sets: {}, approved: 'nowhere' } }));
+  await assert.rejects(build([dir, '--no-render']), /frames\.approved .*nowhere doesn't exist.*--skip-pixel-check/s);
+});
+
+test('project.json music.file naming a missing file builds without music and says so, naming the path', async () => {
+  const dir = path.join(tmp, 'nomusic');
+  makeProject(dir);
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
+  fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify({ ...cfg, music: { file: 'music/nope.mp3' } }));
+  const lines = [], orig = console.log;
+  console.log = (...x) => lines.push(x.join(' '));
+  // the fixture has no PNGs, so the later hyperframes check may fail; the music line comes first and must not be the failure
+  try { await build([dir, '--no-render', '--skip-pixel-check']); } catch (e) { assert.doesNotMatch(e.message, /music\.file|no music file/); } finally { console.log = orig; }
+  assert.ok(lines.some((l) => /no music file: run ev music .*nope\.mp3 is missing; building without music/.test(l)), lines.join('\n'));
+});
+
+test('frames.approved with your own PNGs (no frames.sets) skips the pixel check instead of crashing', async () => {
+  const dir = path.join(tmp, 'ownpngs');
+  makeProject(dir);
+  fs.mkdirSync(path.join(dir, 'ap'));
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
+  fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify({ ...cfg, music: null, frames: { approved: 'ap' } }));
+  // The fixture has no PNGs, so the build still stops later (hyperframes check); it must not stop in the pixel check.
+  // Before the fix it threw "Cannot convert undefined or null to object" there.
+  await build([dir, '--no-render']).then(() => {}, (e) => assert.doesNotMatch(e.message, /Cannot convert|pixel check/));
+});
+
 test('hyperframesCmd runs the CLI through node on every platform, never a .cmd shim', () => {
   const c = hyperframesCmd(['check', '.']);
   assert.equal(c.cmd, process.execPath);
@@ -170,4 +201,12 @@ test('end to end: a 6 s film renders at 1920x1080 with audio and a populated fra
   // A second build into the same output is refused once it is marked frozen.
   fs.writeFileSync(`${mp4}.frozen`, '');
   await assert.rejects(build([dir, '--skip-gates']), /frozen/);
+});
+
+test('captionRect is the caption band as a callout target: inside the band, clear of the tag row, centred', () => {
+  const S = defaultScreen(1920, 1080), r = captionRect(S, 1080);
+  const bandTop = S.y + S.h;
+  assert.ok(r.y0 > bandTop + 16 + 40, 'below the tag row');
+  assert.ok(r.y1 < 1080, 'inside the canvas');
+  assert.equal(Math.round((r.x0 + r.x1) / 2), S.x + S.w / 2);
 });

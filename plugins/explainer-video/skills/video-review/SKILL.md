@@ -7,6 +7,8 @@ description: Review a rendered video with fresh sub-agent reviewers: contact she
 
 `EV` is `node "<this skill's base directory>/../../engine/bin/ev.mjs"`. Briefs are in `references/`: `cut-review-brief.md`, `caption-check-brief.md`, and the loop in `review-loop.md`.
 
+Hand a reviewer or the owner one page with `EV review-page <project> [--compare <older.mp4>]`: it writes `out/review.html` (video, mp4/srt/vtt/chapters links, the tagged script, no network, opens from a file).
+
 ## The loop
 
 1. Run the gates first (`EV gates <project>`): they catch the mechanical faults.
@@ -17,6 +19,10 @@ description: Review a rendered video with fresh sub-agent reviewers: contact she
 6. Repeat with a **new** reviewer, who also verifies the last round's Fix and Verify lines, until a round comes back CLEAN.
 
 Order: words first (video-script-check), then the plan (crops, callouts), then the real cut. Fixing words after the cut exists means re-recording.
+
+## If you can't spawn a sub-agent
+
+Review the contact sheets yourself in a fresh context (open only the brief, the sheets and the spoken words), then verify your own Fix and Verify lines in a second pass. Mark the report self-reviewed: it can't claim CLEAN from a fresh reviewer. The user can also paste the brief into a new Claude session for a real fresh read.
 
 ## What only a reviewer catches
 

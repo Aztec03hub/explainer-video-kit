@@ -1,0 +1,10 @@
+#!/bin/sh
+# ev: runs the engine with Node. Put this folder on PATH to type "ev ..." instead of the long node command.
+# Resolves symlinks so a link to this file still finds ev.mjs next to the real one.
+self="$0"
+while [ -h "$self" ]; do
+  dir=$(cd "$(dirname "$self")" && pwd)
+  target=$(readlink "$self")
+  case "$target" in /*) self="$target" ;; *) self="$dir/$target" ;; esac
+done
+exec node "$(cd "$(dirname "$self")" && pwd)/ev.mjs" "$@"

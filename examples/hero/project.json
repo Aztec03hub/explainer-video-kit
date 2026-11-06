@@ -1,0 +1,114 @@
+{
+ "name": "hero",
+ "form": "quick",
+ "title": "explainer-video, made by explainer-video",
+ "screen": {
+  "x": 160,
+  "y": 24,
+  "w": 1600,
+  "h": 900
+ },
+ "page": 1280,
+ "frames": {
+  "page": "mockup/index.html",
+  "width": 1280,
+  "sets": {
+   "dark": {
+    "theme": "dark",
+    "dsf": 4,
+    "fixed": 720,
+    "states": {
+     "home": "&state=home",
+     "runs": "&state=runs",
+     "runs-sel": "&state=runs-sel",
+     "runs-wide": "&state=runs-wide",
+     "drawer": "&state=drawer",
+     "settings": "&state=settings",
+     "settings-menu1": "&state=settings-menu1",
+     "settings-soft": "&state=settings-soft",
+     "settings-menu2": "&state=settings-menu2",
+     "settings-big": "&state=settings-big",
+     "term-bad": "&state=term-bad",
+     "term-good": "&state=term-good",
+     "install": "&state=install",
+     "key": "&state=key",
+     "nokey": "&state=nokey",
+     "ask": "&state=ask",
+     "flow-lint": "&state=flow-lint",
+     "flow-frames": "&state=flow-frames",
+     "flow-dry": "&state=flow-dry",
+     "flow-build": "&state=flow-build",
+     "sheet": "&state=sheet",
+     "options": "&state=options",
+     "end": "&state=end"
+    },
+    "texts": {},
+    "boxes": {
+     "runs": "#nav-runs",
+     "row": "#row2",
+     "status": "#colstatus",
+     "kpi": "#kpi2",
+     "kpinum": "#kpi2 .n",
+     "table": "#table",
+     "dd": "#dd",
+     "optsoft": "#opt-soft",
+     "optbig": "#opt-big",
+     "twipes": "#t-wipes",
+     "tocr": "#t-ocr",
+     "tout": "#t-out",
+     "inst": "#inst1",
+     "inst2": "#inst2",
+     "search": "#search",
+     "voice": "#voice",
+     "row8": "#row8",
+     "rowdate": "#row1 .c-da",
+     "gadd": "#g-add",
+     "ginst": "#g-inst",
+     "gsetup": "#g-setup",
+     "gchrome": "#g-chrome",
+     "genv": "#g-envfile",
+     "gkeyok": "#g-keyok",
+     "gnokey": "#g-nokey",
+     "gstill": "#g-still",
+     "glint": "#g-lint",
+     "glast": "#g-last",
+     "gcredits": "#g-credits",
+     "gspent": "#g-spent",
+     "ggates": "#g-gates",
+     "gchap": "#g-chap",
+     "send": "#send",
+     "promptbox": "#promptbox",
+     "promptline": "#promptline",
+     "gcontact": "#g-contact",
+     "sheetimg": "#sheetimg",
+     "pill": "#row2 .pill"
+    }
+   }
+  }
+ },
+ "voice": {
+  "id": "",
+  "model": "eleven_v4",
+  "seed": 7
+ },
+ "music": {
+  "file": "music/bed.mp3",
+  "bed": -11
+ },
+ "output": "hero.mp4",
+ "theme": {
+  "vars": {
+   "--ev-canvas-from": "#2E3952",
+   "--ev-canvas-mid": "#1D2536",
+   "--ev-canvas-to": "#141A27",
+   "--ev-highlight": "#D15635",
+   "--ev-callout": "#D15635",
+   "--ev-callout-ink": "#0B0F18",
+   "--ev-callout-shadow": "rgba(11,15,24,.9)"
+  }
+ },
+ "render": {
+  "crf": 14,
+  "sharpen": 0.7
+ }
+}

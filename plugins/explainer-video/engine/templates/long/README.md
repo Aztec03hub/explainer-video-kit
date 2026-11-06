@@ -22,3 +22,18 @@ minute or so here, more on a smaller machine.
 Your key goes in `.env` (copy `.env.example`); it is gitignored and never scanned or printed.
 Layout: project.json (settings), script.md (what's said), rules.json (word rules), film.js (picture events),
 mockup/ (the page that gets captured), frames/, voice/, build/ and out/ (generated).
+
+The sample page is built for video: 1280x720 (`"fixed": 720` in project.json), headings 44 px and up, body and buttons 28 px and up, content centred. Keep that when you replace it with your own screens. `ev doctor --project .` checks film.js against project.json (states, boxes, anchors, camera windows) without a browser; rewrite film.js and project.json `frames` together with the mockup.
+
+## Bells and whistles (all used in film.js)
+
+Names after the colon come from this set's `texts` or `boxes` in project.json.
+
+```js
+{ t: 'word:borrow',     cursor: 'dark/default:borrow', dur: 0.8 },          // cursor glides to a box
+{ t: 'word:borrow+0.9', click: true },                                      // click with ripple
+{ t: 'word:borrow+1',   label: 'Due date', at: 'dark/open:due', dur: 2.5 }, // pink brackets + tag
+{ t: 'beat:7', cam: [380, 60, 900], dur: 1, ease: 'power2.inOut' },         // eased pan/zoom
+```
+
+Word-timed means `word:<spoken word>` plus an optional `+seconds`; captions highlight the spoken word too. Music: project.json `"music": { "file": "music/bed.mp3" }`. The mp3 isn't included: run `ev music <url>` (a Pixabay track page); until then the build says "no music file" and still works.

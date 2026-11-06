@@ -17,9 +17,14 @@
 //   {t, click: true}                     press and ripple at the cursor's last target
 //   {t, hideCursor: true}
 //   {t, device: 'set/state' | null, fade}   a phone-sized frame centred over the screen, in a device outline; null hides it
-//   {t, label: 'text', at: 'set/state:box' | [x, y, w, h], dur}   a callout: corner brackets 4 px outside that box (give a box
+//   {t, scene: 'name', dur, fade}        a live layer over the screen: window.SCENES[name] = { html, build(el, tl, t, dur), full? } from the project.
+//                                        With full: true the layer covers the whole 1920x1080 frame (edge to edge, over the canvas), under captions.
+//                                        el is 1280 page px wide (the screen's shape) and scaled to the screen; build adds GSAP tweens at
+//                                        absolute times (t..t+dur). It shows at t and hides at t+dur. Drive motion from tl only, never rAF or CSS animation.
+//   {t, label: 'text', at: 'set/state:box' | [x, y, w, h] | 'caption', dur}   a callout: corner brackets 4 px outside that box (give a box
 //                                        that sits inside its cells, so the brackets clear both the text and the row lines)
-//                                        and a plain tag in the caption band under it, never over the app. dur s (default 2.5).
+//                                        and a plain tag in the caption band under it, never over the app. dur s (default 2.5); it also ends at the
+//                                        next show or scene cut. at: 'scene:name:selector' brackets that element inside a live scene, wherever it is now.
 //   A numeric `dur` is always a duration in seconds when t is an anchor; when t is a number it follows the plan clock.
 //
 // Two colours, two jobs: captions are white with the spoken word highlighted and underlined; callouts use the callout colour.
@@ -56,32 +61,50 @@
     });
   }
 
-  const defaultScreen = (W, H) => ({ x: Math.round((W * 160) / 1920), y: Math.round((H * 24) / 1080), w: Math.round((W * 1600) / 1920), h: Math.round((H * 900) / 1080) });
+  // The caption band as a callout target (`at: 'caption'`): a ring in canvas pixels under the tag row, clear of the caption
+  // text, so a label can point at the subtitles themselves. The band sits under the screen, outside the camera's reach.
+  const captionRect = (S, H) => ({ x0: S.x + S.w * 0.1, x1: S.x + S.w * 0.9, y0: S.y + S.h + 70, y1: Math.min(H - 4, S.y + S.h + 152) });
+
+  // `at: 'scene:name:selector'` aims a callout at an element inside a live scene; null for any other target.
+  const sceneTarget = (at) => { const m = typeof at === 'string' && /^scene:([^:]+):([\s\S]*)$/.exec(at); return m ? { scene: m[1], sel: m[2].trim() } : null; };
+
+  // A callout shows from its t for dur s (default 2.5) and never past the next screen cut: a `show`, a scene start or a scene end.
+  // Events are resolved ones (see resolveEvents). Returns the end time in seconds.
+  function labelEnd(events, e) {
+    const cuts = events.flatMap((x) => (x.show ? [x.t] : x.scene ? [x.t, x.t + (x.dur || 4)] : []));
+    return Math.min(e.t + (e.dur || 2.5), ...cuts.filter((c) => c > e.t + 1e-6));
+  }
+
+  const defaultScreen =(W, H) => ({ x: Math.round((W * 160) / 1920), y: Math.round((H * 24) / 1080), w: Math.round((W * 1600) / 1920), h: Math.round((H * 900) / 1080) });
 
   // Colours are CSS variables so a project can match its brand (project.json `style`, written into the page as :root
   // overrides). :where() has no specificity, so those overrides always win over these defaults.
   const CSS = `
   :where(:root) { --ev-canvas-from: #3a2470; --ev-canvas-mid: #241544; --ev-canvas-to: #160c2c; --ev-caption: #fff;
-    --ev-highlight: #FFD84D; --ev-callout: #FF4FD8; --ev-callout-ink: #1A1033; --ev-font: 'Fredoka', 'Nunito', sans-serif; }
+    --ev-highlight: #FFD84D; --ev-callout: #FF4FD8; --ev-callout-ink: #1A1033; --ev-font: 'Fredoka', 'Nunito', sans-serif;
+    --ev-caption-font: var(--ev-font); --ev-tag-font: var(--ev-font); --ev-caption-size: 52px; --ev-tag-size: 28px; --ev-caption-bg: transparent;
+    --ev-callout-shadow: rgba(26,16,51,.9); --ev-cursor: #fff; --ev-cursor-edge: #111; --ev-ripple: #fff; }
   .xp-canvas { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 0%, var(--ev-canvas-from) 0%, var(--ev-canvas-mid) 55%, var(--ev-canvas-to) 100%); }
   .xp-screen { position: absolute; overflow: hidden; border-radius: 18px; background: #1D2536;
     box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.12); }
   .xp-camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
   .xp-camera img { position: absolute; left: 0; top: 0; opacity: 0; }
+  .xp-scene { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; opacity: 0; }
   .xp-dim { position: absolute; inset: 0; background: #0b0716; opacity: 0; }
   .xp-device { position: absolute; left: 50%; top: 50%; opacity: 0; border: 12px solid #0d0a16; border-radius: 44px; overflow: hidden;
     box-shadow: 0 0 0 2px rgba(255,255,255,.18), 0 20px 60px rgba(0,0,0,.6); transform: translate(-50%, -50%); }
   .xp-device img { position: absolute; left: 0; top: 0; width: 100%; opacity: 0; }
   .xp-cursor { position: absolute; left: 0; top: 0; width: 50px; height: 50px; transform-origin: 4px 3px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
-  .xp-ripple { position: absolute; left: 0; top: 0; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; border: 4px solid #fff; }
+  .xp-cursor path { fill: var(--ev-cursor); stroke: var(--ev-cursor-edge); }
+  .xp-ripple { position: absolute; left: 0; top: 0; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; border: 4px solid var(--ev-ripple); }
   .xp-band { position: absolute; left: 0; right: 0; }
   .xp-chunk { position: absolute; left: 50%; top: 76%; transform: translate(-50%, -50%); white-space: nowrap; opacity: 0;
-    font: 600 52px/1.15 var(--ev-font); color: var(--ev-caption); letter-spacing: .005em; }
+    font: 600 var(--ev-caption-size)/1.15 var(--ev-caption-font); color: var(--ev-caption); background: var(--ev-caption-bg); letter-spacing: .005em; }
   .xp-label { position: absolute; left: 0; top: 0; opacity: 0; }
   .xp-label span { position: absolute; white-space: nowrap; padding: 1px 14px 3px; border-radius: 3px; background: var(--ev-callout); color: var(--ev-callout-ink);
-    font: 600 28px/1.1 var(--ev-font); transform: translateX(-50%); }
+    font: 600 var(--ev-tag-size)/1.1 var(--ev-tag-font); transform: translateX(-50%); }
   .xp-label b { position: absolute; }
-  .xp-label b i { position: absolute; width: 22px; height: 22px; border: 0 solid var(--ev-callout); filter: drop-shadow(0 0 2px rgba(26,16,51,.9)); }
+  .xp-label b i { position: absolute; width: 22px; height: 22px; border: 0 solid var(--ev-callout); filter: drop-shadow(0 0 2px var(--ev-callout-shadow)); }
   .xp-label b i:nth-child(1) { left: 0; top: 0; border-width: 5px 0 0 5px; }
   .xp-label b i:nth-child(2) { right: 0; top: 0; border-width: 5px 5px 0 0; }
   .xp-label b i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 5px 5px; }
@@ -104,6 +127,18 @@
     const camera = add(screen, 'div', 'xp-camera');
     camera.style.width = PAGE + 'px';
     const dim = add(screen, 'div', 'xp-dim');
+    const scenes = {};
+    const sceneEl = (name) => {
+      if (scenes[name]) return scenes[name];
+      const def = (window.SCENES || {})[name];
+      if (!def) throw new Error(`explainer: no scene "${name}" (define window.SCENES.${name} = { html, build(el, tl, t, dur) } in film.js)`);
+      const el = add(screen, 'div', 'xp-scene'); el.innerHTML = def.html; el.dataset.scene = name;
+      // `full: true` on the scene: it covers the whole frame (no rounded screen, no canvas gutters), still under captions and callouts.
+      if (def.full) { screen.after(el); el.dataset.full = '1'; }
+      const box = def.full ? { w: W, h: H } : S;
+      Object.assign(el.style, { width: PAGE + 'px', height: (PAGE * box.h) / box.w + 'px', transform: `scale(${box.w / PAGE})` });
+      return (scenes[name] = el);
+    };
     const device = add(screen, 'div', 'xp-device');
     const ripple = add(screen, 'div', 'xp-ripple');
     const cursor = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -124,8 +159,13 @@
       for (const l of labels) {
         if (!l.o && !l.on) continue; // a label that is off and was off costs nothing, so long films with many labels stay cheap to seek
         l.on = l.o > 0;
-        const g = 4, x0 = S.x + sx(l.x) - g, y0 = S.y + sy(l.y) - g, x1 = S.x + sx(l.x + l.w) + g, y1 = S.y + sy(l.y + l.h) + g;
-        const cx = (x0 + x1) / 2, inside = cx > S.x && cx < S.x + S.w && y1 > S.y && y0 < S.y + S.h;
+        const g = 4, cr = l.caption ? captionRect(S, H) : null;
+        let x0 = cr ? cr.x0 : S.x + sx(l.x) - g, y0 = cr ? cr.y0 : S.y + sy(l.y) - g, x1 = cr ? cr.x1 : S.x + sx(l.x + l.w) + g, y1 = cr ? cr.y1 : S.y + sy(l.y + l.h) + g;
+        if (l.scene) { // the element's live box now, in canvas pixels
+          const b = l.scene.querySelector(l.sel).getBoundingClientRect(), r = root.getBoundingClientRect(), k = W / r.width;
+          x0 = (b.left - r.left) * k - g; y0 = (b.top - r.top) * k - g; x1 = (b.right - r.left) * k + g; y1 = (b.bottom - r.top) * k + g;
+        }
+        const cx = (x0 + x1) / 2, inside = !!cr || (l.scene && l.scene.dataset.full) || (cx > S.x && cx < S.x + S.w && y1 > S.y && y0 < S.y + S.h);
         Object.assign(l.ring.style, { left: x0 + 'px', top: y0 + 'px', width: x1 - x0 + 'px', height: y1 - y0 + 'px' });
         Object.assign(l.tag.style, { left: Math.min(S.x + S.w - 140, Math.max(S.x + 140, cx)) + 'px', top: band + 'px' });
         l.el.style.opacity = inside ? l.o : 0;
@@ -175,6 +215,12 @@
         fadeTo(dim, { opacity: on ? 0.75 : 0 }, d, t);
         phone = on;
       }
+      if (e.scene) {
+        const el = sceneEl(e.scene), dur = e.dur || 4;
+        fadeTo(el, { opacity: 1 }, d, t);
+        fadeTo(el, { opacity: 0 }, d, t + dur);
+        window.SCENES[e.scene].build(el, tl, t, dur);
+      }
       if (e.cam) {
         if (e.dur) tl.to(cam, { ...win(e.cam), duration: e.dur, ease: e.ease || 'power2.inOut' }, t);
         else cut(cam, win(e.cam), t);
@@ -193,13 +239,18 @@
       }
       if (e.hideCursor) tl.to(cur, { o: 0, duration: 0.3 }, t);
       if (e.label) {
-        const [x, y, w, h] = rect(e.at), el = add(root, 'div', 'xp-label');
-        const l = { el, x, y, w, h, o: 0, on: false, ring: add(el, 'b'), tag: add(el, 'span') };
+        const caption = e.at === 'caption', st = sceneTarget(e.at), [x, y, w, h] = caption || st ? [0, 0, 0, 0] : rect(e.at), el = add(root, 'div', 'xp-label');
+        const l = { el, x, y, w, h, caption, o: 0, on: false, ring: add(el, 'b'), tag: add(el, 'span') };
+        if (st) {
+          if (!st.sel) throw new Error(`explainer: callout "${e.label}": at "${e.at}" has no selector after the scene name`);
+          l.scene = sceneEl(st.scene); l.sel = st.sel;
+          if (!l.scene.querySelector(st.sel)) throw new Error(`explainer: callout "${e.label}": no element matches "${st.sel}" in scene "${st.scene}"`);
+        }
         for (let k = 0; k < 4; k++) add(l.ring, 'i');
         l.tag.textContent = e.label;
         labels.push(l);
         tl.set(l, { o: 1 }, t);
-        tl.set(l, { o: 0 }, t + (e.dur || 2.5));
+        tl.set(l, { o: 0 }, labelEnd(events, e));
       }
     }
 
@@ -230,5 +281,5 @@
   }
 
   if (typeof window !== 'undefined') window.explainer = explainer;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { captionWindows, resolveEvents, defaultScreen };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { CSS, captionWindows, resolveEvents, defaultScreen, captionRect, labelEnd, sceneTarget };
 })();

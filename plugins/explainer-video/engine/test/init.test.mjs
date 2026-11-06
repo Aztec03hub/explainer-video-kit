@@ -91,7 +91,7 @@ test('init --form long scaffolds the long template (3 chapters, 10 beats, about 
   const r = ev('init', longDir, '--form', 'long');
   assert.equal(r.status, 0, r.stderr);
   const cfg = JSON.parse(fs.readFileSync(path.join(longDir, 'project.json'), 'utf8'));
-  assert.equal(cfg.form, 'long'); assert.equal(cfg.music, null); assert.equal(cfg.output, 'long-one.mp4');
+  assert.equal(cfg.form, 'long'); assert.equal(cfg.music.file, 'music/bed.mp3'); assert.equal(cfg.output, 'long-one.mp4');
   assert.ok(cfg.frames.sets.dark.states.confirmed);
   const s = fs.readFileSync(path.join(longDir, 'script.md'), 'utf8');
   assert.equal([...s.matchAll(/^## /gm)].length, 3);

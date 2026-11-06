@@ -36,12 +36,28 @@ const byBudget = (words, max) => {
   return out;
 };
 
-// Chunks of 2 to `max` words in one beat: sentence ends first, then commas, then the word budget.
-export function chunkBeat(words, max = 6) {
+// A chunk must not end on one of these: the word moves to the start of the next chunk (if that stays within max).
+const FUNCTION_WORDS = new Set('a an the on to of in for with at so and but'.split(' '));
+const noDanglers = (chunks, max) => {
+  for (let i = 0; i < chunks.length - 1; i++) {
+    const c = chunks[i];
+    if (c.length > 2 && chunks[i + 1].length < max && FUNCTION_WORDS.has(norm(c.at(-1).w))) chunks[i + 1].unshift(c.pop());
+  }
+  return chunks;
+};
+
+// Chunks of 2 to `max` words in one beat. `breaks` are word indices where the author forced a cut (a "/" in the script).
+export function chunkBeat(words, max = 5, breaks = []) {
+  const cuts = [0, ...breaks.filter((k) => k > 0 && k < words.length), words.length];
+  return cuts.slice(1).flatMap((end, k) => autoChunk(words.slice(cuts[k], end), max));
+}
+
+// Sentence ends first, then commas, then the word budget.
+function autoChunk(words, max) {
   const chunks = [];
   for (const sentence of splitAfter(words, (w) => SENTENCE_END.test(w.w))) {
     if (sentence.length <= max) { chunks.push(sentence); continue; }
-    for (const part of glueSmall(splitAfter(sentence, (w) => COMMA_END.test(w.w)))) chunks.push(...(part.length <= max ? [part] : byBudget(part, max)));
+    for (const part of glueSmall(splitAfter(sentence, (w) => COMMA_END.test(w.w)))) chunks.push(...(part.length <= max ? [part] : noDanglers(byBudget(part, max), max)));
   }
   // a one-word chunk joins a neighbour, or shares words with it when that would be too long
   for (let i = 0; i < chunks.length && words.length > 1; i++) {
@@ -91,7 +107,7 @@ export function validateWords(script, takeWords) {
 }
 
 // buildCaptions(script, takeWords, { max }) -> the captions.json object
-export function buildCaptions(script, takeWords, { max = 6 } = {}) {
+export function buildCaptions(script, takeWords, { max = 5 } = {}) {
   validateWords(script, takeWords);
   const chunks = [];
   const beats = [];
@@ -100,7 +116,7 @@ export function buildCaptions(script, takeWords, { max = 6 } = {}) {
     const words = takeWords.slice(at, at + b.words).map((w) => ({ w: w.w, start: w.start, end: w.end }));
     at += b.words;
     beats.push({ i: b.i, name: b.name, chapter: b.chapter, plan: b.plan, voice: [words[0].start, words.at(-1).end] });
-    for (const c of chunkBeat(words, max)) chunks.push({ text: c.map((w) => w.w).join(' '), words: c, beat: b.i });
+    for (const c of chunkBeat(words, max, b.breaks)) chunks.push({ text: c.map((w) => w.w).join(' '), words: c, beat: b.i });
   }
   const chapters = script.chapters.map((c) => {
     if (!c.beats.length) throw new Error(`chapter "${c.name}" has no beats; remove it or add a ### beat.`);

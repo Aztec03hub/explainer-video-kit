@@ -1,94 +1,81 @@
 # explainer-video-kit
 
-**Make an explainer video for any project with Claude Code.** Write and check the script, record the voice, capture the screens, add word-timed subtitles, render, and run the checks that catch what people miss: forbidden text on screen, muddy wipes, loudness.
+**Explainer videos for your project, made by Claude Code: voice, a moving cursor, callouts, camera moves, word-timed subtitles and music, from one script and a few screens.**
 
-A quick explainer of about a minute is the default. Longer videos work too, with chapters.
+[![explainer-video making its own demo: cursor, callout, zoom](media/hero-preview.gif)](media/hero.mp4)
 
-It ships as a Claude Code plugin (`explainer-video`) with nine skills and one command-line engine, `ev`. Nothing in it is specific to any company or product.
-
----
-
-## Keys: read this first
-
-The voice step uses ElevenLabs. **You supply your own key. None is included.**
-
-| What | Where to get it | Where to put it |
-|---|---|---|
-| `ELEVENLABS_API_KEY` | https://elevenlabs.io/app/settings/api-keys | One of: the environment variable, `<project>/.env`, `~/.config/explainer-video/.env`, or a file you name with `--key-file` |
-
-- Copy `.env.example` to `.env` and fill in the line. `.env` is gitignored.
-- The engine reads the key inside the process that calls the API. It never prints it, logs it, writes it to a file or puts it on a command line. Don't paste it into a chat or a script.
-- `ev doctor` tells you which variable is missing and every file it looked in.
-- Everything except the voice step (script, captions with placeholder timing, picture, render, gates) works with no key. Free tiers can't be used commercially; check your plan's licence.
-- Nothing else needs a key. Music is whatever file you supply.
-
-`ev scan-secrets <folder>` fails on anything shaped like a key. The plugin's own CI runs it.
+[▶ Watch the full video, 1:57, with sound](media/hero.mp4). It was made by the plugin; the sources are in [examples/hero](examples/hero).
 
 ---
 
-## Install
+## What you get
 
-```
-/plugin marketplace add <path or git url of this repo>
-/plugin install explainer-video@explainer-video-kit
-```
+- **A drawn cursor** that glides to the right spot, clicks, and sends out a ripple.
+- **Callouts** with corner brackets and a tag (pink by default, any colour you set), locked to a real element on screen. The starter templates already use them, with the cursor and an eased pan.
+- **Camera moves** with eased pan and zoom, so the viewer's eye goes where the voice goes.
+- **Word-timed subtitles** burned in, with the spoken word highlighted. SRT, VTT and chapter files come along.
+- **Voice** from ElevenLabs v4, with emotion tags like `[warm]` to steer the delivery.
+- **A music bed** that ducks under the voice and lands at -16 LUFS. `ev music <pixabay track page>` fetches a track and saves its licence record; the music is yours to pick and isn't bundled.
+- **Your look**: a `theme` in project.json sets the colours and fonts for the canvas, subtitles and callouts, and an end card can be a live animated scene. `render.sharpen` adds an optional pass for crisper screen text.
+- **Quality gates** that fail the build when something's wrong (see below).
+- **Contact sheets and a review page** so a reviewer can scrub the cut without opening a player.
+- **Cost before you spend**: `ev voice --dry-run` shows the requests and characters first, and the credits once you've run a take once.
 
-Restart Claude Code, then ask: *"Make a one-minute explainer video of this app."* The `explainer-video` skill takes it from there.
+| Automatic | You bring |
+|---|---|
+| Script lint, captions, camera and cursor timing, audio mix, render, gates | Your app's screens and a short script |
+| Everything except the voice, with no key at all | An ElevenLabs key, for the voice only |
 
-First run on a machine:
+## Quick start
 
-```
-node <plugin folder>/engine/bin/ev.mjs setup
-```
+1. Install the plugin in Claude Code:
+   ```
+   /plugin marketplace add evolvconsulting/explainer-video-kit
+   /plugin install explainer-video@explainer-video-kit
+   ```
+2. Ask Claude: **"set up explainer-video"**. It installs the render browser and checks your machine, once per machine. You never type an engine path.
+3. Restart Claude Code and ask: **"Make an explainer video of this app."** Or ask Claude for a sample video: it renders one with no voice and no key.
 
-That installs the engine's dependencies and the render browser, then runs `ev doctor`. In this README `ev` is short for `node <plugin folder>/engine/bin/ev.mjs` (Claude runs it that way for you; in your own terminal make an alias).
+## Keys
 
-### Requirements
+The voice uses ElevenLabs. **Bring your own key; none is bundled.** Put `ELEVENLABS_API_KEY=...` in `<project>/.env` (copy `.env.example`; it's gitignored) or in `~/.config/explainer-video/.env`, or point `ev voice` at a file with `--key-file`. Never paste it into a chat. ElevenLabs' free tier doesn't allow commercial use. With no key, everything still renders except the voice, and `ev doctor` tells you what's missing.
 
-| Needed | For | Notes |
-|---|---|---|
-| Node 22 or newer | the engine and HyperFrames | |
-| ffmpeg and ffprobe | audio mix, frames, gates | `apt install ffmpeg`, `brew install ffmpeg`, `winget install Gyan.FFmpeg` |
-| A Chrome | rendering | HyperFrames downloads its own (`ev setup`) |
-| tesseract | the on-screen-text gate (optional) | `apt install tesseract-ocr`, `brew install tesseract`, `winget install UB-Mannheim.TesseractOCR` |
-| ElevenLabs key | the voice step only | see Keys |
+## Built-in quality checks
 
-Linux, macOS and Windows are the targets. Rendering is slow without a GPU (software WebGL); an 85 second film took about 45 seconds on a 24-core Linux machine.
+A failed gate fails the build.
 
----
+- **On-screen text:** OCR catches forbidden strings, and a blank first frame. It needs tesseract: without it this gate fails, so install it or opt out with `--skip-ocr`.
+- **Muddy wipes:** cross-fades between different layouts get flagged.
+- **Captions match the audio:** same words, same order, no stray tags.
+- **Tags not spoken:** voice directions never reach the ear or the screen.
+- **Audio spec:** -16 LUFS, true peak under -1 dBTP, music about 6.5 dB under the voice (gap band 5 to 8 dB). The voice take is also checked for a stray thump or click alone in silence (the message gives its time, and `ev voice --trim` cuts it out for free). These levels are taste calls set from a listener's ear: change them in project.json with `gates.audio.lufs`, `gates.audio.gap` and `music.bed`.
+- **Whisper match:** your script heard back by a second listener. Under 98 percent warns, under 90 fails.
+- **Camera windows:** no forbidden part of the page swept into view.
+- **Callout fit:** every callout's brackets frame the real element, stay inside the frame, and vanish when their time is up.
+- **Caption fit:** no caption line wider than the frame.
+- **Leaked keys:** anything shaped like an API key fails.
 
-## The path
+## Quick or long
 
-| Step | Skill | What it does |
-|---|---|---|
-| Conduct | `explainer-video` | picks quick or long, runs the steps, gates each one |
-| Script | `video-script` | beat sheet, word budget, voice tags, spoken-words file |
-| Script checks | `video-script-check` | lint by script, a cold-viewer read, a fact check |
-| Voice | `video-voice` | ElevenLabs (Eleven v4 tags), seed, long scripts split and joined, spend report |
-| Picture | `video-picture` | capture screen states, cursor, camera, callouts, anchored to spoken words |
-| Subtitles | `video-captions` | word-timed burned-in captions, SRT, VTT, chapter markers |
-| Render | `video-render` | mix (ducked, -14 LUFS), HyperFrames render, gates |
-| Wipes | `video-wipe-check` | finds muddy cross-fades between different layouts |
-| Review | `video-review` | fresh reviewer rounds that fix as they go |
+A quick explainer of about a minute is the default (`ev init demo`). For chapters and a longer film, `ev init demo --form long`.
 
-Each skill works alone. The lessons behind the rules (what each review round caught, the numbers the gates were calibrated on) are in each skill's `references/` folder.
+## Requirements
 
-## Try it without spending anything
+| Needed | For |
+|---|---|
+| Node 22+ | the engine |
+| ffmpeg and ffprobe | audio mix, frames, gates |
+| tesseract (required) | the on-screen text gate: without it that gate fails; opt out with `--skip-ocr` |
+| ElevenLabs key | the voice only |
 
-```
-ev init demo --form quick
-ev script demo --lint
-ev frames demo
-ev captions demo --placeholder
-ev build demo
-```
+Needs: Claude Code, Node 22+, ffmpeg, tesseract. ElevenLabs key for the voice.
 
-That builds a film of a made-up app with placeholder captions and no voice. `ev voice demo --dry-run` shows what the voice would cost before you spend a credit.
+Tested on Linux and WSL; macOS and Windows support is written but not yet tested. `ev setup` installs the render browser and runs `ev doctor`.
 
-## Commands
+## More
 
-`ev doctor`, `setup`, `init`, `script`, `voice`, `align`, `captions`, `frames`, `build`, `gates`, `contact`, `scan-secrets`. Run `ev help`, or `ev <command> --help`.
+Each step is its own skill, with the reasoning and numbers behind the rules: [plugins/explainer-video/skills](plugins/explainer-video/skills). Run `ev help` for every command.
 
 ## Licence
 
-MIT. The bundled Fredoka font is SIL OFL 1.1 (`engine/assets/fonts/Fredoka-OFL.txt`). HyperFrames is Apache-2.0.
+MIT. The bundled Fredoka font is SIL OFL 1.1. HyperFrames is Apache-2.0.

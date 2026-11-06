@@ -1,0 +1,38 @@
+/* groundwork fonts: the variable files in ../fonts/. Vendor them into your app with scripts/vendor_groundwork.py;
+   never hot-link the plugin. Montserrat is for headings (weights 100 to 900). Nunito Sans is for body
+   text (weights 200 to 1000, widths 75% to 125%). Both files default to their lightest weight, so always
+   set font-weight. Licenses: ../fonts/OFL-Montserrat.txt and ../fonts/OFL-NunitoSans.txt. */
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/Montserrat.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/Montserrat-Italic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-stretch: 75% 125%;
+  font-display: swap;
+  src: url("../fonts/NunitoSans.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  font-style: italic;
+  font-weight: 200 1000;
+  font-stretch: 75% 125%;
+  font-display: swap;
+  src: url("../fonts/NunitoSans-Italic.ttf") format("truetype");
+}

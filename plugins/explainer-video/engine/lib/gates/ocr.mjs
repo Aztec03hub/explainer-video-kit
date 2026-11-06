@@ -71,12 +71,15 @@ async function readFrame(png) {
   return r.stdout.split(/\r?\n/).filter((l) => l.trim());
 }
 
-export default async function ocrGate({ proj, cut, opts = {}, requireOcr = false }) {
+export default async function ocrGate({ proj, cut, opts = {} }) {
+  if (opts['skip-ocr'] || proj.cfg.gates?.ocr === false) {
+    return { name, status: 'SKIP', reason: `skipped on request (${opts['skip-ocr'] ? '--skip-ocr' : 'project.json gates.ocr is false'}), so no frame was read for forbidden on-screen text.` };
+  }
   if (!which('tesseract')) {
     const reason = 'tesseract is not installed, so no frame was read. Install it (Linux: apt install tesseract-ocr; macOS: brew install tesseract; ' +
-      'Windows: winget install UB-Mannheim.TesseractOCR) and run: ev gates <project> --only ocr';
-    return requireOcr ? { name, status: 'FAIL', measured: 'tesseract missing', limit: '--require-ocr', margin: 'n/a', lines: [reason] }
-      : { name, status: 'SKIP', reason };
+      'Windows: winget install UB-Mannheim.TesseractOCR) and run: ev gates <project> --only ocr. To go without the on-screen text check, ' +
+      'pass --skip-ocr or set "gates": { "ocr": false } in project.json.';
+    return { name, status: 'FAIL', measured: 'tesseract missing', limit: 'tesseract installed (or --skip-ocr)', margin: 'n/a', lines: [reason] };
   }
   const step = Number(opts.step) || 0.5;
   const terms = neverTerms(proj);

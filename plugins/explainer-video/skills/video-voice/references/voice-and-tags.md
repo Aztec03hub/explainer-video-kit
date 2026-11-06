@@ -33,7 +33,7 @@ Tags are in square brackets and are not spoken. Rules that held:
 
 ## 4. Verify the take (measurement, not listening)
 
-- Let Whisper listen to the take (`ev align <project> --transcript-only`, then `ev gates <project> --only tags,whisper`) and compare to the script: the first project matched 211 of 212 words and then 210 of 212; the misses were a hyphenated number that Whisper splits in two. Retake a line only when Whisper shows a misread. Below about 98 percent, listen.
+- Let Whisper listen to the take (`ev align <project> --transcript-only`, then `ev gates <project> --only tags,whisper`) and compare to the script: the first project matched 211 of 212 words and then 210 of 212; the misses were a hyphenated number that Whisper splits in two. Retake a line only when Whisper shows a misread. 98 percent or better is clean, 90 to 98 warns (listen), under 90 fails the gate. If Whisper keeps mishearing a name ("Claude" as "cloud"), list it in `heardAs` (see render-notes).
 - No tag may be spoken. Check Whisper's heard words, the caption words and the SRT against the tag vocabulary (the words inside your brackets, plus common ones such as curious, wry, exhales, warm, softer, gentle, playful, laugh, serious, steady, firm). Expect false hits where an approved script word equals a tag word (one script line legitimately contained "serious").
 - Duration against the plan, and pace in words per second. Don't promise the owner a fixed length before the take exists.
 - Words Whisper can't match are interpolated between matched neighbours; the script's spelling wins.
@@ -44,9 +44,9 @@ Tags are in square brackets and are not spoken. Rules that held:
 - Billed credits are not characters sent, and the account counter lags. Observed on one plan: about 0.44 credits per character for both a multilingual and a v4 model (112 characters billed 49; 1,176 billed 517; 1,607 billed 707). Read the `character-cost` response header per call and sum them; re-read `/v1/user/subscription` later to confirm. Never assume 1 credit per character.
 - A 90 s script is about 1,300 to 1,600 characters per take. Show the user `--dry-run` characters and a credit estimate before any spend.
 - Spend-report rule: report the credits used at every milestone (bake-off, each take, each re-take) in plain numbers, and log them in `voice/spend.json`. Re-cutting a video on an existing take costs nothing.
-- Keep the bake-off cheap: the same two short lines (about 20 words, marked DRAFT) in each candidate voice, about 49 credits per voice at the rate above.
+- Keep the bake-off cheap: the same two short lines (about 20 words, marked DRAFT) in each candidate voice, about 49 credits per voice at the rate above. Run it with `EV voice bakeoff <project> --voices id1,id2 --dry-run` first (it shows characters and an estimate), then without `--dry-run`. It uses the project's first two spoken lines, or `--text bakeoff-lines.txt`; more than 60 words is refused. It writes `voice-<name>.mp3` per voice and `bakeoff.json` (characters and billed credits) in `voice/bakeoff/`.
 - Phase gating: no characters until the words are approved and both script checks are clean.
-- Save reusable voices where the pipeline reads them (id, kind, model, tags used, which project used it, a default), and mark a shipped voice "never re-record".
+- Save reusable voices where the engine reads them: `EV voice save <name> <voice_id> --model .. --notes .. [--default]`, `EV voice saved`, `EV voice forget <name>`. They live in `~/.config/explainer-video/voices.json` (names and ids, never keys). `project.json` `voice.id` may be a saved name, and an empty `voice.id` uses the saved default. A real run adds the project to the voice's `used_by`. Mark a shipped voice "never re-record".
 
 ## 6. Choosing a voice and cloning
 

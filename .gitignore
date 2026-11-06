@@ -2,11 +2,18 @@
 *.env
 .env.*
 !.env.example
-node_modules/
+node_modules
 build/
 out/
 *.mp4
 *.wav
+# Music (a Pixabay track's licence forbids passing the audio on) and voice takes (your own voice, your own credits) are never committed.
+*.mp3
+examples/hero/voice/
+examples/hero/music/
 __pycache__/
 .hyperframes/
 .serena/
+!media/hero.mp4
+!media/*.png
+!media/*.gif

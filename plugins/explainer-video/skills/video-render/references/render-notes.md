@@ -44,12 +44,24 @@ It runs lint, runtime, layout, motion, contrast, craft, audio and snapshots, and
 - Build one continuous track the length of the film, never joined clips. `-shortest` truncates voice, and concatenating clips with separate audio drifts progressively.
 - Mix the voice with offset 0 when captions are timed on the voice, or every caption time shifts (a 0.4 s default offset would have).
 - Music must be longer than the film or looped (`-stream_loop -1`, then `atrim`); fade in over 1 s and out over 2.5 s ending at the film length.
-- Ducking: music through `sidechaincompress` keyed on the voice (`threshold=0.02 ratio=6 attack=15 release=450 makeup=1`), then `amix normalize=0 duration=first`, then `loudnorm=I=-14:TP=-1.5:LRA=11`. The threshold is linear (0.02 is about -34 dBFS). Swapping the two inputs ducks the voice instead of the music.
-- Targets: -14 LUFS integrated within 1 LU; true peak at or under -1 dBTP; music 15 to 18 dB under the voice while it speaks. Shipped results: -14.3 LUFS and -1.5 dBTP; the second cut -14.2 and -1.4. A single-pass loudnorm landed 0.3 LU high, fine inside 1 LU.
-- Measure the gap, don't trust a number: a bed at -14 dB gave a gap of only 11.7 dB; at -19 dB it was 16.7 dB (voice -18.1 LUFS, ducked music -34.8 LUFS). The gap changes with the voice, so re-measure when the take changes.
+- Ducking: music through `sidechaincompress` keyed on the voice (`threshold=0.02 ratio=6 attack=15 release=450 makeup=1`), then `amix normalize=0 duration=first`, then `loudnorm=I=-16:TP=-1.5:LRA=11`. The threshold is linear (0.02 is about -34 dBFS). Swapping the two inputs ducks the voice instead of the music.
+- Targets: -16 LUFS integrated within 1 LU (gates.audio.lufs); true peak at or under -1 dBTP; music about 6.5 dB under the voice while it speaks (default band 5 to 8 dB, default bed -11 dB). History: Phil heard the first hero cut at 16.8 dB and called the voice far too loud over the music, so the default went to about 10 dB; the next hero cut measured -14.0 LUFS with the music 9.6 dB under, and he said the music was still a little too low and the voice too loud, so the defaults became -16 LUFS and about 6.5 dB. Set gates.audio.lufs, gates.audio.gap and music.bed to taste. Earlier shipped results (old -14 target): -14.3 LUFS and -1.5 dBTP; the second cut -14.2 and -1.4. A single-pass loudnorm landed 0.3 LU high, fine inside 1 LU.
+- Measure the gap, don't trust a number: on an earlier film a bed at -14 dB gave a gap of 11.7 dB and -19 dB gave 16.7 dB; on the hero take -19 dB gave 16.8, -14 gave 11.8, -12 gave 9.8 (those were with the older take; on the current hero take -14 gives 9.6, -12 gives 7.6, -11 gives 6.6, -10 gives 5.6, -8 gives 3.6), about 1 dB of gap per dB of bed. The gap changes with the voice, so re-measure when the take changes.
 - Measure the music on its own, over the voice's span only, with the same filters as the mix. A first reading overlapped the fade-out and didn't measure ducking.
 - Measure loudness with `ffmpeg -i <cut> -af ebur128=peak=true -f null -`.
 - Sound effects: 3 to 5 tiny whooshes or clicks synced to cursor clicks, optional; none were used.
+
+## 5b. The whisper gate and Whisper's mishearings
+
+The whisper gate counts how many script words a Whisper transcript matched: 98 percent or better passes clean, 90 to 98 passes with a warning (listen to the unmatched words), under 90 fails. The numbers live in `lib/gates/whisper.mjs` (`PASS_AT`, `FAIL_UNDER`) and a test checks that these docs agree.
+
+Whisper mishears product names ("Claude" as "cloud"), so a script that names the product could never reach 98. List the mishearings in `rules.json` (or `project.json`):
+
+```json
+{ "heardAs": { "Claude": ["cloud", "clawed"] }, "ignoreHeard": ["um", "uh"] }
+```
+
+`heardAs`: when Whisper heard one of the listed words where the script has the key, it counts as a match. `ignoreHeard`: words Whisper heard that aren't in the script and shouldn't count against it. Both change the whisper and tags gates only, never the script, captions or voice. Use them for real, repeatable mishearings; don't hide a line that's genuinely misread.
 
 ## 6. Music licensing
 

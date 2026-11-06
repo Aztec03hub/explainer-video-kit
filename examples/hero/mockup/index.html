@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Harbor</title>
+<script src="groundwork/groundwork-theme.js"></script>
+<link rel="stylesheet" href="groundwork/groundwork-fonts.css">
+<link rel="stylesheet" href="groundwork/groundwork.css">
+<style>
+  /* Colours, type and radii come from the vendored groundwork tokens (--gw-*) only; nothing here is a hex value
+     except the three approved extras below.
+     EXTRAS: copied by value from the groundwork-ui proposed-tokens.css
+     (X1 navy tints, X12 state layers 4/8/8 %, X13 section title 16px/600). Phil approved these in D8, 2026-10-28. */
+  :root { --gwp-navy-tint-3: #8E99B0; --gwp-state-layer: var(--gw-text); --gwp-state-hover: 4%; --gwp-state-pressed: 8%; --gwp-state-selected: 8%;
+    --gwp-row-hover: color-mix(in srgb, var(--gwp-state-layer) var(--gwp-state-hover), var(--gw-page));
+    --gwp-row-selected: color-mix(in srgb, var(--gwp-state-layer) var(--gwp-state-selected), var(--gw-page));
+    --gwp-section-title-weight: 600; }
+  :root[data-theme="dark"] { --gwp-navy-tint-3: #4B5A7D; }
+  /* the old mockup names, now aliases of tokens so the layout rules below read the same */
+  :root { --bg:var(--gw-page); --side:var(--gw-surface); --card:var(--gw-surface); --card2:var(--gw-band); --line:var(--gw-border);
+    --ink:var(--gw-text); --mute:var(--gw-text-muted); --accent:var(--gw-accent); --ok:var(--gw-ok); --warn:var(--gw-warn); --bad:var(--gw-bad); --run:var(--gw-info); }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body { width:1280px; height:720px; overflow:hidden; position:relative; background:var(--gw-page); color:var(--gw-text);
+    font:500 28px/1.25 var(--gw-font-body); font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; }
+  svg.i { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  .app { position:absolute; inset:0; display:none; }
+  body[data-screen=app] .app { display:block; }
+  /* header band: navy in both modes, white logo (groundwork 8.7) */
+  #band { position:absolute; left:0; right:0; top:0; height:64px; background:var(--gw-header); color:var(--gw-on-header); display:flex; align-items:center; gap:20px; padding:0 24px; z-index:5; }
+  #band img { height:32px; display:block; } #band .appname { font:600 28px/1 var(--gw-font-heading); letter-spacing:0; padding-left:20px; border-left:1px solid var(--gw-on-header-muted); }
+  body[data-screen=app] #band, body[data-screen=guide] #band, body[data-screen=ask] #band, body[data-screen=sheet] #band, body[data-screen=term] #band { display:flex; } #band { display:none; }
+  /* header nav (Groundwork page patterns v2): items on the band, current page gets a 3px tan bar (8.7) */
+  #side { display:flex; align-self:stretch; margin-left:8px; }
+  .nav { display:flex; align-items:center; height:100%; padding:0 16px; color:var(--gw-on-header); font-weight:400; font-size:28px; text-decoration:none; border-bottom:3px solid transparent; }
+  .nav.on { font-weight:600; border-bottom-color:var(--gw-tan); }
+  body:not([data-screen=app]) #side, body:not([data-screen=app]) #top { display:none; }
+  /* top tools row inside the band */
+  #top { display:contents; }
+  #search { display:flex; align-items:center; gap:12px; width:250px; height:44px; padding:0 14px; border-radius:var(--gw-radius-md); background:var(--gw-input); border:1px solid var(--gw-control-border); color:var(--gw-placeholder); font-size:28px; }
+  .grow { flex:1; }
+  .bell { color:var(--gw-on-header); position:relative; display:grid; place-items:center; width:44px; height:44px; }
+  .bell::after { content:""; position:absolute; right:8px; top:8px; width:12px; height:12px; border-radius:50%; background:var(--gw-tan); border:2px solid var(--gw-header); }
+  .avatar { width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font:600 22px/1 var(--gw-font-body); color:var(--gw-on-header); background:var(--gwp-navy-tint-3); border:2px solid var(--gw-on-header-muted); }
+  #page { position:absolute; left:0; right:0; top:64px; bottom:0; padding:10px 24px 0; }
+  h1 { margin:0; height:56px; display:flex; align-items:center; gap:16px; font:300 36px/1.2 var(--gw-font-heading); letter-spacing:.02em; }
+  h1 small { font:400 24px/1 var(--gw-font-body); letter-spacing:0; color:var(--gw-text-muted); }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; height:104px; margin-bottom:14px; }
+  .kpi { min-width:0; background:var(--gw-surface); border:1px solid var(--gw-border); border-radius:var(--gw-radius-lg); padding:10px 12px 10px 16px; }
+  .kpi .l { font-size:24px; color:var(--gw-text-muted); line-height:28px; }
+  .kpi .v { display:flex; align-items:baseline; justify-content:space-between; margin-top:2px; }
+  .kpi .n { white-space:nowrap; font:600 32px/48px var(--gw-font-heading); }
+  .d { margin-left:8px; font-size:24px; font-weight:600; padding:0 6px; border-radius:var(--gw-radius-sm); line-height:32px; }
+  .d.up { color:var(--gw-ok); background:var(--gw-ok-ground); } .d.dn { color:var(--gw-bad); background:var(--gw-bad-ground); } .d.fl { color:var(--gw-warn); background:var(--gw-warn-ground); }
+  /* table: click-through, so a state layer on the selected row, no banding (groundwork 8.6) */
+  .table { background:var(--gw-page); border:1px solid var(--gw-border); border-radius:var(--gw-radius-lg); overflow:hidden; position:relative; }
+  .tr { display:flex; align-items:center; height:48px; padding:0 8px; border-top:1px solid var(--gw-border); font-size:24px; }
+  .tr.h { border-top:0; color:var(--gw-text); font-weight:600; border-bottom:1px solid var(--gw-control-border); }
+  .tr.sel { background:var(--gwp-row-selected); box-shadow:inset 3px 0 0 var(--gw-accent); }
+  .tr > div { padding:0 12px; white-space:nowrap; }
+  .c-id { width:170px; } .c-id span { display:inline-block; border:1px solid var(--gw-control-border); border-radius:var(--gw-radius-md); padding:0 12px; line-height:34px; font-weight:600; }
+  .c-own { width:260px; display:flex; align-items:center; gap:12px; }
+  .c-br { width:220px; color:var(--gw-text-muted); } .c-st { width:300px; } .c-du { width:200px; } .c-da { flex:1; color:var(--gw-text-muted); }
+  body[data-wide=y] .c-own { width:230px; } body[data-wide=y] .c-st { width:280px; } body[data-wide=y] .c-du { width:150px; }
+  .tr .c-br { display:none; } body[data-wide=y] .tr .c-br { display:block; }
+  .dot { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:22px; line-height:1; font-weight:600; flex:none; background:var(--gwp-navy-tint-3) !important; color:var(--gw-text); }
+  .pill { display:inline-flex; align-items:center; gap:8px; height:34px; padding:0 14px 0 10px; border-radius:var(--gw-radius-pill); font-size:24px; font-weight:600; }
+  .pill i { width:10px; height:10px; border-radius:50%; background:currentColor; }
+  .p-ok { color:var(--gw-ok); background:var(--gw-ok-ground); } .p-warn { color:var(--gw-warn); background:var(--gw-warn-ground); }
+  .p-bad { color:var(--gw-bad); background:var(--gw-bad-ground); } .p-run { color:var(--gw-info); background:var(--gw-info-ground); }
+  #colstatus { position:absolute; opacity:0; pointer-events:none; }
+  /* overview cards */
+  .row2 { display:grid; grid-template-columns:1fr 1.1fr; gap:16px; height:440px; }
+  .card { background:var(--gw-surface); border:1px solid var(--gw-border); border-radius:var(--gw-radius-lg); padding:14px 20px; overflow:hidden; }
+  .card h2 { margin:0 0 8px; font:var(--gwp-section-title-weight) 28px/1.2 var(--gw-font-body); color:var(--gw-text); display:flex; justify-content:space-between; align-items:center; letter-spacing:0; }
+  .card h2 small { font-size:24px; font-weight:400; color:var(--gw-text-muted); }
+  .act { white-space:nowrap; display:flex; align-items:center; gap:14px; height:84px; border-top:1px solid var(--gw-border); }
+  .act:first-of-type { border-top:0; } .act .t { flex:1; line-height:1.2; } .act .t b { font-size:28px; font-weight:600; } .act .t div { font-size:24px; color:var(--gw-text-muted); }
+  /* run drawer: a surface over a scrim (groundwork 8.5) */
+  #drawer { position:absolute; right:0; top:64px; bottom:0; width:600px; background:var(--gw-surface); border-left:3px solid var(--gw-accent); padding:16px 24px; box-shadow:var(--gw-shadow-lg); display:none; }
+  #scrim { position:absolute; left:0; right:0; top:64px; bottom:0; background:var(--gw-scrim); display:none; }
+  body[data-drawer=y] #drawer { display:block; } /* non-modal side panel (Groundwork queue pattern): no scrim, the list keeps its place */
+  .dh { display:flex; align-items:center; justify-content:space-between; height:56px; font:300 36px/1.2 var(--gw-font-heading); letter-spacing:.02em; }
+  .meta { display:flex; gap:12px; align-items:center; height:48px; font-size:24px; color:var(--gw-text-muted); }
+  .tl { margin:8px 0 12px; position:relative; }
+  .st { display:flex; align-items:center; gap:16px; height:42px; font-size:24px; position:relative; }
+  .st .b { width:26px; height:26px; border-radius:50%; background:var(--gw-ok); display:grid; place-items:center; flex:none; z-index:1; color:var(--gw-page); }
+  .st .b svg { width:16px; height:16px; stroke-width:3.4; }
+  .st.now .b { background:var(--gw-warn); } .st.todo .b { background:var(--gw-surface); border:2px solid var(--gw-control-border); }
+  .st .tm { margin-left:auto; color:var(--gw-text-muted); } .st.todo { color:var(--gw-text-muted); } .st b2 { font-weight:600; }
+  .tl::before { content:""; position:absolute; left:12px; top:20px; bottom:20px; width:2px; background:var(--gw-border); }
+  .chart { background:var(--gw-page); border:1px solid var(--gw-border); border-radius:var(--gw-radius-lg); padding:10px 16px 4px; }
+  .chart .ct { font-size:24px; color:var(--gw-text-muted); display:flex; justify-content:space-between; }
+  /* settings */
+  .sec { background:var(--gw-surface); border:1px solid var(--gw-border); border-radius:var(--gw-radius-lg); margin-bottom:14px; }
+  .sec h2 { margin:0; height:56px; padding:0 20px; display:flex; align-items:center; gap:12px; font:var(--gwp-section-title-weight) 28px/1.2 var(--gw-font-body); letter-spacing:0; color:var(--gw-text); border-bottom:1px solid var(--gw-border); }
+  .sec h2 svg { color:var(--gw-accent); }
+  .measure { width:900px; margin:0 auto; } .fld { padding:14px 20px 16px; } .fld label { display:block; font-weight:600; font-size:28px; margin-bottom:8px; }
+  .dd { width:100% !important; } .menu { width:calc(100% + 4px) !important; }
+  .acts { display:flex; gap:16px; margin-top:4px; } .btn { height:48px; padding:0 28px; display:inline-flex; align-items:center; font-weight:600; border-radius:var(--gw-radius-md); }
+  .btn.pri { background:var(--gw-accent-fill); color:var(--gw-on-accent); border:1px solid var(--gw-accent-fill-border); } .btn.sec2 { background:var(--gw-page); color:var(--gw-text); border:1px solid var(--gw-control-border); }
+  .set { display:flex; align-items:center; height:72px; padding:0 20px; border-top:1px solid var(--gw-border); font-size:28px; }
+  .sec h2 + .set { border-top:0; } .set .grow small { display:block; font-size:24px; color:var(--gw-text-muted); line-height:1.1; margin-top:2px; }
+  .dd { position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; width:268px; height:48px; padding:0 14px 0 16px; border-radius:var(--gw-radius-md); background:var(--gw-input); border:1px solid var(--gw-control-border); font-weight:600; }
+  .dd.open { border:2px solid var(--gw-focus); padding:0 13px 0 15px; }
+  .menu { position:absolute; left:-2px; top:56px; width:268px; background:var(--gw-surface); border:1px solid var(--gw-control-border); border-radius:var(--gw-radius-md); padding:6px; box-shadow:var(--gw-shadow-lg); z-index:3; display:none; }
+  .dd.open .menu { display:block; } .opt { height:48px; display:flex; align-items:center; padding:0 12px; border-radius:var(--gw-radius-sm); font-weight:400; justify-content:space-between; }
+  .opt.cur { background:var(--gwp-row-selected); font-weight:600; box-shadow:inset 3px 0 0 var(--gw-accent); } .opt.hov { background:var(--gwp-row-hover); }
+  .tg { width:60px; height:34px; border-radius:17px; background:var(--gw-surface); border:2px solid var(--gw-control-border); position:relative; flex:none; }
+  .tg::after { content:""; position:absolute; left:4px; top:4px; width:22px; height:22px; border-radius:50%; background:var(--gw-control-border); }
+  .tg.on { background:var(--gw-accent-fill); border-color:var(--gw-accent-fill-border); } .tg.on::after { left:30px; background:var(--gw-on-accent); }
+  /* terminals, guide screens, prompt box, contact sheet, end card */
+  .full { position:absolute; inset:0; display:none; }
+  body[data-screen=term] #term, body[data-screen=end] #end, body[data-screen=guide] #guide, body[data-screen=ask] #ask, body[data-screen=sheet] #sheet { display:block; }
+  #term, #guide, #sheet { background:var(--gw-page); padding:64px 40px 0; font-family:var(--gw-font-mono); }
+  body[data-screen=term] #term, body[data-screen=guide] #guide { display:flex; flex-direction:column; justify-content:center; padding:64px 40px 24px; }
+  #sheet { padding-top:72px; }
+  .tl3 .p { color:var(--gw-ok); font-weight:400; } .tl3 .f { color:var(--gw-bad); font-weight:400; } .tl3 .m { color:var(--gw-text-muted); font-weight:400; }
+  .tl2, .tl3 { font-size:28px; line-height:46px; white-space:pre; color:var(--gw-text); }
+  .tl3.c { color:var(--gw-text); font-weight:700; } .tl3.p, .tl2 .p { color:var(--gw-ok); font-weight:400; } .tl3.f, .tl2 .f { color:var(--gw-bad); font-weight:400; }
+  .tl3.m, .tl2 .m { color:var(--gw-text-muted); } .tl2 .cmd, .tl3 .cmd { font-weight:700; } .tl3 .pr, .tl2 .pr { color:var(--gw-text-muted); }
+  .grp { padding:0 12px; margin:0 -12px; } #t-out { margin-top:6px; } .gr { padding:2px 12px; margin:0 -12px; display:inline-block; }
+  .pbox { border:1px solid var(--gw-control-border); border-radius:var(--gw-radius-lg); background:var(--gw-surface); padding:0 20px; margin:6px 0; }
+  #ask { background:var(--gw-page); font-family:var(--gw-font-body); }
+  #ask .where { margin:150px 0 20px 80px; font-size:28px; color:var(--gw-text-muted); }
+  #ask .box { margin:0 80px; height:210px; border:2px solid var(--gw-control-border); border-radius:var(--gw-radius-lg); background:var(--gw-input); padding:30px 36px; position:relative; font-size:40px; line-height:1.3; color:var(--gw-text); }
+  #ask .caret { display:inline-block; width:3px; height:44px; background:var(--gw-focus); vertical-align:-8px; margin-left:3px; }
+  #ask .send { position:absolute; right:24px; bottom:22px; width:64px; height:64px; border-radius:var(--gw-radius-md); background:var(--gw-accent-fill); border:1px solid var(--gw-accent-fill-border); display:grid; place-items:center; color:var(--gw-on-accent); }
+  #ask .send svg { width:34px; height:34px; fill:none; stroke:currentColor; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+  #ask .hint { margin:20px 0 0 80px; font-size:28px; color:var(--gw-text-muted); }
+  #sheet img { display:block; width:840px; height:472px; margin:12px auto 0; border:1px solid var(--gw-border); border-radius:var(--gw-radius-lg); }
+  #end { background:var(--gw-page); text-align:center; }
+  #end .endband { height:152px; background:var(--gw-header); display:grid; place-items:center; } #end .endband img { height:72px; display:block; } /* clear space 36px = half the logo height, on navy */
+  #end h1 { display:block; height:auto; font:300 56px/1.2 var(--gw-font-heading); letter-spacing:.02em; margin:34px 56px 28px; }
+  #end h1 span { color:var(--gw-accent); }
+  .code { margin:0 auto 18px; width:1120px; text-align:left; background:var(--gw-surface); border:1px solid var(--gw-control-border); border-radius:var(--gw-radius-lg); padding:16px 28px; font:28px/1.2 var(--gw-font-mono); color:var(--gw-text); white-space:nowrap; }
+  .code em { color:var(--gw-text-muted); font-style:normal; margin-right:14px; }
+  .needs { margin:30px 56px 0; font-size:28px; color:var(--gw-text-muted); }
+</style>
+
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-runs" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l5 3.5-5 3.5z"/></symbol>
+  <symbol id="i-rel" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/></symbol>
+  <symbol id="i-set" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 15c3 0 3-6 6-6s3 8 6 8 3-6 6-6"/></symbol>
+</defs></svg>
+
+<div id="band"><img src="assets/evolv-logo-white.svg" alt="evolv"><span class="appname" id="appname">Harbor</span><nav id="side"></nav><div id="top"><div id="search"><svg class="i"><use href="#i-search"/></svg>Search runs</div><div class="grow"></div><div class="bell"><svg class="i"><use href="#i-bell"/></svg></div><div class="avatar">MK</div></div></div>
+<div class="app" id="app">
+  <main id="page"></main>
+  <div id="scrim"></div>
+  <aside id="drawer"></aside>
+</div>
+
+<div class="full" id="term"></div>
+<div class="full" id="guide"></div>
+<div class="full" id="ask"></div>
+<div class="full" id="sheet"></div>
+<div class="full" id="end"></div>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  const state = q.get('state') || 'home';
+  const ico = (n, c) => `<svg class="i ${c || ''}"><use href="#i-${n}"/></svg>`;
+  const markSvg = '<svg viewBox="0 0 24 24"><path d="M12 4v13M7 8h10M4 14c0 3.5 3.5 6 8 6s8-2.500 8-6M4 14l2.500 1.500M20 14l-2.500 1.500"/></svg>';
+  const RUNS = [
+    ['#4821', 'Maya', 'Passed', '4m 12s', 'Nov 4', 'main'], ['#4820', 'Tomas', 'Needs review', '6m 03s', 'Nov 4', 'rel-2.4'],
+    ['#4819', 'Priya', 'Running', '1m 47s', 'Nov 4', 'feat-search'], ['#4818', 'Jonas', 'Failed', '2m 31s', 'Nov 3', 'fix-auth'],
+    ['#4817', 'Lena', 'Passed', '4m 29s', 'Nov 3', 'main'], ['#4816', 'Omar', 'Passed', '3m 58s', 'Nov 3', 'rel-2.4'],
+    ['#4815', 'Ines', 'Needs review', '5m 40s', 'Nov 2', 'feat-export'], ['#4814', 'Kofi', 'Passed', '4m 05s', 'Nov 2', 'main'],
+  ];
+  const PILL = { 'Passed': 'p-ok', 'Needs review': 'p-warn', 'Failed': 'p-bad', 'Running': 'p-run' };
+  const HUE = Array(8).fill('var(--gwp-navy-tint-3)');
+  const pill = (s) => `<span class="pill ${PILL[s]}"><i></i>${s}</span>`;
+
+  function side(active) {
+    const n = (id, ic, t) => `<a class="nav ${active === id ? 'on' : ''}" id="nav-${id}">${t}</a>`;
+    document.getElementById('side').innerHTML =
+      n('overview', 'grid', 'Overview') + n('runs', 'runs', 'Runs') + n('releases', 'rel', 'Releases') + n('settings', 'set', 'Settings');
+  }
+  const kpis = () => `<div class="kpis">
+    <div class="kpi" id="kpi1"><div class="l">Runs this week</div><div class="v"><span class="n">128</span><span class="d up">+12%</span></div></div>
+    <div class="kpi" id="kpi2"><div class="l">Pass rate</div><div class="v"><span class="n">94.2%</span><span class="d up">+1.8%</span></div></div>
+    <div class="kpi" id="kpi3"><div class="l">Median time</div><div class="v"><span class="n">4m 12s</span><span class="d up">-18s</span></div></div>
+    <div class="kpi" id="kpi4"><div class="l">Open reviews</div><div class="v"><span class="n">7</span><span class="d dn">+2</span></div></div></div>`;
+  function table(selRow) {
+    const rows = RUNS.map((r, i) => `<div class="tr ${selRow === i ? 'sel' : ''}" id="row${i + 1}">
+      <div class="c-id"><span>${r[0]}</span></div><div class="c-own"><span class="dot" style="background:${HUE[i]}">${r[1][0]}</span>${r[1]}</div>
+      <div class="c-br">${r[5]}</div><div class="c-st">${pill(r[2])}</div><div class="c-du">${r[3]}</div><div class="c-da">${r[4]}</div></div>`).join('');
+    return `<div class="table" id="table"><div class="tr h"><div class="c-id">Run</div><div class="c-own">Owner</div><div class="c-br">Branch</div><div class="c-st">Status</div><div class="c-du">Duration</div><div class="c-da">Date</div></div>${rows}<div id="colstatus"></div></div>`;
+  }
+  function chartHome() {
+    const pts = [38, 44, 41, 52, 60, 55, 66, 72, 64, 79, 88, 84, 96, 104];
+    const W = 500, H = 300, x = (i) => 56 + i * (W - 76) / (pts.length - 1), y = (v) => H - 30 - v * 2.2;
+    const line = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    const grid = [0, 50, 100].map((v) => `<line x1="56" x2="${W - 20}" y1="${y(v)}" y2="${y(v)}" stroke="var(--gw-border)"/><text x="46" y="${y(v) + 7}" text-anchor="end" fill="var(--gw-chart-axis)" font-size="24">${v}</text>`).join('');
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--gw-chart-highlight)" stop-opacity=".38"/><stop offset="1" stop-color="var(--gw-chart-highlight)" stop-opacity="0"/></linearGradient></defs>${grid}
+      <path d="${line} L${x(pts.length - 1)} ${y(0)} L${x(0)} ${y(0)} Z" fill="url(#g)"/><path d="${line}" fill="none" stroke="var(--gw-chart-highlight)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(pts.length - 1)}" cy="${y(104)}" r="7" fill="var(--gw-page)" stroke="var(--gw-chart-highlight)" stroke-width="4"/>
+      <text x="56" y="${H - 2}" fill="var(--gw-chart-axis)" font-size="24">Oct 22</text><text x="${W - 20}" y="${H - 2}" text-anchor="end" fill="var(--gw-chart-axis)" font-size="24">Nov 4</text></svg>`;
+  }
+  function home() {
+    const acts = [['#4818', 'Jonas', 'Failed', '2m 31s'], ['#4820', 'Tomas', 'Needs review', '6m 03s'], ['#4815', 'Ines', 'Needs review', '5m 40s'], ['#4819', 'Priya', 'Running', '1m 47s']]
+      .map((a, i) => `<div class="act"><span class="dot" style="background:${HUE[i + 1]}">${a[1][0]}</span><div class="t"><b>${a[1]}</b><div>${a[0]}</div></div>${pill(a[2])}</div>`).join('');
+    return `<h1>overview <small>Last 14 days</small></h1>${kpis()}<div class="row2">
+      <div class="card"><h2>Needs attention</h2>${acts}</div>
+      <div class="card" id="vol"><h2>Run volume <small>per day</small></h2>${chartHome()}</div></div>`;
+  }
+  function runs(sel) { return `<h1>runs <small>8 of 128 shown</small></h1>${kpis()}${table(sel)}`; }
+  function place() { // invisible box over the status column, inset so brackets sit clear of the pills and the row lines
+    const t = document.getElementById('table'), cs = document.getElementById('colstatus'); if (!t || !cs) return;
+    const r1 = document.querySelector('#row1 .c-st'), r8 = document.querySelector('#row8 .c-st'), tr = t.getBoundingClientRect();
+    const a = r1.getBoundingClientRect(), b = r8.getBoundingClientRect();
+    Object.assign(cs.style, { left: a.left - tr.left - 14 + 'px', width: a.width + 8 + 'px', top: a.top - tr.top + 6 + 'px', height: b.bottom - a.top - 12 + 'px' });
+  }
+  function drawer() {
+    const steps = [['Queued', '0:00', 'ok'], ['Build', '0:48', 'ok'], ['Tests', '3:12', 'ok'], ['Review', '6:03', 'now'], ['Release', 'waiting', 'todo']]
+      .map((s) => `<div class="st ${s[2]}"><span class="b">${s[2] === 'todo' ? '' : ico('check')}</span><b2>${s[0]}</b2><span class="tm">${s[1]}</span></div>`).join('');
+    const d = [4.2, 4.6, 4.1, 5.0, 4.4, 4.8, 5.4, 4.3, 5.1, 5.8, 5.2, 6.1], W = 540, H = 200;
+    const x = (i) => 56 + i * (W - 72) / 11, y = (v) => H - 14 - (v - 3.5) * 56;
+    const line = d.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+    const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${[4, 6].map((v) => `<line x1="56" x2="${W - 16}" y1="${y(v)}" y2="${y(v)}" stroke="var(--gw-border)"/><text x="46" y="${y(v) + 7}" text-anchor="end" fill="var(--gw-chart-axis)" font-size="24">${v}m</text>`).join('')}
+      <path d="${line}" fill="none" stroke="var(--gw-chart-highlight)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+      ${d.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${i === 11 ? 7 : 4}" fill="${i === 11 ? 'var(--gw-warn)' : 'var(--gw-chart-highlight)'}"/>`).join('')}</svg>`;
+    document.getElementById('drawer').innerHTML = `<div class="dh"><span>run #4820</span>${ico('x')}</div>
+      <div class="meta">${pill('Needs review')}<span>Tomas</span><span>rel-2.4</span><span>Nov 4</span></div>
+      <div class="tl" style="margin-top:12px">${steps}</div><div class="chart"><div class="ct"><span>Duration, last 12 runs</span><span>6m 03s</span></div>${svg}</div>`;
+  }
+  function settings(v, menu, tone) {
+    const opts = ['Calm', 'Soft', 'Big'].map((o) => `<div class="opt ${o === v ? 'cur' : ''} ${menu && o === menu ? 'hov' : ''}" id="opt-${o.toLowerCase()}">${o}${o === v ? ico('check') : ''}</div>`).join('');
+    const tg = (on) => `<div class="tg ${on ? 'on' : ''}"></div>`;
+    return `<div class="measure"><h1>settings</h1><div class="sec" id="voice"><h2>${ico('mic')}Voice</h2>
+      <div class="fld"><label>Reading style</label><div class="dd ${menu ? 'open' : ''}" id="dd"><span>${v}</span>${ico('chev')}<div class="menu">${opts}</div></div></div>
+      <div class="set"><div class="grow">Read run summaries aloud</div>${tg(true)}</div>
+      <div class="set"><div class="grow">Soft tone at night</div>${tg(tone)}</div>
+      <div class="set"><div class="grow">Chime on failure</div>${tg(true)}</div></div>
+      <div class="acts"><span class="btn pri">Save</span><span class="btn sec2">Cancel</span></div></div>`;
+  }
+  const TERM = { bad: window.TERM_BAD || [], good: window.TERM_GOOD || [] };
+</script>
+<script src="term.js"></script>
+<script>
+  function termHtml(lines, cmd) {
+    const e = (x) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const groups = [];
+    for (const l of lines) {
+      const m = /^(FAIL|PASS|SKIP)\s+(\w+):/.exec(l);
+      if (m || !groups.length) groups.push({ name: m ? m[2] : 'x', lines: [l] }); else groups[groups.length - 1].lines.push(l);
+    }
+    const out = groups.map((g) => `<div class="grp" id="t-${g.name}">` + g.lines.map((l) => {
+      const cls = /^FAIL|^\s+FAIL/.test(l) ? 'f' : /^PASS/.test(l) ? 'p' : /WARN/.test(l) ? 'w' : /^\S/.test(l) && !/^gates/.test(l) ? 'm' : 'm';
+      const mm = /^(\s*)(FAIL|PASS)(.*)$/.exec(l);
+      return `<div class="tl3">${mm ? e(mm[1]) + '<span class="' + (mm[2] === 'FAIL' ? 'f' : 'p') + '">' + mm[2] + '</span>' + e(mm[3]) : '<span class="' + cls + '">' + e(l) + '</span>'}</div>`;
+    }).join('') + '</div>').join('');
+    return `<div class="tl3"><span class="pr">$</span> <span class="cmd">${cmd}</span></div><div id="t-out">${out}</div>`;
+  }
+  const b = document.body;
+  b.dataset.state = state;
+  if (!['home','runs','runs-sel','runs-wide','drawer','settings','settings-menu1','settings-soft','settings-menu2','settings-big'].includes(state)) document.getElementById('appname').textContent = 'explainer-video';
+  if (state === 'term-bad' || state === 'term-good') {
+    b.dataset.screen = 'term';
+    document.getElementById('term').innerHTML = termHtml(state === 'term-bad' ? TERM_BAD : TERM_GOOD, state === 'term-bad' ? 'ev gates hero-bad' : 'ev gates hero');
+  } else if (window.SCREENS && window.SCREENS[state]) {
+    b.dataset.screen = 'guide';
+    const e = (x) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    document.getElementById('guide').innerHTML = '' + window.SCREENS[state].map((r) =>
+      `<div class="tl3 ${r.k === 'b' ? 'c' : r.k}">${r.k === 'b' ? `<span class="pbox" id="${r.id}">${e(r.s)}</span>` : r.id ? `<span class="gr" id="${r.id}">${e(r.s)}</span>` : e(r.s)}</div>`).join('');
+  } else if (state === 'ask') {
+    b.dataset.screen = 'ask';
+    document.getElementById('ask').innerHTML = `<div class="where">harbor-app</div>
+      <div class="box" id="promptbox"><span id="promptline">Make a one-minute explainer video of this app.</span><span class="caret"></span>
+      <div class="send" id="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div></div>
+      <div class="hint">Enter to send</div>`;
+  } else if (state === 'sheet') {
+    b.dataset.screen = 'sheet';
+    document.getElementById('sheet').innerHTML = `<div class="tl3 c"><span class="pr">$</span> <span class="gr" id="g-contact">ev contact out/hero.mp4</span></div><img id="sheetimg" src="contact.png">`;
+  } else if (state === 'end') {
+    b.dataset.screen = 'end';
+    document.getElementById('end').innerHTML = `<div class="endband"><img src="assets/evolv-logo-white.svg" alt="evolv"></div>
+      <h1>explainer-video,<br><span>a Claude Code plugin</span></h1>
+      <div class="code" id="inst1"><em>&gt;</em>/plugin marketplace add evolvconsulting/explainer-video-kit</div>
+      <div class="code" id="inst2"><em>&gt;</em>/plugin install explainer-video@explainer-video-kit</div>
+      <div class="needs">Needs: Claude Code, Node 22+, ffmpeg, tesseract. ElevenLabs key for the voice.</div>`;
+  } else {
+    b.dataset.screen = 'app';
+    const wide = state === 'runs-wide'; b.dataset.wide = wide ? 'y' : 'n';
+    const P = document.getElementById('page');
+    if (state === 'home') { side('overview'); P.innerHTML = home(); }
+    else if (state === 'runs') { side('runs'); P.innerHTML = runs(-1); }
+    else if (state === 'runs-sel') { side('runs'); P.innerHTML = runs(1); }
+    else if (state === 'runs-wide') { side('runs'); P.innerHTML = runs(1); }
+    else if (state === 'drawer') { side('runs'); P.innerHTML = runs(1); b.dataset.drawer = 'y'; drawer(); }
+    else {
+      side('settings');
+      const map = { settings: ['Calm', null, false], 'settings-menu1': ['Calm', 'Soft', false], 'settings-soft': ['Soft', null, true],
+        'settings-menu2': ['Soft', 'Big', true], 'settings-big': ['Big', null, true] };
+      P.innerHTML = settings(...map[state]);
+    }
+    place();
+  }
+</script>
+</body>
+</html>

@@ -12,12 +12,14 @@ const SUMMARY = {
   init: 'scaffold a video project',
   script: 'parse script.md: beats, spoken words, word count, length; --lint checks the rules',
   voice: 'speak the script with ElevenLabs (also: voice models | voices | clone)',
+  music: 'fetch a Pixabay track into the project, with its licence record (--list for suggestions)',
   align: 'word times for a recording you made yourself',
   captions: 'word-timed captions, SRT and VTT from the voice',
   frames: 'capture the picture states of an HTML page',
   build: 'mix the audio, render the film, run the gates',
   gates: 'run the quality gates on a cut',
   contact: 'contact sheets of a cut for reviewers',
+  'review-page': 'a static review page: video, downloads, tagged script',
   'scan-secrets': 'fail on anything shaped like an API key',
 };
 

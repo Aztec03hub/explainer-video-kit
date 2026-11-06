@@ -8,12 +8,15 @@ import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { loadProject, which } from '../lib/common.mjs';
-import audioGate, { measure } from '../lib/gates/audio.mjs';
+import audioGate, { duckedGraph, measure, GAP_MIN, GAP_MAX, TARGET, help } from '../lib/gates/audio.mjs';
+import { DEFAULTS, mixFilterGraph } from '../lib/mix.mjs';
+import captionFitGate from '../lib/gates/captionfit.mjs';
+import windowsGate from '../lib/gates/windows.mjs';
 import captionsGate from '../lib/gates/captions.mjs';
 import ocrGate, { pattern, termsFromFrameList } from '../lib/gates/ocr.mjs';
 import secretsGate from '../lib/gates/secrets.mjs';
 import tagsGate, { align } from '../lib/gates/tags.mjs';
-import whisperGate from '../lib/gates/whisper.mjs';
+import whisperGate, { FAIL_UNDER, PASS_AT } from '../lib/gates/whisper.mjs';
 import wipesGate from '../lib/gates/wipes.mjs';
 
 const EV = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'ev.mjs');
@@ -104,17 +107,30 @@ describe('ocr helpers', () => {
     const { neverTerms } = await import('../lib/gates/ocr.mjs');
     assert.deepEqual(neverTerms(p), ['a', 'b']);
   });
-  test('no tesseract: SKIP says how to install, --require-ocr makes it a FAIL', { skip: process.platform === 'win32' }, () => {
-    const proj = mkProject({ 'rules.json': { neverOnScreen: [] } });
+  describe('no tesseract', { skip: process.platform === 'win32' }, () => {
     const cut = path.join(tmp, 'tiny.mp4');
-    ff('-f', 'lavfi', '-i', 'color=c=black:s=64x36:d=1:r=5', '-pix_fmt', 'yuv420p', cut);
-    const go = (...a) => spawnSync(process.execPath, [EV, 'gates', proj.root, cut, '--only', 'ocr', ...a], { encoding: 'utf8', env: { PATH: '' } });
-    const skip = go();
-    assert.equal(skip.status, 0, skip.stdout + skip.stderr);
-    assert.match(skip.stdout, /SKIP {2}ocr: tesseract is not installed.*apt install/);
-    const req = go('--require-ocr');
-    assert.equal(req.status, 1);
-    assert.match(req.stdout, /FAIL {2}ocr: tesseract missing/);
+    const go = (proj, ...a) => {
+      if (!fs.existsSync(cut)) ff('-f', 'lavfi', '-i', 'color=c=black:s=64x36:d=1:r=5', '-pix_fmt', 'yuv420p', cut);
+      return spawnSync(process.execPath, [EV, 'gates', proj.root, cut, '--only', 'ocr', ...a], { encoding: 'utf8', env: { PATH: '' } });
+    };
+    test('FAILs with the install commands, even with no never-on-screen terms', () => {
+      const r = go(mkProject({ 'rules.json': { neverOnScreen: [] } }));
+      assert.equal(r.status, 1, r.stdout + r.stderr);
+      assert.match(r.stdout, /FAIL {2}ocr: tesseract missing/);
+      assert.match(r.stdout, /apt install tesseract-ocr.*brew install tesseract.*winget install/);
+      assert.match(r.stdout, /--skip-ocr/);
+    });
+    test('--require-ocr is a no-op alias: same FAIL', () => {
+      assert.equal(go(mkProject(), '--require-ocr').status, 1);
+    });
+    test('--skip-ocr and project.json gates.ocr false SKIP loudly and exit 0', () => {
+      const a = go(mkProject(), '--skip-ocr');
+      assert.equal(a.status, 0, a.stdout);
+      assert.match(a.stdout, /SKIP {2}ocr: skipped on request \(--skip-ocr\)/);
+      const b = go(mkProject({ 'project.json': { name: 'x', gates: { ocr: false } } }));
+      assert.equal(b.status, 0, b.stdout);
+      assert.match(b.stdout, /SKIP {2}ocr: skipped on request \(project.json gates.ocr is false\)/);
+    });
   });
 });
 
@@ -246,8 +262,8 @@ describe('audio gate', () => {
       ff('-i', p('raw.mp4'), '-af', `volume=${gain}dB`, '-c:v', 'copy', p(name));
       return p(name);
     };
-    F.good = cutAt('good.mp4', -14);
-    F.quiet = cutAt('quiet.mp4', -24);
+    F.good = cutAt('good.mp4', -16);
+    F.quiet = cutAt('quiet.mp4', -26);
     F.hot = p('hot.mp4');
     ff('-f', 'lavfi', '-i', 'sine=f=300:d=6,volume=0.5', '-f', 'lavfi', '-i', 'color=c=black:s=64x36:d=6:r=5', '-shortest', '-af', 'volume=23dB', '-pix_fmt', 'yuv420p', F.hot);
   });
@@ -262,48 +278,78 @@ describe('audio gate', () => {
     fs.copyFileSync(path.join(dir, 'voice.mp3'), path.join(p.voice, 'take.mp3'));
     assert.equal((await audioGate(ctx(p, silent))).status, 'FAIL');
   });
-  const withVoice = (bed) => {
-    const p = mkProject({ 'project.json': { name: 'lantern', music: { file: path.join(dir, 'music.wav'), bed } } });
+  const BED_OK = -21; // puts the fixtures' gap inside the default 5-8 dB band (checked below)
+  const withVoice = (bed, gap, lufs) => {
+    const p = mkProject({ 'project.json': { name: 'lantern', music: { file: path.join(dir, 'music.wav'), bed }, ...((gap || lufs !== undefined) && { gates: { audio: { ...(gap && { gap }), ...(lufs !== undefined && { lufs }) } } }) } });
     fs.mkdirSync(p.voice, { recursive: true });
     fs.copyFileSync(path.join(dir, 'voice.mp3'), path.join(p.voice, 'take.mp3'));
     return p;
   };
 
-  test('a clip at -14 LUFS with the right gap passes and prints numbers and margins', async () => {
-    const r = await audioGate(ctx(withVoice(-31), F.good));
+  test('the default gap band is 5-8 dB and the default loudness target is -16 LUFS', () => {
+    assert.equal(GAP_MIN, 5); assert.equal(GAP_MAX, 8); assert.equal(TARGET, -16);
+    assert.match(help, /5-8 dB/); assert.match(help, /-16 LUFS/);
+  });
+  test('a clip at -16 LUFS with the right gap passes and prints numbers and margins', async () => {
+    const r = await audioGate(ctx(withVoice(BED_OK), F.good));
     assert.equal(r.status, 'PASS', r.lines.join('\n'));
-    assert.ok(Math.abs(r.data.lufs + 14) < 0.5);
-    assert.ok(r.data.gap > 15 && r.data.gap < 18, `gap ${r.data.gap}`);
-    assert.match(r.measured, /-14\.\d LUFS, -\d+\.\d dBTP, gap 16\.\d dB/);
+    assert.ok(Math.abs(r.data.lufs + 16) < 0.5);
+    assert.ok(r.data.gap > 5 && r.data.gap < 8, `gap ${r.data.gap}`);
+    assert.match(r.limit, /-16 \+\/- 1 LUFS.*gap 5-8 dB/);
+    assert.match(r.measured, /-1[56]\.\d LUFS, -\d+\.\d dBTP, gap (5|6|7)\.\d dB/);
   });
   test('a quiet clip fails', async () => {
-    const r = await audioGate(ctx(withVoice(-31), F.quiet));
+    const r = await audioGate(ctx(withVoice(BED_OK), F.quiet));
     console.log(`must-fail output: ${r.status} ${r.measured}\n  ${r.lines.join('\n  ')}`);
     assert.equal(r.status, 'FAIL');
-    assert.match(r.lines[0], /integrated -24\.\d LUFS is 10\.\d LU from -14/);
+    assert.match(r.lines[0], /integrated -26\.\d LUFS is 10\.\d LU from -16/);
   });
   test('a music bed too loud under the voice fails on the gap and says what to change', async () => {
-    const r = await audioGate(ctx(withVoice(-19), F.good));
+    const r = await audioGate(ctx(withVoice(-12), F.good));
     console.log(`must-fail output: ${r.status} ${r.measured}\n  ${r.lines.join('\n  ')}`);
     assert.equal(r.status, 'FAIL');
-    assert.ok(r.data.gap < 15);
-    assert.match(r.lines.join('\n'), /only \d+\.\d dB under the voice.*Lower music\.bed/);
+    assert.ok(r.data.gap < 5);
+    assert.match(r.lines.join('\n'), /only -?\d+\.\d dB under the voice.*Lower music\.bed/);
   });
   test('"music": "file.wav" (the string form ev build accepts) is measured too, not skipped', async () => {
     const p = mkProject({ 'project.json': { name: 'lantern', music: path.join(dir, 'music.wav') } });
     fs.mkdirSync(p.voice, { recursive: true });
     fs.copyFileSync(path.join(dir, 'voice.mp3'), path.join(p.voice, 'take.mp3'));
     const r = await audioGate(ctx(p, F.good));
-    assert.ok(r.data.gap > 0, `gap measured: ${r.measured}`);
+    assert.ok(Number.isFinite(r.data.gap), `gap measured: ${r.measured}`);
     assert.doesNotMatch(r.lines.join('\n'), /SKIP gap/);
   });
-  test('a bed far too quiet passes with a warning (wider than 18 dB)', async () => {
+  test('a bed far too quiet passes with a warning (wider than 8 dB)', async () => {
     const r = await audioGate(ctx(withVoice(-45), F.good));
     assert.equal(r.status, 'PASS');
-    assert.match(r.warnings[0], /wider than 18/);
+    assert.match(r.warnings[0], /wider than 8/);
+  });
+  test('gates.audio.gap in project.json changes the band: the same mix passes, warns or fails', async () => {
+    const same = (gap) => audioGate(ctx(withVoice(BED_OK, gap), F.good));
+    const g = (await same()).data.gap;
+    const lo = Math.floor(g) - 1, hi = Math.ceil(g) + 1;
+    const pass = await same([lo, hi]);
+    assert.equal(pass.status, 'PASS'); assert.match(pass.limit, new RegExp(`gap ${lo}-${hi} dB`));
+    const tooLoud = await same([hi + 1, hi + 4]);
+    assert.equal(tooLoud.status, 'FAIL'); assert.match(tooLoud.lines.join('\n'), new RegExp(`need ${hi + 1} to ${hi + 4}`));
+    const tooQuiet = await same([lo - 4, lo - 1]);
+    assert.equal(tooQuiet.status, 'PASS'); assert.match(tooQuiet.warnings[0], new RegExp(`wider than ${lo - 1}`));
+  });
+  test('a malformed gates.audio.gap is a loud failure, not a silent default', async () => {
+    await assert.rejects(() => audioGate(ctx(withVoice(BED_OK, [12, 8]), F.good)), /gates\.audio\.gap/);
+  });
+  test('gates.audio.lufs in project.json moves the loudness target: the same cut passes or fails', async () => {
+    const at = (lufs) => audioGate(ctx(withVoice(BED_OK, undefined, lufs), F.good));
+    assert.equal((await at(-16)).status, 'PASS');
+    const r = await at(-20);
+    assert.equal(r.status, 'FAIL'); assert.match(r.limit, /-20 \+\/- 1 LUFS/); assert.match(r.lines[0], /LU from -20/);
+    assert.equal((await at(-15)).status, 'PASS'); // within the 1 LU tolerance
+  });
+  test('a malformed gates.audio.lufs is a loud failure naming the setting', async () => {
+    for (const bad of ['-16', -40, 0]) await assert.rejects(() => audioGate(ctx(withVoice(BED_OK, undefined, bad), F.good)), /gates\.audio\.lufs/);
   });
   test('true peak above -1 dBTP fails', async () => {
-    const r = await audioGate(ctx(withVoice(-31), F.hot, { opts: { lufs: String(measure(F.hot).lufs) } }));
+    const r = await audioGate(ctx(withVoice(BED_OK), F.hot, { opts: { lufs: String(measure(F.hot).lufs) } }));
     assert.equal(r.status, 'FAIL');
     assert.match(r.lines.join('\n'), /true peak .* is above -1/);
   });
@@ -348,6 +394,43 @@ describe('whisper gate', () => {
     const r = await whisperGate(ctx(mkProject({})));
     assert.equal(r.status, 'SKIP');
     assert.match(r.reason, /ev align/);
+  });
+});
+
+describe('whisper thresholds and heardAs', () => {
+  const PLUGIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const read = (...p) => fs.readFileSync(path.join(PLUGIN, ...p), 'utf8');
+  const pct = (x) => String(Math.round(x * 100));
+  test('every doc that states the whisper thresholds states the engine constants', () => {
+    const docs = [['skills/video-render/SKILL.md'], ['skills/video-render/references/render-notes.md'], ['skills/explainer-video/references/long-form.md'], ['skills/video-voice/references/voice-and-tags.md'], ['skills/video-voice/SKILL.md']];
+    for (const d of docs) {
+      const text = read(...d);
+      assert.doesNotMatch(text, /fails? under 98|whisper\s*\|\s*under 98/i, `${d} says whisper fails under 98`);
+      assert.match(text, new RegExp(`under ${pct(FAIL_UNDER)}`), `${d} must state "under ${pct(FAIL_UNDER)}" (fail)`);
+      assert.match(text, new RegExp(pct(PASS_AT)), `${d} must state ${pct(PASS_AT)}`);
+    }
+  });
+  const SPOKEN = 'Claude makes the video and Claude checks the video before you see it today ok';
+  const files = (extra = {}) => ({ 'build/script.json': { beats: [{ i: 0, text: SPOKEN, spoken: SPOKEN }] },
+    'voice/transcript.json': SPOKEN.replace(/Claude/g, 'cloud').split(' ').map((w, i) => ({ text: w, start: i, end: i + 1 })), ...extra });
+  test('a product name heard as Cloud lowers the match; heardAs in rules.json makes it pass', async () => {
+    const bad = await whisperGate(ctx(mkProject(files())));
+    assert.ok(bad.data.rate < 0.9, bad.measured);
+    const ok = await whisperGate(ctx(mkProject(files({ 'rules.json': { heardAs: { Claude: ['cloud', 'clawed'] } } }))));
+    assert.equal(ok.status, 'PASS');
+    assert.equal(ok.data.matched, ok.data.total);
+  });
+  test('heardAs may live in project.json, and ignoreHeard drops filler words', async () => {
+    const heard = ('um ' + SPOKEN.replace(/Claude/g, 'cloud') + ' uh').split(' ').map((w, i) => ({ text: w, start: i, end: i + 1 }));
+    const p = mkProject(files({ 'voice/transcript.json': heard, 'project.json': { name: 'x', ignoreHeard: ['um', 'uh'] } }));
+    const r = await whisperGate(ctx(p));
+    assert.equal(r.data.matched, r.data.total - 2, 'two Claude words still unmatched, filler ignored');
+    assert.equal(r.data.total, 15);
+  });
+  test('heardAs also applies to the tags gate transcript', async () => {
+    const p = mkProject(files({ 'rules.json': { heardAs: { Claude: ['cloud'] } } }));
+    const { transcriptWords } = await import('../lib/gates/tags.mjs');
+    assert.ok(!transcriptWords(p).words.includes('cloud'));
   });
 });
 
@@ -432,5 +515,73 @@ describe('ev gates command', () => {
     const r = run(['--help']);
     assert.equal(r.status, 0);
     assert.match(r.stdout, /busy text/);
+  });
+});
+
+describe('audio gate builds the mix graph from lib/mix.mjs', () => {
+  const args = { bed: -19, offset: 0, length: 12, voiceLen: 7 };
+  const expected = () => { const { graph, label } = mixFilterGraph({ hasVoice: true, hasMusic: true, length: 12, bed: -19, offset: 0, only: 'music' }); return `${graph};${label}atrim=start=0:end=7,asetpts=PTS-STARTPTS,ebur128=peak=true[out]`; };
+  test('the gate graph is the shared music branch plus the span trim', () => {
+    assert.equal(duckedGraph(args), expected());
+  });
+  test('changing a mix default changes the gate graph too (no private copy)', () => {
+    const was = DEFAULTS.fadeIn;
+    DEFAULTS.fadeIn = 3.5;
+    try {
+      assert.match(duckedGraph(args), /afade=t=in:d=3\.5/);
+      assert.equal(duckedGraph(args), expected());
+    } finally { DEFAULTS.fadeIn = was; }
+  });
+});
+
+describe('windows gate', () => {
+  const SCREEN = { x: 0, y: 0, w: 640, h: 360 };
+  const RECT = { set: 'app', state: 'home', x: 0, y: 400, w: 1280, h: 60 }; // page pixels
+  const project = (events, rects = [RECT]) => mkProject({
+    'film.js': `window.FILM = { id: 'lantern', duration: 6, screen: ${JSON.stringify(SCREEN)}, events: ${JSON.stringify(events)} };`,
+    'rules.json': rects ? { forbiddenRects: rects } : {},
+    'build/captions.json': { chunks: [], beats: [], chapters: [] },
+    'build/index.html': '<div data-composition-id="lantern" data-width="640" data-duration="6"></div>',
+  });
+  const SHOW = { t: 0, show: 'app/home' }, TOP = { t: 0, cam: [0, 0, 640] };
+  test('must fail: an eased move sweeps the window across a forbidden rectangle, naming time, window and rectangle', async () => {
+    const r = await windowsGate({ proj: project([SHOW, TOP, { t: 1, cam: [0, 1000, 640], dur: 2 }]), opts: {} });
+    console.log(`must-fail output: ${r.status}\n  ${r.lines.join('\n  ')}`);
+    assert.equal(r.status, 'FAIL');
+    assert.match(r.lines[0], /^\d\.\d\d to \d\.\d\d s {2}window x 0 y \d+ w 640 h 360 overlaps x 0 y 400 w 1280 h 60 \(app\/home\)/);
+  });
+  test('the same move as a hard cut passes', async () => {
+    const r = await windowsGate({ proj: project([SHOW, TOP, { t: 1, cam: [0, 1000, 640] }]), opts: {} });
+    assert.equal(r.status, 'PASS', r.lines.join('\n'));
+  });
+  test('a rectangle of a state that is not on screen is ignored', async () => {
+    const r = await windowsGate({ proj: project([SHOW, TOP, { t: 1, cam: [0, 1000, 640], dur: 2 }], [{ ...RECT, state: 'other' }]), opts: {} });
+    assert.equal(r.status, 'PASS');
+  });
+  test('SKIPs loudly when rules.json has no forbiddenRects', async () => {
+    const r = await windowsGate({ proj: project([SHOW, TOP], null), opts: {} });
+    assert.equal(r.status, 'SKIP');
+    assert.match(r.reason, /no forbiddenRects/);
+  });
+  test('an ease it cannot replay is an error, not a guess', async () => {
+    await assert.rejects(windowsGate({ proj: project([SHOW, TOP, { t: 1, cam: [0, 1000, 640], dur: 2, ease: 'elastic.out' }]), opts: {} }), /can't replay the ease "elastic.out"/);
+  });
+});
+
+describe('captionfit gate', () => {
+  const chunk = (n) => ({ words: Array.from({ length: n }, (_, k) => ({ w: 'word', start: k, end: k + 1 })) });
+  const project = (chunks) => mkProject({ 'build/captions.json': { chunks, beats: [], chapters: [] } });
+  test('a 3-word chunk passes', async () => {
+    const r = await captionFitGate({ proj: project([chunk(3)]) });
+    assert.equal(r.status, 'PASS', r.lines.join('\n'));
+  });
+  test('must fail: a 20-word chunk is named and over 90% of the film width', async () => {
+    const r = await captionFitGate({ proj: project([chunk(3), chunk(20)]) });
+    console.log(`must-fail output: ${r.status}\n  ${r.lines.join('\n  ')}`);
+    assert.equal(r.status, 'FAIL');
+    assert.match(r.lines[0], /^chunk 2 "word word .*" is about \d+ px wide, over 1728 px/);
+  });
+  test('SKIPs when there are no captions yet', async () => {
+    assert.equal((await captionFitGate({ proj: mkProject() })).status, 'SKIP');
   });
 });

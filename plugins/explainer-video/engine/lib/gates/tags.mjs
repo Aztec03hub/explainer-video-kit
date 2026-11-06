@@ -6,7 +6,7 @@
 // still checked.
 import fs from 'node:fs';
 import path from 'node:path';
-import { norm, readJson } from '../common.mjs';
+import { norm, readJson, rulesOf } from '../common.mjs';
 import { captionWords, spokenWords, subtitleFiles } from './captions.mjs';
 
 export const name = 'tags';
@@ -32,8 +32,25 @@ export function align(heard, script) {
 export const tagWordsOf = (script) => new Set(script.beats.flatMap((b) => [...String(b.text).matchAll(/\[([^\]]*)\]/g)]
   .flatMap((m) => m[1].split(/[^A-Za-z0-9']+/).map(norm).filter((w) => w.length > 1))));
 
+// heardAs { "Claude": ["cloud"] } and ignoreHeard ["um"], from rules.json or project.json: Whisper's known mishearings.
+// A heard word listed under a key becomes the key; an ignored heard word is dropped. Both only touch what Whisper heard.
+export function heardConfig(proj) {
+  const r = rulesOf(proj), c = proj.cfg || {};
+  const heardAs = { ...(c.heardAs || {}), ...(r.heardAs || {}) }, ignore = [...(c.ignoreHeard || []), ...(r.ignoreHeard || [])];
+  return { heardAs, ignore, active: !!(Object.keys(heardAs).length || ignore.length) };
+}
+export function applyHeard(words, { heardAs, ignore }) {
+  const alt = new Map(Object.entries(heardAs).flatMap(([key, list]) => list.map((a) => [norm(a), norm(key)])));
+  const skip = new Set(ignore.map(norm));
+  return words.filter((w) => !skip.has(w)).map((w) => alt.get(w) ?? w);
+}
+
 // The heard words of voice/transcript.json ([{text,start,end}] or {words|segments}) or a whisper take.json, else null.
 export function transcriptWords(proj) {
+  const r = rawTranscriptWords(proj);
+  return r && { ...r, words: applyHeard(r.words, heardConfig(proj)) };
+}
+function rawTranscriptWords(proj) {
   const tf = path.join(proj.voice, 'transcript.json'), take = path.join(proj.voice, 'take.json');
   const pick = (x) => (x.text ?? x.w ?? x.word ?? '');
   if (fs.existsSync(tf)) {

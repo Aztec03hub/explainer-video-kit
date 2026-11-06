@@ -7,23 +7,26 @@
 <style>
   :root { --bg:#f6f3ec; --card:#fff; --ink:#26211b; --mute:#6f665a; --line:#e3ddd0; --accent:#d9822b; --accent-ink:#fff; --ok:#2f8f5b; }
   [data-theme="dark"] { --bg:#16181d; --card:#1f232b; --ink:#eef0f4; --mute:#9aa3b2; --line:#2e3440; --accent:#f0a24a; --accent-ink:#1a1308; --ok:#4cc38a; }
+  /* Built for video: a 1280x720 (16:9) page with large type, so it fills the frame and stays readable on a phone.
+     Headings 44px+, body and buttons 28px+, content centred; the camera zooms for detail, the type doesn't shrink. */
   * { box-sizing: border-box; }
-  body { margin:0; width:1280px; height:720px; overflow:hidden; background:var(--bg); color:var(--ink); font:16px/1.4 system-ui, Segoe UI, Roboto, sans-serif; }
-  header { display:flex; align-items:center; gap:24px; padding:18px 40px; border-bottom:1px solid var(--line); }
-  .logo { font-weight:700; font-size:22px; } .logo span { color:var(--accent); }
-  #search { flex:1; max-width:520px; padding:11px 16px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); font-size:16px; }
-  .me { margin-left:auto; color:var(--mute); }
-  main { display:flex; gap:28px; padding:28px 40px; }
-  .list { flex:1; display:grid; grid-template-columns:repeat(2, 1fr); gap:18px; align-content:start; }
-  .card { display:flex; gap:16px; padding:16px; background:var(--card); border:1px solid var(--line); border-radius:14px; }
-  .cover { width:64px; height:92px; border-radius:6px; flex:none; }
-  .card h3 { margin:0 0 2px; font-size:18px; } .card p { margin:0 0 10px; color:var(--mute); }
-  .btn { padding:8px 18px; border:0; border-radius:8px; background:var(--accent); color:var(--accent-ink); font:600 15px system-ui, sans-serif; }
-  .panel { display:none; width:380px; padding:24px; background:var(--card); border:1px solid var(--line); border-radius:14px; align-self:flex-start; }
-  .panel h2 { margin:0 0 4px; } .panel dl { margin:16px 0; display:grid; grid-template-columns:auto 1fr; gap:8px 16px; }
+  body { margin:0; width:1280px; height:720px; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); color:var(--ink); font:28px/1.3 system-ui, Segoe UI, Roboto, sans-serif; }
+  header { display:flex; align-items:center; gap:32px; padding:16px 56px; border-bottom:1px solid var(--line); }
+  .logo { font-weight:700; font-size:44px; } .logo span { color:var(--accent); }
+  #search { flex:1; max-width:520px; padding:10px 20px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--ink); font-size:28px; }
+  main { flex:1; display:flex; justify-content:center; align-items:center; gap:32px; padding:24px 56px; }
+  .list { flex:1; display:grid; grid-template-columns:repeat(2, 1fr); gap:24px; }
+  .card { display:flex; align-items:center; gap:24px; padding:20px; background:var(--card); border:1px solid var(--line); border-radius:16px; }
+  .cover { width:104px; height:150px; border-radius:8px; flex:none; }
+  .card h3 { margin:0 0 4px; font-size:30px; } .card p { margin:0 0 12px; color:var(--mute); }
+  .btn { padding:10px 28px; border:0; border-radius:10px; background:var(--accent); color:var(--accent-ink); font:600 28px system-ui, sans-serif; }
+  .panel { display:none; width:500px; padding:28px 32px; background:var(--card); border:1px solid var(--line); border-radius:16px; }
+  .panel h2 { margin:0 0 4px; font-size:44px; line-height:1.15; } .panel dl { margin:16px 0; display:grid; grid-template-columns:auto 1fr; gap:6px 24px; }
   .panel dt { color:var(--mute); } .panel dd { margin:0; font-weight:600; }
-  #banner { display:none; margin-top:14px; padding:12px 16px; border-radius:10px; background:var(--ok); color:#fff; font-weight:600; }
+  #banner { display:none; margin-top:16px; padding:12px 20px; border-radius:12px; background:var(--ok); color:#fff; font-weight:600; }
   body[data-state="open"] .panel, body[data-state="confirmed"] .panel { display:block; }
+  body[data-state="open"] .list, body[data-state="confirmed"] .list { grid-template-columns:1fr; }
+  body[data-state="open"] .card:nth-child(n+3), body[data-state="confirmed"] .card:nth-child(n+3) { display:none; }
   body[data-state="confirmed"] #banner { display:block; }
   body[data-state="confirmed"] #confirm-btn { display:none; }
 </style>
@@ -32,8 +35,7 @@
 <header>
   <div class="logo">Lantern <span>Library</span></div>
   <input id="search" placeholder="Search the shelves" aria-label="Search the shelves">
-  <div class="me">Riverside branch</div>
-</header>
+  </header>
 <main>
   <section class="list" id="list"></section>
   <aside class="panel">
@@ -53,7 +55,7 @@
     ['A Quiet Harbour', 'Tomas Reyes', 5, '#3aa07a'], ['Field Notes on Rain', 'Priya Nandel', 2, '#8a5cc2']];
   document.getElementById('list').innerHTML = books.map(([t, a, n, c], i) =>
     `<div class="card" id="book-${i + 1}"><div class="cover" style="background:${c}"></div><div><h3>${t}</h3>` +
-    `<p>${a} - ${n} on the shelf</p><button class="btn">Borrow</button></div></div>`).join('');
+    `<p>${a} - ${n} left</p><button class="btn">Borrow</button></div></div>`).join('');
 </script>
 </body>
 </html>

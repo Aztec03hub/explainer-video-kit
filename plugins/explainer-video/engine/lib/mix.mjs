@@ -1,11 +1,19 @@
 // The audio mix for a film: voice over music, ported from the old mix.sh to a spawn of ffmpeg (no shell).
-// The music loops or trims to the film's length, sits at a fixed bed level (default -19 dB, which put it 15 to 18 dB under the
-// voice), ducks under the voice (sidechain keyed on the voice), fades in 1 s and out 2.5 s, and the result is
-// loudness-normalised (EBU R128, -14 LUFS, -1.5 dBTP). The voice starts at offset 0 so the word times in take.json hold.
+// The music loops or trims to the film's length, sits at a fixed bed level (default -11 dB, which put it about 6.6 dB under the
+// voice on the hero take; set music.bed to taste), ducks under the voice (sidechain keyed on the voice), fades in 1 s and out 2.5 s, and the result is
+// loudness-normalised (EBU R128, -16 LUFS by default, project.json gates.audio.lufs sets it; -1.5 dBTP). The voice starts at offset 0 so the word times in take.json hold.
 // Music is optional (voice only), so is the voice (music only); with neither the track is silent.
 import { run } from './common.mjs';
 
-export const DEFAULTS = { bed: -19, offset: 0, fadeIn: 1, fadeOut: 2.5 };
+export const DEFAULTS = { bed: -11, offset: 0, fadeIn: 1, fadeOut: 2.5, lufs: -16 };
+
+// The film's loudness target: project.json gates.audio.lufs, else the default. A bad value throws, so a typo can't quietly change the mix.
+export function lufsTarget(cfg) {
+  const v = cfg?.gates?.audio?.lufs;
+  if (v === undefined) return DEFAULTS.lufs;
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < -30 || v > -8) throw new Error(`project.json gates.audio.lufs must be a number between -30 and -8 (LUFS), got ${JSON.stringify(v)}`);
+  return v;
+}
 
 const STEREO = 'aresample=48000,aformat=channel_layouts=stereo';
 
@@ -18,15 +26,15 @@ export function mixInputs({ voice, music, length }) {
   return inputs;
 }
 
-// mixFilterGraph({ hasVoice, hasMusic, length, bed, offset, only }) -> { graph, label }.
+// mixFilterGraph({ hasVoice, hasMusic, length, bed, offset, only, lufs }) -> { graph, label }.
 // only: 'music' returns the music-only ducked track (the bed under the voice, before the voice is added and without
 // loudnorm) so the audio gate can rebuild it the way the reviewers did and measure the gap over the voice's span.
-export function mixFilterGraph({ hasVoice, hasMusic, length, bed = DEFAULTS.bed, offset = DEFAULTS.offset, only = null }) {
+export function mixFilterGraph({ hasVoice, hasMusic, length, bed = DEFAULTS.bed, offset = DEFAULTS.offset, only = null, lufs = DEFAULTS.lufs }) {
   const delay = Math.round(offset * 1000);
   const fadeStart = Math.max(0, length - DEFAULTS.fadeOut);
   const voiceIn = (i) => `[${i}:a]${STEREO},adelay=${delay}|${delay},apad,atrim=0:${length}`;
   const musicIn = (i) => `[${i}:a]${STEREO},atrim=0:${length},volume=${bed}dB,afade=t=in:d=${DEFAULTS.fadeIn},afade=t=out:st=${fadeStart}:d=${DEFAULTS.fadeOut}`;
-  const LOUD = 'loudnorm=I=-14:TP=-1.5:LRA=11';
+  const LOUD = `loudnorm=I=${lufs}:TP=-1.5:LRA=11`;
   if (only === 'music') {
     if (!hasVoice || !hasMusic) throw new Error('mixFilterGraph: the ducked music track needs both a voice and music');
     return { graph: `${voiceIn(0)}[key];${musicIn(1)}[bed];[bed][key]sidechaincompress=threshold=0.02:ratio=6:attack=15:release=450:makeup=1[duck]`, label: '[duck]' };
@@ -45,11 +53,11 @@ export function mixFilterGraph({ hasVoice, hasMusic, length, bed = DEFAULTS.bed,
 }
 
 // mixAudio({ voice, music, out, length, bed, offset }) writes a 48 kHz stereo wav and returns what it made.
-export function mixAudio({ voice = null, music = null, out, length, bed = DEFAULTS.bed, offset = DEFAULTS.offset, only = null }) {
-  const { graph, label } = mixFilterGraph({ hasVoice: !!voice, hasMusic: !!music, length, bed, offset, only });
+export function mixAudio({ voice = null, music = null, out, length, bed = DEFAULTS.bed, offset = DEFAULTS.offset, only = null, lufs = DEFAULTS.lufs }) {
+  const { graph, label } = mixFilterGraph({ hasVoice: !!voice, hasMusic: !!music, length, bed, offset, only, lufs });
   const r = run('ffmpeg', ['-v', 'error', '-y', ...mixInputs({ voice, music, length }), '-filter_complex', graph, '-map', label, '-ar', '48000', '-c:a', 'pcm_s16le', out]);
   if (r.status !== 0) throw new Error(`ffmpeg could not mix the audio into ${out}: ${r.stderr.trim().split('\n').slice(-3).join(' | ')}`);
-  return { out, length, bed, offset, voice: !!voice, music: !!music };
+  return { out, length, bed, offset, lufs, voice: !!voice, music: !!music };
 }
 
 // measureLoudness(file, { from, to }) -> { lufs, truePeak } (integrated loudness and true peak, ebur128). from/to cut a span.

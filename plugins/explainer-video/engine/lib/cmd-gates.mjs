@@ -11,16 +11,20 @@ import * as tags from './gates/tags.mjs';
 import * as audio from './gates/audio.mjs';
 import * as whisper from './gates/whisper.mjs';
 import * as secrets from './gates/secrets.mjs';
+import * as windows from './gates/windows.mjs';
+import * as captionfit from './gates/captionfit.mjs';
+import * as callouts from './gates/callouts.mjs';
 
-const GATES = [ocr, wipes, captions, tags, audio, whisper, secrets];
+const GATES = [ocr, wipes, captions, tags, audio, whisper, secrets, windows, captionfit, callouts];
 const NEEDS_CUT = new Set(['ocr', 'wipes', 'audio']);
 
-const USAGE = `usage: ev gates <project> [<cut.mp4>] [--only ocr,wipes,captions,tags,audio,whisper,secrets] [--require-ocr] [--json]
+const USAGE = `usage: ev gates <project> [<cut.mp4>] [--only ocr,wipes,captions,tags,audio,whisper,secrets,windows,captionfit,callouts] [--skip-ocr] [--json]
   cut       defaults to out/<output> from project.json
   --only    run just these gates
-  --require-ocr   a missing tesseract fails the ocr gate instead of skipping it
+  --skip-ocr      don't fail on a missing tesseract (same as project.json "gates": { "ocr": false })
+  --require-ocr   no-op, kept so old scripts still run: a missing tesseract always fails now
   --json    print the results as JSON
-  --step S (ocr frame spacing, 0.5)  --min-overlap X (wipes, 0.45)  --lufs N (audio target, -14)
+  --step S (ocr frame spacing, 0.5)  --min-overlap X (wipes, 0.45)  --lufs N (audio target, -16; project.json gates.audio.lufs sets it)
 
 ${GATES.map((g) => g.help).join('\n')}
 Exit 1 if any gate fails. A SKIP says why and how to fix it.`;
@@ -42,7 +46,7 @@ export const format = (r) => {
 };
 
 export default async function (argv) {
-  const opts = parseArgs(argv, { bool: ['require-ocr', 'json', 'help'] });
+  const opts = parseArgs(argv, { bool: ['require-ocr', 'skip-ocr', 'json', 'help'] });
   if (opts.help) return log(USAGE);
   if (!opts._[0]) die(`no project folder given.\n${USAGE}`);
   const names = opts.only ? String(opts.only).split(',').map((s) => s.trim()).filter(Boolean) : GATES.map((g) => g.name);
@@ -57,7 +61,7 @@ export default async function (argv) {
   const results = [];
   for (const g of GATES.filter((x) => names.includes(x.name))) {
     let r;
-    try { r = await g.default({ proj, cut, opts, requireOcr: !!opts['require-ocr'] }); }
+    try { r = await g.default({ proj, cut, opts }); }
     catch (e) { r = { name: g.name, status: 'FAIL', measured: 'the gate crashed', limit: 'n/a', margin: 'n/a', lines: [e.message] }; }
     results.push(r);
     if (!opts.json) log(format(r));

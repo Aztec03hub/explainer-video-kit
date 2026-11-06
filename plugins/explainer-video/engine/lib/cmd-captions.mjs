@@ -1,10 +1,10 @@
-// ev captions <project> [--placeholder] [--max-words 6]: build/captions.json + captions.js, out/<name>.srt/.vtt, chapters.vtt.
+// ev captions <project> [--placeholder] [--max-words 5]: build/captions.json + captions.js, out/<name>.srt/.vtt, chapters.vtt.
 import fs from 'node:fs';
 import { loadProject, log, parseArgs, readJson } from './common.mjs';
 import { buildCaptions, placeholderTimes, toChaptersVtt, toSrt, toVtt } from './captions.mjs';
 import { ensureScript } from './script.mjs';
 
-const HELP = `usage: ev captions <project> [--placeholder] [--max-words 6]
+const HELP = `usage: ev captions <project> [--placeholder] [--max-words 5]
   Reads build/script.json (made from script.md if missing or stale) and voice/take.json, and writes
   build/captions.json, build/captions.js, out/<name>.srt, out/<name>.vtt and, when the script has chapters,
   out/chapters.vtt. --placeholder needs no voice: it spreads each beat's words evenly over its plan window.
@@ -14,7 +14,7 @@ export default async function (argv) {
   const a = parseArgs(argv, { bool: ['placeholder', 'help'] });
   if (a.help) return log(HELP);
   const proj = loadProject(a._[0]);
-  const max = a['max-words'] ? parseInt(a['max-words'], 10) : 6;
+  const max = a['max-words'] ? parseInt(a['max-words'], 10) : 5;
   if (!(max >= 2)) throw new Error('--max-words must be 2 or more');
   const script = ensureScript(proj);
   let words;

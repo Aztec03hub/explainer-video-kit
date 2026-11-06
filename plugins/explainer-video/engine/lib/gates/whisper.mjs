@@ -1,21 +1,23 @@
 // Whisper gate: how many script words a Whisper transcript of the voice matched. 211 of 212 and 210 of 212 were
-// normal (a number split in two). At least 98 percent passes, 90 to 98 warns (go and listen), under 90 fails.
+// normal (a number split in two); a product name Whisper mishears is listed in heardAs. At least 98 percent passes, 90 to 98 warns (go and listen), under 90 fails.
 // The count is take.json's match {matched,total} (stored by `ev align`); without it, it's computed from
 // voice/transcript.json by aligning the transcript to the script.
 import fs from 'node:fs';
 import path from 'node:path';
 import { readJson } from '../common.mjs';
 import { spokenWords } from './captions.mjs';
-import { align, transcriptWords } from './tags.mjs';
+import { align, heardConfig, transcriptWords } from './tags.mjs';
 
 export const name = 'whisper';
 export const help = 'whisper: >= 98% of script words matched by the Whisper transcript (warn 90-98, fail under 90); needs ev align (--transcript-only for an ElevenLabs take).';
+// The one source of the thresholds; the docs state these numbers and a test checks them.
 export const PASS_AT = 0.98, FAIL_UNDER = 0.9;
 
 export default async function whisperGate({ proj }) {
   const takeFile = path.join(proj.voice, 'take.json');
   const take = fs.existsSync(takeFile) ? readJson(takeFile) : null;
-  let m = take?.match && Number.isFinite(take.match.total) ? take.match : null;
+  // heardAs / ignoreHeard change what counts as heard, so take.json's stored count (made without them) is recomputed.
+  let m = take?.match && Number.isFinite(take.match.total) && !heardConfig(proj).active ? take.match : null;
   if (!m) {
     const tr = fs.existsSync(path.join(proj.voice, 'transcript.json')) ? transcriptWords(proj) : null;
     const scriptFile = path.join(proj.build, 'script.json');

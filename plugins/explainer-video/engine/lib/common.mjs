@@ -10,6 +10,9 @@ export const ENGINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 export const PLUGIN_ROOT = path.resolve(ENGINE, '..');
 export const RUNTIME = path.join(ENGINE, 'runtime');
 
+// The one-line hint for a project whose music file isn't there yet (ev init and ev build print it).
+export const MUSIC_HINT = 'no music file: run ev music <url> (see video-picture/video-render skills)';
+export const MUSIC_URLS = ['https://pixabay.com/music/corporate-corporate-explainer-video-568180/', 'https://pixabay.com/music/corporate-inspiring-interview-614874/'];
 export const die = (msg, code = 1) => { console.error(`ev: ${msg}`); process.exit(code); };
 export const log = (...a) => console.log(...a);
 

@@ -1,0 +1,62 @@
+{
+ "beats": [
+  {
+   "name": "Hook",
+   "spoken": "everything youre watching was made by a claude code plugin called explainervideo from one script and a few screens the voice the cursor the subtitles the camera no screen recording no editing"
+  },
+  {
+   "name": "Cursor",
+   "spoken": "point it at your apps screens and claude plans every move the cursor glides it clicks and the screen changes right on cue"
+  },
+  {
+   "name": "Callouts",
+   "spoken": "brackets and a tag lock onto the button or number you name if the layout moves they move with it"
+  },
+  {
+   "name": "Camera",
+   "spoken": "then the camera moves in a smooth pan across the table a zoom into one number and back out"
+  },
+  {
+   "name": "Music",
+   "spoken": "the subtitles land on the exact word im saying and hear the music dip when i talk it drops under the voice every time and the video wont build if it doesnt"
+  },
+  {
+   "name": "Voice",
+   "spoken": "it doesnt sound like a robot either mark a line soft or mark it big and the voice acts it out"
+  },
+  {
+   "name": "Gates",
+   "spoken": "and it checks its own work two screens blurring into each other flagged text that should never be on screen caught fix it and it passes"
+  },
+  {
+   "name": "Install",
+   "spoken": "want to make your own start by installing it two commands in claude code then run setup once it fetches everything it needs to render"
+  },
+  {
+   "name": "The key",
+   "spoken": "the voice comes from elevenlabs so you bring your own key keep it in a key file never in a chat no key yet everything except the voice still works"
+  },
+  {
+   "name": "Ask",
+   "spoken": "then open claude code in your project and ask for an explainer video thats the whole prompt"
+  },
+  {
+   "name": "The flow",
+   "spoken": "claude writes the script and checks it it captures your screens it shows you the voice cost before it spends a credit then it records adds the subtitles and renders"
+  },
+  {
+   "name": "Review",
+   "spoken": "when its done a contact sheet lets you scan the whole cut at a glance"
+  },
+  {
+   "name": "Options",
+   "spoken": "a quick oneminute video is the default want chapters ask for the long form"
+  },
+  {
+   "name": "Get it",
+   "spoken": "thats it install it ask claude code for an explainer and let it do the rest"
+  }
+ ],
+ "sha256": "dc9a26b2374f06f81031ac34e38aff96ae5c62dfb2d09568d0e29ba3a0fa0d5f",
+ "at": "2026-11-06T03:12:35.335Z"
+}

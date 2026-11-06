@@ -1,5 +1,5 @@
 // ev setup: installs the engine's dependencies (npm ci), downloads the render browser, then runs doctor.
-// Safe to run again. Needs no key.
+// Safe to run again. Needs no key. The doctor it ends with prints the PATH hint for the ev shim.
 import { spawnSync } from 'node:child_process';
 import { ENGINE, parseArgs, log, which, hyperframesCmd, hfEnv } from './common.mjs';
 import doctor from './cmd-doctor.mjs';

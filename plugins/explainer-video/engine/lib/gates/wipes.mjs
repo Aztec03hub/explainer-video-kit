@@ -9,15 +9,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
-import vm from 'node:vm';
-import { RUNTIME } from '../common.mjs';
+import { loadTimeline } from './timeline.mjs';
 import { mapPool, spawnAsync } from './ocr.mjs';
 
 export const name = 'wipes';
 export const help = 'wipes: edge overlap between the frames either side of every film.js fade; fails under --min-overlap (0.45).';
 const W = 480, H = 270;
-const DEFAULT_SCREEN = { x: 160, y: 24, w: 1600, h: 900 };
 const CLOSE = 0.1;
 
 const edges = async (cut, t, S) => {
@@ -41,20 +38,9 @@ export const overlapOf = (a, b) => Math.min(hit(a, b), hit(b, a));
 
 export default async function wipesGate({ proj, cut, opts = {} }) {
   const min = Number(opts['min-overlap']) || 0.45;
-  const captionsFile = path.join(proj.build, 'captions.json'), indexFile = path.join(proj.build, 'index.html');
-  const missing = [[proj.film, 'create film.js (ev init)'], [captionsFile, 'run: ev captions <project>'], [indexFile, 'run: ev build <project>']].find(([f]) => !fs.existsSync(f));
-  if (missing) return { name, status: 'SKIP', reason: `${missing[0]} is missing, so the fades can't be placed. ${missing[1]}, then: ev gates <project> --only wipes` };
-
-  const sandbox = { window: {} };
-  vm.runInNewContext(fs.readFileSync(proj.film, 'utf8'), sandbox, { filename: proj.film });
-  const F = sandbox.window.FILM;
-  if (!F || !Array.isArray(F.events)) throw new Error(`${proj.film} must set window.FILM = { events: [...] }`);
-  const captions = JSON.parse(fs.readFileSync(captionsFile, 'utf8'));
-  const dur = /data-composition-id[^>]*data-duration="([\d.]+)"/.exec(fs.readFileSync(indexFile, 'utf8'));
-  if (!dur) throw new Error(`${indexFile} has no root element with data-composition-id and data-duration`);
-  const { makeClock } = createRequire(import.meta.url)(path.join(RUNTIME, 'clock.js'));
-  const clock = makeClock({ captions, planEnd: F.duration, length: Number(dur[1]) });
-  const screen = F.screen || DEFAULT_SCREEN;
+  const tl = loadTimeline(proj, name);
+  if (tl.skip) return { name, status: 'SKIP', reason: tl.skip };
+  const { F, clock, screen } = tl;
 
   const fades = F.events.filter((e) => (e.show || 'device' in e) && e.fade);
   const rows = await mapPool(fades, Math.min(4, os.cpus().length || 2), async (e) => {

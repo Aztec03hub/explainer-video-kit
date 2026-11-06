@@ -35,7 +35,7 @@ Unknown at length: the voice provider's behaviour on very long scripts (request 
 - DESIGNED: send the previous and next text with each request (`previous_text`, `next_text`) so delivery stays continuous across a cut; use the same seed and the same voice settings for every request.
 - BUILT (tested against a mock server, not yet a paid long run): `ev voice` joins the segments with ffmpeg into ONE continuous track (concatenating clips with separate audio drifts progressively, and `-shortest` truncates voice). Word times come from the API's own character timestamps for each request, offset by the start of its segment, so there is no separate alignment step. Segments are kept in `voice/segments/`. The engine inserts no silence at joins; if a chapter boundary needs air, write it into the script (a held `...` or a short closing sentence).
 - PROVEN (short film): tags lengthen a take; expect the total to run longer than the plain-text estimate.
-- Verify the take as you would a short one: `ev align <project> --transcript-only` then `ev gates <project> --only tags,whisper` (98 percent or better matched, no tag spoken), and a human listens at least to every join.
+- Verify the take as you would a short one: `ev align <project> --transcript-only` then `ev gates <project> --only tags,whisper` (98 percent or better matched passes clean, 90 to 98 warns, under 90 fails; no tag spoken), and a human listens at least to every join.
 
 ## 4. Anchors instead of plan time
 
@@ -57,7 +57,7 @@ Unknown at length: the voice provider's behaviour on very long scripts (request 
 - PROVEN (short film): the OCR gate takes about 10 s for 170 frames pinned to one thread per process. A long film has about 12 frames per 6 s; scale accordingly, and keep the thread pin.
 - DESIGNED: review a long cut in sections. One cut reviewer per chapter, fresh each round, with the contact sheets drawn at 0.5 s, so each reviewer's work stays near the 110k to 180k tokens measured on a short film.
 - Keep the frame list per chapter and the never-on-screen list shared.
-- Audio: one continuous mix the length of the film; loudness targets are the same (-14 LUFS, true peak at or under -1 dBTP, music 15 to 18 dB under the voice). Music must be longer than the film or looped; a loop point can be audible in a 10 minute film, so choose a long track or crossfade the loop.
+- Audio: one continuous mix the length of the film; loudness targets are the same (-16 LUFS, true peak at or under -1 dBTP, music about 6.5 dB under the voice, band 5 to 8 by default; set gates.audio.lufs and gates.audio.gap to taste). Music must be longer than the film or looped; a loop point can be audible in a 10 minute film, so choose a long track or crossfade the loop.
 
 ## 7. Open questions to answer on the first long film
 

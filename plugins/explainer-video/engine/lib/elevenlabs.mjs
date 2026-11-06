@@ -119,3 +119,7 @@ export function alignmentToWords(al) {
   flush();
   return words;
 }
+
+// Measured on real takes: 1,136 characters billed 500 credits (0.4401), later runs 0.4405. Plans differ, so it is only a first guess.
+export const DEFAULT_CREDITS_PER_CHAR = 0.44;
+export const estimateNoTakes = (chars) => `about ${Math.round(chars * DEFAULT_CREDITS_PER_CHAR)} (estimate: ${DEFAULT_CREDITS_PER_CHAR} credits per character, no takes yet; your plan may differ, the first real run records yours)`;
