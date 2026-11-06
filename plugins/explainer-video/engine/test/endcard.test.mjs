@@ -13,7 +13,7 @@ import { writeComposition } from '../lib/cmd-build.mjs';
 import { checkProject } from '../lib/project-check.mjs';
 import { parseScript } from '../lib/script.mjs';
 import { endcardCheck, endcardDecision, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
-import { applyHunks, FIXTURE } from '../tools/endcard-from-locked.mjs';
+import { applyHunks, FIXTURE, SNAPS } from '../tools/endcard-from-locked.mjs';
 import { check as brandCheck } from '../tools/vendor-brand.mjs';
 
 const EV = path.join(ENGINE, 'bin', 'ev.mjs');
@@ -288,9 +288,9 @@ test('the locked fixture is pinned, and the runtime scene is that file plus the 
 test('the light engine, motion curve, rims, glint and letters code is present in the runtime scene character for character', () => {
   const lines = fs.readFileSync(FIXTURE, 'utf8').split('\n'), plugin = new Set(fs.readFileSync(SCENE_FILE, 'utf8').split('\n'));
   // Every locked line (1-based numbers) that is not a whole line of in the runtime scene is in a hunk: the wrapper and ICON (6 to 8), the
-  // title line css (85), wrapLetters (96), the html lines (100, 103 to 105), the body tween (116) and the closing wrapper (199).
+  // title colour (84), title line css (85), the box border (88), wrapLetters (96), the html lines (100, 103 to 105), the body tween (116), the letter colours (161) and the closing wrapper (199).
   const changed = lines.map((l, k) => [k + 1, l]).filter(([, l]) => l && !plugin.has(l)).map(([k]) => k);
-  assert.deepEqual(changed, [6, 7, 8, 85, 96, 100, 103, 104, 105, 116, 199]);
+  assert.deepEqual(changed, [6, 7, 8, 84, 85, 88, 96, 100, 103, 104, 105, 116, 161, 199]);   // 84, 88 and 161 are the three colour snaps
 });
 
 test('the hunk list fails when the scene is edited: one changed digit in the light engine breaks the comparison', () => {
@@ -315,30 +315,38 @@ test('the scene\'s e mark is the vendored evolv-icon-white.svg byte for byte, an
   }
 });
 
+// ---- the three colour snaps ----
+// Organizer ruling (Phil's look owner): the scene's three colours that were not evolv-brand tokens snap to the nearest token. dE76 (CIE76):
+//   #3A4660 -> #3A4560 0.87 (the install boxes' border; groundwork dark --gw-border), #AAB3C8 -> #A9B4CC 1.75 (the title; text-navy dark),
+//   #E4E8F0 -> #E8ECF4 1.40 (the title once lit; info-ground light). The locked fixture file stays as approved. This list is the whole
+//   difference in colour between the plugin and the locked file; any other drift fails the hunk test above.
+test('the plugin differs from the locked scene in exactly the three listed colour snaps, and the locked file keeps its colours', () => {
+  assert.deepEqual(SNAPS, [['#3A4660', '#3A4560'], ['#AAB3C8', '#A9B4CC'], ['0xAA, 0xB3, 0xC8', '0xA9, 0xB4, 0xCC'], ['0xE4, 0xE8, 0xF0', '0xE8, 0xEC, 0xF4']]);
+  const locked = fs.readFileSync(FIXTURE, 'utf8'), plugin = fs.readFileSync(SCENE_FILE, 'utf8');
+  for (const [from, to] of SNAPS) { assert.ok(locked.includes(from) && !locked.includes(to), `the locked file has ${from}`); assert.ok(plugin.includes(to) && !plugin.includes(from), `the plugin has ${to}`); }
+  assert.doesNotMatch(plugin.split('\n').filter((l) => !l.startsWith('//')).join('\n'), /3A4660|AAB3C8|E4E8F0|0xAA, 0xB3, 0xC8|0xE4, 0xE8, 0xF0/i);
+});
+
 // ---- (h) colour provenance ----
-// Every hex the scene paints must be in the evolv-brand palette or the vendored groundwork tokens (dark values). These three are not:
-//   #3A4660 (the install boxes' border; groundwork dark --gw-border is #3A4560), #AAB3C8 (the title; text-navy dark is #A9B4CC) and
-//   #E4E8F0 (the title once lit). The look is locked, so they stay as they are; the lead decides. This list must stay exactly this long.
-const NOT_IN_BRAND = ['#3A4660', '#AAB3C8', '#E4E8F0'];
-test('colour provenance: each hex in the scene is in the evolv-brand palette or groundwork tokens, except the three listed', () => {
+// Every hex the plugin scene paints must be in the evolv-brand palette or the vendored groundwork tokens: zero unmatched.
+// (Before the snaps three were not: #3A4660, #AAB3C8, #E4E8F0.)
+const unmatchedColours = (src) => {
   const tokens = JSON.parse(fs.readFileSync(path.join(ENGINE, 'assets', 'evolv-brand', 'groundwork', 'tokens.json'), 'utf8'));
   const brand = new Set(['#D15635', '#D9D9D9', '#FFFFFF', '#2E3952', '#D68B60']);   // SKILL.md "Colors" (the primary and accent tables)
   for (const e of Object.values(tokens.color)) for (const k of ['light', 'dark']) if (/^#[0-9a-f]{6}$/i.test(e[k] || '')) brand.add(e[k].toUpperCase());
-  const src = fs.readFileSync(FIXTURE, 'utf8');
-  // hex literals (the 3-digit #fff is the icon's fill), and the title colours the letter code writes as byte triples (0xAA, 0xB3, 0xC8)
+  // hex literals (the 3-digit #fff is the icon's fill), and the title colours the letter code writes as byte triples (0xA9, 0xB4, 0xCC)
   const literals = (src.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g) || []).map((h) => (h.length === 4 ? `#${h[1]}${h[1]}${h[2]}${h[2]}${h[3]}${h[3]}` : h).toUpperCase());
   const triples = [...src.matchAll(/\[0x([0-9A-F]{2}), 0x([0-9A-F]{2}), 0x([0-9A-F]{2})\]/g)].map((m) => `#${m[1]}${m[2]}${m[3]}`);
   const used = [...new Set([...literals, ...triples])].sort();
-  assert.deepEqual(used, ['#141A27', '#1D2536', '#2E3952', '#3A4660', '#AAB3C8', '#D15635', '#D68B60', '#D9D9D9', '#E4E8F0', '#FFFFFF'], 'the scene paints exactly these ten colours');
-  assert.deepEqual(used.filter((h) => !brand.has(h)), NOT_IN_BRAND);
-  // the SKILL.md palette values are also in the tokens, so the tokens alone are enough for CI
-  for (const h of ['#D15635', '#D9D9D9', '#FFFFFF', '#2E3952', '#D68B60']) assert.ok(brand.has(h));
+  return { used, unmatched: used.filter((h) => !brand.has(h)) };
+};
+test('colour provenance: each hex in the plugin scene is in the evolv-brand palette or groundwork tokens, none unmatched', () => {
+  const { used, unmatched } = unmatchedColours(fs.readFileSync(SCENE_FILE, 'utf8'));
+  assert.deepEqual(used, ['#141A27', '#1D2536', '#2E3952', '#3A4560', '#A9B4CC', '#D15635', '#D68B60', '#D9D9D9', '#E8ECF4', '#FFFFFF'], 'the scene paints exactly these ten colours');
+  assert.deepEqual(unmatched, []);
 });
 
-test('colour provenance can fail: a made-up hex in the scene is reported', () => {
-  const src = fs.readFileSync(FIXTURE, 'utf8').replace('#D15635', '#D15636');
-  const used = [...new Set(src.match(/#[0-9a-fA-F]{6}\b/g).map((h) => h.toUpperCase()))];
-  assert.ok(used.includes('#D15636'));
-  const tokens = fs.readFileSync(path.join(ENGINE, 'assets', 'evolv-brand', 'groundwork', 'tokens.json'), 'utf8').toUpperCase();
-  assert.ok(!tokens.includes('#D15636'));
+test('colour provenance can fail: the locked scene (three non-brand colours) and a made-up hex are reported', () => {
+  assert.deepEqual(unmatchedColours(fs.readFileSync(FIXTURE, 'utf8')).unmatched, ['#3A4660', '#AAB3C8', '#E4E8F0']);
+  assert.deepEqual(unmatchedColours(fs.readFileSync(SCENE_FILE, 'utf8').replace('#D15635', '#D15636')).unmatched, ['#D15636']);
 });

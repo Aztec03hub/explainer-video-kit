@@ -22,9 +22,20 @@ const HEADER = `// evolv end card scene: the Gleam. window.evolvEndCard(opts) re
 //   4. esc / TITLE / CODES / NOTE: the text comes from opts, HTML-escaped (wrapLetters escapes each letter);
 //   5. css: white-space:nowrap on the title lines, so a long title is measured and fitted, never wrapped;
 //   6. html: the title lines, the code lines (ids ec-i1, ec-i2) and the note line are generated from the text above;
-//   7. build: the text auto-fit (fit / refit), the body tween skips lines that are absent, and draw() calls refit().
-// Nothing else differs: no colour, size, timing, tween or light code.
+//   7. build: the text auto-fit (fit / refit), the body tween skips lines that are absent, and draw() calls refit();
+//   8. three colour snaps to the evolv-brand tokens (Organizer ruling), listed in SNAPS in tools/endcard-from-locked.mjs: the box border
+//      3A4660 to 3A4560, the title AAB3C8 to A9B4CC (CSS and its byte triple) and the lit title E4E8F0 to E8ECF4 (its byte triple); each under 2 dE76.
+// Nothing else differs: no other colour, size, timing, tween or light code.
 `;
+
+// The only colour changes against the locked scene: [what the locked file says, what the plugin says, how often]. dE76 of each snap in
+// CIE76 (sRGB, D65): #3A4660 to #3A4560 0.87, #AAB3C8 to #A9B4CC 1.75, #E4E8F0 to #E8ECF4 1.40.
+export const SNAPS = [
+  ['#3A4660', '#3A4560'],
+  ['#AAB3C8', '#A9B4CC'],
+  ['0xAA, 0xB3, 0xC8', '0xA9, 0xB4, 0xCC'],
+  ['0xE4, 0xE8, 0xF0', '0xE8, 0xEC, 0xF4'],
+];
 
 const once = (text, from, to) => {
   const hits = typeof from === 'string' ? text.split(from).length - 1 : (text.match(new RegExp(from.source, 'g')) || []).length;
@@ -61,6 +72,8 @@ const FIT = `
 
 export function applyHunks(locked) {
   let t = locked;
+  // 8 colour snaps (first: the header text above never contains the locked colours, and the anchors stay unique)
+  for (const [from, to] of SNAPS) t = once(t, from, to);
   // 1 header
   t = once(t, '// End card scene (beat 14)', `${HEADER}// End card scene (beat 14)`);
   // 2 wrapper and 3 ICON and 4 text

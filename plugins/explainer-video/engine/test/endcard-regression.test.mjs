@@ -3,8 +3,10 @@
 //
 // The harness mounts the scene exactly as the engine does (gsap, clock.js, explainer.js, FILM with one scene event) and seeks the
 // timeline to fixed times, screenshotting at 1920x1080, device scale factor 1.
-//   Check A (exact): the plugin scene and the locked FIXTURE scene (test/fixtures/endcard-scene-final.js.txt) must give 0 differing pixels
-//     at every time. Any change to the light, the motion, the rims, the glint, the letters or the text rendering fails.
+//   Check A (exact): the plugin scene and the locked FIXTURE scene (test/fixtures/endcard-scene-final.js.txt) with the three listed colour
+//     snaps applied (SNAPS below) must give 0 differing pixels at every time. Any change to the light, the motion, the rims, the glint, the
+//     letters or the text rendering fails. Check A2: the plugin against the UNSNAPPED locked scene differs only by the snaps, which are
+//     small (no pixel over 0.1, no channel more than 8 of 255 apart).
 //   Check B (reference clip): the same times against frames of final-gleam.mp4 (the clip Phil approved), stored in test/fixtures/endcard/
 //     (see the README there). Mockup Lock defaults: fail above 0.5 percent of pixels differing by more than 0.1 (max channel delta / 255).
 //     The clip is h264 (yuv420p), so B is the looser lock; A is the exact one.
@@ -26,6 +28,9 @@ const FIXTURES = path.join(ENGINE, 'test', 'fixtures');
 const TIMES = [0.9, 1.5, 2.1, 2.7, 3.3, 4.2, 5.5]; // before the sweep, mid-sweep, slow-down, letters decaying, settled
 const HERO = { title: ['explainer-video,', 'a Claude Code plugin'], lines: ['/plugin marketplace add evolvconsulting/explainer-video-kit', '/plugin install explainer-video@explainer-video-kit'], note: 'Needs: Claude Code, Node 22+, ffmpeg, tesseract. ElevenLabs key for the voice.' };
 const FILM = "{ id: 'main', duration: 6, page: 1280, events: [{ t: 0, scene: 'endcard', dur: 6, fade: 0.3 }] }";
+// The Organizer's three colour snaps to the evolv-brand tokens (dE76 0.87, 1.75, 1.40), written out here on purpose, apart from
+// tools/endcard-from-locked.mjs: the locked scene text with exactly these replacements is what the plugin must equal pixel for pixel.
+const SNAPS = [['#3A4660', '#3A4560'], ['#AAB3C8', '#A9B4CC'], ['0xAA, 0xB3, 0xC8', '0xA9, 0xB4, 0xCC'], ['0xE4, 0xE8, 0xF0', '0xE8, 0xEC, 0xF4']];
 const THRESHOLD = 0.1, MAX_FRACTION = 0.005;
 // Check B masks two bands of rows, each for a stated reason (measured on this machine, 7 times; see the report):
 //   - y >= 990: the approved clip came from a scratch project that had placeholder captions ("Two commands install it") in the caption band
@@ -60,7 +65,13 @@ function makePage(kind, { opts = HERO } = {}) {
   const gsapDir = path.join(ENGINE, 'node_modules', 'hyperframes', 'dist', 'vendor', 'npm');
   fs.copyFileSync(path.join(gsapDir, fs.readdirSync(gsapDir).find((d) => d.startsWith('gsap@')), 'dist', 'gsap.min.js'), path.join(dir, 'gsap.min.js'));
   for (const f of ['clock.js', 'explainer.js']) fs.copyFileSync(path.join(RUNTIME, f), path.join(dir, f));
-  fs.copyFileSync(kind === 'plugin' ? path.join(RUNTIME, 'evolv-endcard.js') : path.join(FIXTURES, 'endcard-scene-final.js.txt'), path.join(dir, 'scene.js'));
+  // kind: 'plugin' (the engine's scene), 'fixture' (the locked scene plus the SNAPS) or 'locked' (the locked scene as approved)
+  if (kind === 'plugin') fs.copyFileSync(path.join(RUNTIME, 'evolv-endcard.js'), path.join(dir, 'scene.js'));
+  else {
+    let src = fs.readFileSync(path.join(FIXTURES, 'endcard-scene-final.js.txt'), 'utf8');
+    if (kind === 'fixture') for (const [from, to] of SNAPS) { assert.equal(src.split(from).length - 1, 1, from); src = src.replace(from, to); }
+    fs.writeFileSync(path.join(dir, 'scene.js'), src);
+  }
   fs.mkdirSync(path.join(dir, 'fonts'));
   for (const f of BRAND_FONTS) fs.copyFileSync(path.join(BRAND_DIR, 'fonts', f.file), path.join(dir, 'fonts', f.file));
   const faces = BRAND_FONTS.map((f) => `@font-face { font-family: '${f.family}'; src: url('fonts/${f.file}'); font-weight: ${f.weight}; }`).join('\n');
@@ -112,6 +123,15 @@ test('the plugin scene is pixel-identical to the locked scene, and close to the 
       lines.push(`${t} s: ${(f * 100).toFixed(3)} percent`);
       assert.ok(f <= MAX_FRACTION, `check B: ${(f * 100).toFixed(3)} percent of pixels differ from the approved clip at ${t} s (limit ${MAX_FRACTION * 100})`);
     });
+    // check A2: against the scene exactly as Phil approved it, only the three snaps differ
+    const approved = await shoot(browser, makePage('locked'), TIMES);
+    let worst = 0;
+    TIMES.forEach((t, i) => {
+      assert.equal(diffFraction(plugin[i].data, approved[i].data, THRESHOLD), 0, `check A2: a snap shows above 0.1 at ${t} s`);
+      for (let k = 0; k < plugin[i].data.length; k += 4) worst = Math.max(worst, Math.abs(plugin[i].data[k] - approved[i].data[k]), Math.abs(plugin[i].data[k + 1] - approved[i].data[k + 1]), Math.abs(plugin[i].data[k + 2] - approved[i].data[k + 2]));
+    });
+    assert.ok(worst > 0 && worst <= 8, `the snaps move a channel by at most 8 (got ${worst})`);
+    console.log(`check A2: the snaps move a channel by at most ${worst} of 255, no pixel by more than 0.1`);
     console.log(`check B, share of pixels over ${THRESHOLD} from final-gleam.mp4: ${lines.join(', ')}`);
   });
 });

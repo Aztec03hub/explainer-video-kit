@@ -8,8 +8,10 @@
 //   4. esc / TITLE / CODES / NOTE: the text comes from opts, HTML-escaped (wrapLetters escapes each letter);
 //   5. css: white-space:nowrap on the title lines, so a long title is measured and fitted, never wrapped;
 //   6. html: the title lines, the code lines (ids ec-i1, ec-i2) and the note line are generated from the text above;
-//   7. build: the text auto-fit (fit / refit), the body tween skips lines that are absent, and draw() calls refit().
-// Nothing else differs: no colour, size, timing, tween or light code.
+//   7. build: the text auto-fit (fit / refit), the body tween skips lines that are absent, and draw() calls refit();
+//   8. three colour snaps to the evolv-brand tokens (Organizer ruling), listed in SNAPS in tools/endcard-from-locked.mjs: the box border
+//      3A4660 to 3A4560, the title AAB3C8 to A9B4CC (CSS and its byte triple) and the lit title E4E8F0 to E8ECF4 (its byte triple); each under 2 dE76.
+// Nothing else differs: no other colour, size, timing, tween or light code.
 // End card scene (beat 14), Phil's combination (final; B's heat, bleed and edge catches with a masked glint on the watermark, A's title letters, the approved motion curve): a live layer animated from the timeline only. Colours are the groundwork dark tokens by value
 // (evolv-brand 0.2.0); the e mark is evolv-icon-white.svg byte for byte, shown at low opacity as a watermark.
 // The light is a <canvas> strip drawn per timeline time as a pure function of that time (no rAF, no Date.now):
@@ -95,11 +97,11 @@ window.evolvEndCard = (opts) => {
   .ec { position:absolute; inset:0; background:#141A27; color:#fff; font-family:'Nunito Sans',sans-serif; }
   .ec .band { position:absolute; left:0; top:0; right:0; height:312px; background:#2E3952; overflow:hidden; }
   .ec .wm { position:absolute; right:-86px; top:-96px; height:500px; opacity:0; }
-  .ec h1 { position:absolute; left:76px; top:62px; font:300 66px/1.16 'Montserrat',sans-serif; letter-spacing:.01em; color:#AAB3C8; }
+  .ec h1 { position:absolute; left:76px; top:62px; font:300 66px/1.16 'Montserrat',sans-serif; letter-spacing:.01em; color:#A9B4CC; }
   .ec h1 .ln { display:block; opacity:0; white-space:nowrap; }
   .ec .bar { position:absolute; left:0; right:0; top:312px; height:5px; background:#D15635; }
   .ec .body { position:absolute; left:0; right:0; top:317px; bottom:0; }
-  .ec .code { position:absolute; left:76px; width:1128px; height:70px; background:#1D2536; border:1px solid #3A4660; border-radius:10px; opacity:0;
+  .ec .code { position:absolute; left:76px; width:1128px; height:70px; background:#1D2536; border:1px solid #3A4560; border-radius:10px; opacity:0;
     font:28px/68px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#fff; padding-left:28px; white-space:nowrap; }
   .ec .code em { font-style:normal; color:#D68B60; margin-right:14px; }
   .ec .needs { position:absolute; left:76px; top:268px; font:400 28px/1.3 'Nunito Sans',sans-serif; color:#D9D9D9; opacity:0; white-space:nowrap; }
@@ -196,7 +198,7 @@ window.evolvEndCard = (opts) => {
         paint(S1, comps, T);
       };
       // letters catch the light: each flashes when the head passes under it, then decays exponentially to the title colour.
-      const letters = [...all('h1 .ch')], base = [0xAA, 0xB3, 0xC8], LTAU = 0.42, SETTLE = [0xE4, 0xE8, 0xF0];
+      const letters = [...all('h1 .ch')], base = [0xA9, 0xB4, 0xCC], LTAU = 0.42, SETTLE = [0xE8, 0xEC, 0xF4];
       const frameLetters = (T) => {
         const er = el.getBoundingClientRect(), sc = er.width / W;
         for (const L of letters) {
