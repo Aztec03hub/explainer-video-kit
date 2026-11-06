@@ -352,6 +352,21 @@ describe('secrets gate', () => {
     const p = mkProject({ 'script.md': '# Title\nHello', 'build/generated.txt': `x ${fakeKey()}` });
     assert.equal((await secretsGate(ctx(p))).status, 'PASS');
   });
+  test('the project\'s own .env (where the key belongs) passes, with a warning when it is not gitignored', async () => {
+    const env = `ELEVENLABS_API_KEY=${fakeKey()}\n`;
+    const loose = await secretsGate(ctx(mkProject({ '.env': env })));
+    assert.equal(loose.status, 'PASS');
+    assert.match(loose.warnings[0], /\.gitignore does not list \.env/);
+    const safe = await secretsGate(ctx(mkProject({ '.env': env, '.gitignore': 'build/\n.env\n' })));
+    assert.equal(safe.status, 'PASS');
+    assert.deepEqual(safe.warnings, []);
+    assert.ok(!JSON.stringify([loose, safe]).includes(fakeKey()));
+  });
+  test('must-fail: a key pasted into .env.example or a script still fails', async () => {
+    const r = await secretsGate(ctx(mkProject({ '.env.example': `ELEVENLABS_API_KEY=${fakeKey()}\n` })));
+    assert.equal(r.status, 'FAIL');
+    assert.match(r.lines[0], /^\.env\.example:1/);
+  });
 });
 
 describe('ev gates command', () => {

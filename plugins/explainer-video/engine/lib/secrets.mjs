@@ -33,12 +33,14 @@ export function scanText(text) {
 }
 
 // scanDir(dir) -> [{ file, line, kind }]. `ignore` is a list of path fragments to skip.
-export function scanDir(dir, { ignore = [] } = {}) {
+// skipEnvFiles: leave real .env files alone (the one place a key is meant to live); .env.example is still scanned.
+export function scanDir(dir, { ignore = [], skipEnvFiles = false } = {}) {
   const out = [];
   const walk = (d) => {
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
       const full = path.join(d, e.name);
       if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name) && !ignore.some((x) => full.includes(x))) walk(full); continue; }
+      if (skipEnvFiles && /^\.env(\.(?!example$).+)?$/.test(e.name)) continue;
       if (!e.isFile() || SKIP_EXT.has(path.extname(e.name).toLowerCase()) || ignore.some((x) => full.includes(x))) continue;
       if (fs.statSync(full).size > MAX_BYTES) continue;
       let text;
