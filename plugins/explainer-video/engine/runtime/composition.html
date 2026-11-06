@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width={{WIDTH}}, height={{HEIGHT}}" />
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/clock.js"></script>
+    <script src="assets/explainer.js"></script>
+    <style>
+      @font-face { font-family: 'Fredoka'; src: url('assets/fonts/Fredoka.ttf'); font-weight: 300 700; }
+      {{STYLE}}
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: {{WIDTH}}px; height: {{HEIGHT}}px; overflow: hidden; background: var(--ev-canvas-to, #160c2c); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="{{ID}}" data-start="0" data-duration="{{DURATION}}" data-width="{{WIDTH}}" data-height="{{HEIGHT}}">
+      <!-- The mix made by `ev build`: voice over music, or whichever of the two exists. -->
+      <audio id="mix" src="audio/mix.wav" data-start="0" data-duration="{{DURATION}}"></audio>
+    </div>
+{{BOXES}}
+    <script src="captions.js"></script>
+    <script src="film.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines['{{ID}}'] = explainer(window.FILM, +document.getElementById('root').dataset.duration);
+    </script>
+  </body>
+</html>
