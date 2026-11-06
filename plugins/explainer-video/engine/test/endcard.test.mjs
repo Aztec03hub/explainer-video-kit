@@ -10,9 +10,10 @@ import vm from 'node:vm';
 import { spawnSync } from 'node:child_process';
 import { ENGINE, loadProject } from '../lib/common.mjs';
 import { writeComposition } from '../lib/cmd-build.mjs';
+import { checkEndcardFit } from '../lib/endcard-measure.mjs';
 import { checkProject } from '../lib/project-check.mjs';
 import { parseScript } from '../lib/script.mjs';
-import { CALLOUT_INK, defaultsCss, endcardCheck, endcardDecision, evolvThemeDefaults, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
+import { CALLOUT_INK, CALLOUT_SHADOW, FIT_FLOOR, defaultsCss, fitElements, fitErrors, endcardCheck, endcardDecision, evolvThemeDefaults, endcardPlan, endcardScripts, ICON_FILE, PLACEHOLDER, SCENE_FILE } from '../lib/endcard.mjs';
 import { applyHunks, FIXTURE, SNAPS } from '../tools/endcard-from-locked.mjs';
 import { check as brandCheck } from '../tools/vendor-brand.mjs';
 
@@ -119,7 +120,7 @@ test('a film.js with its own window.SCENES.endcard keeps it: no plan, even with 
 test('a scene event anchored to the last beat counts as the film\'s own end card', () => {
   const proj = made([]);
   const last = beats(proj);
-  fs.appendFileSync(proj.film, `\nwindow.SCENES = { closing: { html: '', build() {} } }; window.FILM.events.push({ t: 'beat:${last}-0.1', scene: 'closing', dur: 4 });\n`);
+  fs.appendFileSync(proj.film, `\nwindow.SCENES = { closing: { html: '', build() {} } }; window.FILM.events.push({ t: 'beat:${last}-0.05', scene: 'closing', dur: 4 });\n`);
   assert.match(endcardDecision(proj, win(proj)).reason, /your own scene/);
 });
 
@@ -317,10 +318,11 @@ test('the scene\'s e mark is the vendored evolv-icon-white.svg byte for byte, an
 
 // ---- evolv colour defaults for caption highlights and callouts ----
 const ORANGE = JSON.parse(fs.readFileSync(path.join(ENGINE, 'assets', 'evolv-brand', 'groundwork', 'tokens.json'), 'utf8')).color.accent.dark;
-const ALL3 = { '--ev-highlight': ORANGE, '--ev-callout': ORANGE, '--ev-callout-ink': '#0B0F18' };
+const ALL3 = { '--ev-highlight': ORANGE, '--ev-callout': ORANGE, '--ev-callout-ink': '#0B0F18', '--ev-callout-shadow': 'rgba(11,15,24,.9)' };
 test('evolv colour defaults: on with the end card, on with the evolv logo, off for other projects, and a project value always wins', () => {
   assert.equal(ORANGE, '#D15635');   // the token, so no hex is typed into the code
   assert.equal(CALLOUT_INK, '#0B0F18');
+  assert.equal(CALLOUT_SHADOW, 'rgba(11,15,24,.9)');   // the ink #0B0F18 at .9
   const card = made([]);
   assert.deepEqual(evolvThemeDefaults(card, endcardDecision(card, win(card)).plan), ALL3, 'the card is on');
   const logo = made([], (c) => { delete c.endcard; c.brand = 'evolv'; });
@@ -333,9 +335,11 @@ test('evolv colour defaults: on with the end card, on with the evolv logo, off f
   assert.deepEqual(evolvThemeDefaults(offNoLogo, null), {});
   // the project's own value wins, each variable on its own: project.json style and theme.vars
   const own = made([], (c) => { c.style = { highlight: '#123456' }; c.theme = { vars: { '--ev-callout': '#654321' } }; });
-  assert.deepEqual(evolvThemeDefaults(own, endcardDecision(own, win(own)).plan), { '--ev-callout-ink': '#0B0F18' });
+  assert.deepEqual(evolvThemeDefaults(own, endcardDecision(own, win(own)).plan), { '--ev-callout-ink': '#0B0F18', '--ev-callout-shadow': 'rgba(11,15,24,.9)' });
   const ink = made([], (c) => { c.style = { calloutInk: '#000000' }; });
-  assert.deepEqual(Object.keys(evolvThemeDefaults(ink, endcardDecision(ink, win(ink)).plan)), ['--ev-highlight', '--ev-callout']);
+  assert.deepEqual(Object.keys(evolvThemeDefaults(ink, endcardDecision(ink, win(ink)).plan)), ['--ev-highlight', '--ev-callout', '--ev-callout-shadow']);
+  const shadow = made([], (c) => { c.theme = { vars: { '--ev-callout-shadow': 'rgba(0,0,0,.5)' } }; });
+  assert.deepEqual(Object.keys(evolvThemeDefaults(shadow, endcardDecision(shadow, win(shadow)).plan)), ['--ev-highlight', '--ev-callout', '--ev-callout-ink'], 'a project shadow wins');
   assert.equal(defaultsCss({}), '');
 });
 
@@ -343,7 +347,7 @@ test('the built composition carries the evolv defaults before the project style,
   const css = (proj, plan) => { fs.mkdirSync(path.join(proj.build, 'frames'), { recursive: true }); writeComposition(proj, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: plan }); return fs.readFileSync(path.join(proj.build, 'index.html'), 'utf8'); };
   const a = made([], (c) => { c.style = { callout: '#654321' }; });
   const html = css(a, endcardDecision(a, win(a)).plan);
-  assert.ok(html.includes(`:root { --ev-highlight: ${ORANGE}; --ev-callout-ink: #0B0F18; }`));
+  assert.ok(html.includes(`:root { --ev-highlight: ${ORANGE}; --ev-callout-ink: #0B0F18; --ev-callout-shadow: rgba(11,15,24,.9); }`));
   assert.ok(html.indexOf('--ev-callout-ink: #0B0F18;') < html.indexOf('--ev-callout: #654321;'), 'the project style comes after');
   const plain = made([], (c) => { delete c.endcard; });
   assert.doesNotMatch(css(plain, null), new RegExp(`--ev-highlight: ${ORANGE}`));
@@ -389,4 +393,94 @@ test('colour provenance: each hex in the plugin scene is in the evolv-brand pale
 test('colour provenance can fail: the locked scene (three non-brand colours) and a made-up hex are reported', () => {
   assert.deepEqual(unmatchedColours(fs.readFileSync(FIXTURE, 'utf8')).unmatched, ['#3A4660', '#AAB3C8', '#E4E8F0']);
   assert.deepEqual(unmatchedColours(fs.readFileSync(SCENE_FILE, 'utf8').replace('#D15635', '#D15636')).unmatched, ['#D15636']);
+});
+
+// ---- round 3: text that does not fit fails the build (never an ellipsis) ----
+const row = (element, text, natural, avail) => ({ element, text, natural, avail });
+test('fit decision: a line too long even at 70 percent is an error naming the element, text, length and limit; one that fits after shrinking passes', () => {
+  const title = 'A very long product name for a very long film,';
+  const e = fitErrors([row('title line 1', title, 1700, 1128)]);   // 1700 * 0.7 = 1190 px, over the 1128 available
+  assert.equal(e.length, 1);
+  assert.match(e[0], /^end card title line 1 is too long: "A very long product name for a very long film," is 1700 px wide at the design size \(46 characters, 1190 px even at the smallest size, 70 percent\), but the card has 1128 px for it, about 43 characters at most\. Shorten it in project\.json endcard/);
+  const i = fitErrors([row('install line 2', '/plugin install quarterly-reporting-automation-suite@enterprise-reporting-automation-org', 2900, 1070)]);
+  assert.match(i[0], /^end card install line 2 is too long: "\/plugin install .*" is 2900 px wide at the design size \(\d+ characters, 2030 px even at the smallest size, 70 percent\), but the card has 1070 px for it, about \d+ characters at most\./);
+  assert.match(fitErrors([row('note', 'n'.repeat(200), 2000, 1128)])[0], /^end card note is too long/);
+  assert.deepEqual(fitErrors([row('title line 1', 'fits shrunk', 1500, 1128), row('note', 'fits', 400, 1128)]), [], '1500 * 0.7 = 1050 fits in 1128; 400 needs no shrink');
+  assert.equal(fitErrors([row('title line 1', 'x', 1611, 1128)]).length, 0, '1611 * 0.7 = 1127.7 fits');
+  assert.equal(fitErrors([row('title line 1', 'x', 1612, 1128)]).length, 1, '1612 * 0.7 = 1128.4 does not');
+  assert.equal(FIT_FLOOR, 0.7);
+  assert.deepEqual(fitElements({ title: ['a', 'b'], lines: ['c', 'd'], note: 'e' }).map((x) => x.element), ['title line 1', 'title line 2', 'install line 1', 'install line 2', 'note']);
+  assert.deepEqual(fitElements({ title: ['a'], lines: [], note: '' }).map((x) => x.element), ['title line 1']);
+});
+
+test('no machine Chrome: the fit check says it could not measure and does not fail', async () => {
+  const keep = process.env.CHROME; process.env.CHROME = path.join(tmp, 'no-such-chrome');
+  try {
+    const r = await checkEndcardFit({ opts: { title: ['T'], lines: [], note: '' } });
+    assert.deepEqual(r.errors, []);
+    assert.match(r.warnings[0], /^could not measure the end card text \(.*\); the build continues/);
+  } finally { if (keep === undefined) delete process.env.CHROME; else process.env.CHROME = keep; }
+});
+
+test('no ellipsis anywhere: not in the scene, its tooling, the lib, the README or the skills', () => {
+  const files = [SCENE_FILE, path.join(ENGINE, 'tools', 'endcard-from-locked.mjs'), path.join(ENGINE, 'lib', 'endcard.mjs'), path.join(ENGINE, 'lib', 'endcard-measure.mjs'), path.join(ENGINE, 'lib', 'cmd-build.mjs'),
+    path.join(REPO, 'README.md'), ...['video-picture', 'video-render', 'explainer-video', 'setup'].map((s) => path.join(REPO, 'plugins', 'explainer-video', 'skills', s, 'SKILL.md')), path.join(REPO, 'examples', 'hero', 'README.md')].filter((f) => fs.existsSync(f));
+  assert.ok(files.length >= 8);
+  for (const f of files) assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /ellipsis|\u2026|\\u2026/i, path.relative(REPO, f));
+});
+
+// ---- round 3: review round 2 findings ----
+const addScene = (proj, ev) => fs.appendFileSync(proj.film, `\nwindow.SCENES = { closing: { html: '', build() {} } }; window.FILM.events.push(${JSON.stringify(ev)});\n`);
+const noWindows = (proj) => { const t = fs.readFileSync(proj.script, 'utf8').replace(/\s*@\s*\d+(\.\d+)?\s*-\s*\d+(\.\d+)?/g, ''); fs.writeFileSync(proj.script, t); };
+
+test('Medium 1: a numeric scene event is judged by the clock when the script has no plan windows', () => {
+  const proj = made([]); noWindows(proj);
+  const b = parseScript(fs.readFileSync(proj.script, 'utf8')).beats;
+  assert.ok(b.every((x) => !x.plan), 'the script has no windows now');
+  const bs = b.map((_, i) => ({ plan: [i * 10, i * 10 + 10], voice: [i * 10, i * 10 + 9] }));
+  const late = made([]); noWindows(late); addScene(late, { t: 9999, scene: 'closing', dur: 4 });
+  fs.mkdirSync(late.build, { recursive: true });
+  fs.writeFileSync(path.join(late.build, 'captions.json'), JSON.stringify({ beats: bs, chapters: [], chunks: [{ words: [{ w: 'x', start: 1, end: 2 }] }] }));
+  assert.match(endcardDecision(late, win(late)).reason, /your own scene/, 'a number far past the card start is your own scene');
+  const early = made([]); noWindows(early); addScene(early, { t: 1, scene: 'closing', dur: 4 });
+  fs.mkdirSync(early.build, { recursive: true });
+  fs.writeFileSync(path.join(early.build, 'captions.json'), JSON.stringify({ beats: bs, chapters: [], chunks: [{ words: [{ w: 'x', start: 1, end: 2 }] }] }));
+  assert.ok(endcardDecision(early, win(early)).plan, 'a number before the card start keeps the card');
+});
+
+test('Low 3: a scene at beat:N-3 starts before the card and is not "your own"; beat:N-0.05 and beat:N+1 are', () => {
+  const last = (p) => beats(p);
+  const a = made([]); addScene(a, { t: `beat:${last(a)}-3`, scene: 'closing', dur: 2 });
+  assert.ok(endcardDecision(a, win(a)).plan, 'beat:N-3 is before the card');
+  const b = made([]); addScene(b, { t: `beat:${last(b)}-0.05`, scene: 'closing', dur: 2 });
+  assert.match(endcardDecision(b, win(b)).reason, /your own scene/);
+  const c = made([]); addScene(c, { t: `beat:${last(c)}+1`, scene: 'closing', dur: 2 });
+  assert.match(endcardDecision(c, win(c)).reason, /your own scene/);
+  const d = made([]); addScene(d, { t: `beat:${last(d)}`, scene: 'closing', dur: 2 });
+  assert.match(endcardDecision(d, win(d)).reason, /your own scene/);
+});
+
+test('Low 4: a blank style or theme value is an error, so the evolv default is never blanked', () => {
+  const s = made([], (c) => { c.style = { highlight: ' ' }; });
+  fs.mkdirSync(path.join(s.build, 'frames'), { recursive: true });
+  assert.throws(() => writeComposition(s, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }), /style\.highlight: .*not blank/);
+  const t = made([], (c) => { c.theme = { vars: { '--ev-callout': '   ' } }; });
+  fs.mkdirSync(path.join(t.build, 'frames'), { recursive: true });
+  assert.throws(() => writeComposition(t, { id: 'main', width: 1920, height: 1080, duration: 20, endcard: null }), /not blank/);
+});
+
+test('Low 5: a numeric at with no known film length warns, and ev build checks it once the placeholder captions give a length', () => {
+  const p = made([], (c) => { c.endcard = { title: 'X', at: 500 }; });
+  fs.appendFileSync(p.film, '\ndelete window.FILM.duration;\n');   // the templates fix a duration; take it away
+  const d = endcardDecision(p, win(p));
+  assert.ok(d.warnings.some((w) => /at: 500 s cannot be checked against the film length yet/.test(w)), d.warnings.join('|'));
+  fs.appendFileSync(p.film, '\nwindow.FILM.duration = 90;\n');
+  assert.ok(!endcardDecision(p, win(p)).warnings.some((w) => /cannot be checked/.test(w)), 'no warning once the length is known');
+  // at build time: ev build makes the captions first, and the check then knows the film's length (the placeholder captions give a short film)
+  const q = made([], (c) => { c.endcard = { title: 'X', lines: ['/plugin install x'], at: 500 }; });
+  fs.appendFileSync(q.film, '\ndelete window.FILM.duration;\n');
+  fs.mkdirSync(path.join(q.frames, 'set'), { recursive: true });   // ev build wants frames; the card check comes before any render
+  const r = ev('build', q.root, '--no-render', '--skip-pixel-check');
+  assert.notEqual(r.status, 0);
+  assert.match(r.stdout + r.stderr, /endcard\.at: 500 s is past the end of the film \(\d+ s\)/);
 });
