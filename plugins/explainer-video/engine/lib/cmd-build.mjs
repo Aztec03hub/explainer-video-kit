@@ -190,8 +190,14 @@ export function sharpenAmount(v) {
   if (!Number.isFinite(n) || n < 0.1 || n > 1.5) throw new Error(`render sharpen must be true or a number from 0.1 to 1.5 (--sharpen or project.json render.sharpen), not "${v}"`);
   return n;
 }
+// `ev build --sharpen <project>`: when the word after --sharpen is not a number, or names a project folder (one called 2025), it was the project, not an amount.
+export function sharpenWordIsProject(a) {
+  if (typeof a.sharpen !== 'string') return;
+  if (Number.isFinite(Number(a.sharpen)) && !fs.existsSync(path.join(a.sharpen, 'project.json'))) return;
+  a._.unshift(a.sharpen); a.sharpen = true;
+}
 export function sharpenArgs({ input, output, amount, crf }) {
-  return ['-v', 'error', '-y', '-i', input, '-vf', `unsharp=5:5:${amount}:5:5:0`, '-c:v', 'libx264', '-crf', String(crf ?? 14), '-preset', 'slow', '-pix_fmt', 'yuv420p', '-c:a', 'copy', '-movflags', '+faststart', output];
+  return ['-v', 'error', '-y', '-i', input, '-vf', `unsharp=5:5:${amount}:5:5:0`, '-c:v', 'libx264', '-crf', String(crf === undefined || crf === null || crf === '' ? 14 : crf), '-preset', 'slow', '-pix_fmt', 'yuv420p', '-c:a', 'copy', '-movflags', '+faststart', output];
 }
 
 // The hyperframes render call. `crf` (from --crf or project.json render.crf) lowers the encoder's CRF below the quality
@@ -210,7 +216,7 @@ export function renderArgs({ quality, workers, outFile, crf }) {
 export default async function (argv) {
   const a = parseArgs(argv, { bool: ['no-render', 'skip-gates', 'skip-pixel-check', 'skip-ocr', 'help'] });
   if (a.help || argv.includes('-h')) return log(HELP);
-  if (typeof a.sharpen === 'string' && !Number.isFinite(Number(a.sharpen))) { a._.unshift(a.sharpen); a.sharpen = true; }   // `ev build --sharpen <project>`: the word was the project, not an amount
+  sharpenWordIsProject(a);
   const proj = loadProject(a._[0]);
   { const r = checkProject(proj); formatCheck(r).forEach((l) => log(l)); if (r.errors.length) throw new Error('project check failed: fix film.js or project.json (see ERROR lines above)'); }
   const quality = a.quality || 'delivery';
@@ -269,6 +275,7 @@ export default async function (argv) {
   // The mix: voice at offset 0 so word times hold; music optional.
   const m = typeof proj.cfg.music === 'string' ? { file: proj.cfg.music } : proj.cfg.music || {};
   let musicFile = m.file ? path.resolve(proj.root, m.file) : null;
+  if (!m.file) log(MUSIC_HINT);
   if (musicFile && !fs.existsSync(musicFile)) {
     log(`${MUSIC_HINT} (project.json music.file ${musicFile} is missing; building without music)`);
     musicFile = null;

@@ -135,3 +135,18 @@ test('DV-5: a 180 ms burst alone in silence is flagged, a 300 ms burst is speech
 test('DV-5: clean control (two words, 1 s pause) passes', () => {
   assert.deepEqual(found('dv5-clean', [['speech', 1], ['silence', 1], ['speech', 1]]), []);
 });
+
+test('trimTake: a word the aligner overlapped with the word before it (start 0.98 vs a sound ending at 1.0) keeps its length (N1)', () => {
+  const p = project('trim-overlap', BAD, [{ w: 'one', start: 0.1, end: 1.0 }, { w: 'two', start: 0.98, end: 2.9 }]);
+  trimTake(p, 1.35, 1.93);
+  const t = JSON.parse(fs.readFileSync(path.join(p.voice, 'take.json'), 'utf8'));
+  assert.ok(Math.abs(t.words[1].end - (2.9 - 0.58)) < 0.002, `word two ${t.words[1].start}-${t.words[1].end}`);
+});
+
+test('trimTake: if the json cannot be written, the take and its json are both left as they were', () => {
+  const p = project('trim-atomic', BAD, WORDS);
+  const before = fs.readFileSync(path.join(p.voice, 'take.mp3'));
+  fs.mkdirSync(path.join(p.voice, 'take.trim.tmp.json'));   // makes the temp json write fail
+  assert.throws(() => trimTake(p, 1.35, 1.93));
+  assert.ok(fs.readFileSync(path.join(p.voice, 'take.mp3')).equals(before), 'the mp3 was replaced although the json write failed');
+});

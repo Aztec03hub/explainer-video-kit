@@ -10,6 +10,7 @@ export const THEME_VARS = [
   '--ev-callout-shadow', '--ev-cursor', '--ev-cursor-edge', '--ev-ripple',
 ];
 const SAFE = /^[^;{}<>\\]+$/; // a CSS value cannot break out of its rule
+const NO_REMOTE = /url\s*\(|\/\*|@import/i; // no web links (fonts are local) and no comment that could swallow the rest of the rule
 const FONT_EXT = /\.(ttf|otf|woff2?)$/i;
 
 export function themeCss(theme, root) {
@@ -17,7 +18,7 @@ export function themeCss(theme, root) {
   const rules = [], files = [];
   const vars = Object.entries(theme.vars || {}).map(([k, v]) => {
     if (!THEME_VARS.includes(k)) throw new Error(`project.json theme.vars.${k}: unknown variable. Use one of: ${THEME_VARS.join(', ')}`);
-    if (!SAFE.test(String(v))) throw new Error(`project.json theme.vars.${k}: use a CSS value without ; { } < > or backslash. Give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
+    if (!SAFE.test(String(v)) || NO_REMOTE.test(String(v))) throw new Error(`project.json theme.vars.${k}: use a CSS value without ; { } < > backslash, a comment or url( (fonts are loaded from theme.fonts, never linked). Give theme.vars.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
     return `${k}: ${v};`;
   });
   (theme.fonts || []).forEach((f, i) => {
@@ -29,6 +30,7 @@ export function themeCss(theme, root) {
     if (!fs.existsSync(from)) throw new Error(`${at}.file: ${from} doesn't exist`);
     for (const k of ['weight', 'style']) if (f[k] !== undefined && !/^[\w .-]+$/.test(String(f[k]))) throw new Error(`${at}.${k}: plain value like "100 900" or "italic"`);
     const name = path.basename(from);
+    if (!/^[\w .-]+$/.test(name)) throw new Error(`${at}.file: the file name "${name}" may only have letters, digits, space, dot, dash and underscore. Rename the font file.`);
     files.push({ from, name });
     rules.push(`@font-face { font-family: '${f.family}'; src: url('assets/fonts/${name}'); font-weight: ${f.weight || 'normal'}; font-style: ${f.style || 'normal'}; }`);
   });

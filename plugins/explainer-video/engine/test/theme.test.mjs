@@ -53,3 +53,10 @@ test('no theme: composition HTML is byte-identical to the old template fill', ()
   assert.match(fs.readFileSync(path.join(build, 'index.html'), 'utf8'), /@font-face \{ font-family: 'Montserrat'/);
   assert.ok(fs.existsSync(path.join(build, 'assets', 'fonts', 'Montserrat.ttf')), 'font copied into build/assets/fonts');
 });
+
+test('themeCss refuses url( , a comment opener and @import in a variable value, and an odd font file name', () => {
+  for (const v of ['url(https://x.test/a.png)', 'URL (x)', 'red /* x', '@import "x"']) assert.throws(() => themeCss({ vars: { '--ev-callout': v } }, root), /theme\.vars\.--ev-callout/, v);
+  const odd = path.join(root, 'theme/fonts/a\'b.ttf');
+  fs.copyFileSync(path.join(root, font.file), odd);
+  try { assert.throws(() => themeCss({ fonts: [{ ...font, file: 'theme/fonts/a\'b.ttf' }] }, root), /theme\.fonts\[0\]\.file.*file name/); } finally { fs.rmSync(odd); }
+});

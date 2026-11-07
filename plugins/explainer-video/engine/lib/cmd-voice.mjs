@@ -32,7 +32,7 @@ const HELP = `usage:
       The old take is first copied to voice/take.before-<time>.mp3/.json. spend.json gets one more entry in runs[] and the
       running totals. --dry-run shows only the chosen beats and spends nothing. The approved-text lock covers the whole script.
   ev voice <project> --trim <from>-<to>              cut a span of SILENCE out of the take (seconds, like 60.80-61.36), move later words earlier
-      Refuses a span with sound in it. Spends nothing; the old take is copied to voice/take.before-trim-<time>.mp3/.json. The audio gate's
+      Refuses a span with any sound above -50 dB in it, except the stray burst the gate flagged. Spends nothing; the old take is copied to voice/take.before-trim-<time>.mp3/.json. The audio gate's
       "stray sound" line gives the span to use.
 The key ELEVENLABS_API_KEY comes from the environment, --key-file, <project>/.env or ~/.config/explainer-video/.env.`;
 

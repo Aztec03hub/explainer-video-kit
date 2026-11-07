@@ -71,3 +71,19 @@ test('the licence line is printed so the user knows they accept Pixabay terms', 
   assert.match(out.join('\n'), /Pixabay Content License/);
   assert.match(out.join('\n'), /standalone/i);
 });
+
+import { realDownload } from '../lib/cmd-music.mjs';
+
+test('must fail: a bare --project (no folder) says what is missing, not a TypeError', async () => {
+  await assert.rejects(music([PAGE, '--project'], deps()), /--project needs a folder/);
+});
+
+test('must fail: a 200 download that is an HTML page is refused, an audio one is kept', async () => {
+  const real = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response('<html>blocked</html>', { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+    await assert.rejects(realDownload('https://cdn.pixabay.com/download/audio/x.mp3'), /came back as "text\/html.*not audio/);
+    globalThis.fetch = async () => new Response(Buffer.from([0x49, 0x44, 0x33]), { status: 200, headers: { 'content-type': 'audio/mpeg' } });
+    assert.equal((await realDownload('https://cdn.pixabay.com/download/audio/x.mp3')).length, 3);
+  } finally { globalThis.fetch = real; }
+});

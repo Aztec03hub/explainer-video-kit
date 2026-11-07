@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderArgs } from '../lib/cmd-build.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { renderArgs, sharpenWordIsProject } from '../lib/cmd-build.mjs';
 
 const base = { quality: 'delivery', workers: '3', outFile: '/x/out.mp4' };
 
@@ -39,4 +42,21 @@ test('sharpenArgs is one luma unsharp pass, audio copied, at the render crf', ()
 
 test('must fail: a bare --crf (no value) is refused, not read as CRF 1', () => {
   assert.throws(() => renderArgs({ ...base, crf: true }), /render crf needs a number/);
+});
+
+test('render.crf "" is unset for the sharpen pass too: CRF 14, never an empty -crf', () => {
+  const a = sharpenArgs({ input: '/x/in.mp4', output: '/x/out.mp4', amount: 0.7, crf: '' });
+  assert.equal(a[a.indexOf('-crf') + 1], '14');
+});
+
+test('--sharpen followed by a numeric project folder reads the folder as the project, a plain amount stays an amount', () => {
+  const cwd = process.cwd(), dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-sharp-'));
+  fs.mkdirSync(path.join(dir, '2025')); fs.writeFileSync(path.join(dir, '2025', 'project.json'), '{}');
+  try {
+    process.chdir(dir);
+    const folder = { _: [], sharpen: '2025' }; sharpenWordIsProject(folder);
+    assert.deepEqual(folder, { _: ['2025'], sharpen: true });
+    const amount = { _: ['proj'], sharpen: '0.7' }; sharpenWordIsProject(amount);
+    assert.deepEqual(amount, { _: ['proj'], sharpen: '0.7' });
+  } finally { process.chdir(cwd); }
 });

@@ -7,8 +7,10 @@
 // because a still screen has no motion around it. Found on a real film: two camera moves on the same camera overlapped, and the
 // older one kept overwriting the newer cut, so the picture flipped between two cameras for a third of a second (spike, stall, spike).
 // A stall needs real motion around it (mean difference >= 0.15): the slow tail of an eased move legitimately repeats frames at 0.08.
-// Frames are compared on FILM.screen at 320x180 grey, as a mean absolute difference (0 to 255).
+// Frames are compared on FILM.screen (scaled to the cut's real size) at 320x180 grey, as a mean absolute difference (0 to 255).
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import { loadTimeline } from './timeline.mjs';
 import { spawnAsync } from './ocr.mjs';
 
@@ -51,6 +53,13 @@ async function packets(cut) {
   return r.stdout.split('\n').filter(Boolean).map(Number).sort((a, b) => a - b);
 }
 
+// The screen box is in composition pixels (index.html data-width/height); a cut rendered at another size (a 1280x720 proxy) is cropped by the same fractions.
+// Without a data-width the cut is taken to be the composition size.
+export function cropFor(S, comp, size) {
+  const kx = comp ? size.w / comp.w : 1, ky = comp ? size.h / comp.h : 1;
+  return { x: Math.round(S.x * kx), y: Math.round(S.y * ky), w: Math.round(S.w * kx), h: Math.round(S.h * ky) };
+}
+
 // Streams the decoded frames and keeps only the previous one, so a long film costs one frame of memory, not the whole video.
 function frameDiffs(cut, S, fps) {
   return new Promise((resolve, reject) => {
@@ -77,6 +86,7 @@ function frameDiffs(cut, S, fps) {
 }
 
 export default async function smoothGate({ proj, cut }) {
+  if (proj.cfg.gates?.smooth === false) return { name, status: 'SKIP', reason: 'skipped on request (project.json gates.smooth is false), so the cut was not checked for dropped frames, freezes or jumps.' };
   const tl = loadTimeline(proj, name);
   if (tl.skip) return { name, status: 'SKIP', reason: tl.skip };
   const { F, clock, screen } = tl;
@@ -84,6 +94,11 @@ export default async function smoothGate({ proj, cut }) {
   const [num, den] = probe.stdout.trim().split('/').map(Number);
   if (probe.status !== 0 || !(num && den)) throw new Error(`ffprobe could not read the frame rate of ${cut}: ${(probe.error && probe.error.message) || probe.stderr.trim() || 'is ffprobe installed?'}`);
   const fps = num / den;
+  const sz = await spawnAsync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', cut]);
+  const dims = (() => { try { return JSON.parse(sz.stdout).streams[0]; } catch { return null; } })();
+  if (sz.status !== 0 || !dims?.width || !dims?.height) throw new Error(`ffprobe could not read the size of ${cut}: ${(sz.error && sz.error.message) || sz.stderr.trim() || 'is ffprobe installed?'}`);
+  const html = fs.readFileSync(path.join(proj.build, 'index.html'), 'utf8'), cw = +(/data-width="(\d+)"/.exec(html) || [])[1], ch = +(/data-height="(\d+)"/.exec(html) || [])[1];
+  const crop = cropFor(screen, cw && ch ? { w: cw, h: ch } : null, { w: dims.width, h: dims.height });
 
   const exemptSecs = [];   // [from, to] seconds
   for (const e of F.events) {
@@ -103,7 +118,7 @@ export default async function smoothGate({ proj, cut }) {
     const d = pts[k] - pts[k - 1];
     if (Math.abs(d - step) > step * 0.1) findings.push({ t: pts[k], text: `timestamp: ${d.toFixed(4)} s between frames (expected ${step.toFixed(4)})` });
   }
-  const { diffs, n } = await frameDiffs(cut, screen, fps);
+  const { diffs, n } = await frameDiffs(cut, crop, fps);
   for (const h of findHiccups(diffs, exempt)) {
     const t = h.i / fps, ctx = inMove(t) ? 'during a camera move' : 'outside any camera move';
     findings.push({ t, text: h.kind === 'spike'

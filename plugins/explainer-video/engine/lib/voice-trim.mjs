@@ -1,6 +1,6 @@
 // ev voice <project> --trim <from>-<to>: cut a span of SILENCE out of voice/take.mp3 and move every later word time earlier by its length.
 // Made for the stray-sound check in the audio gate: the hero take had a thump alone in ~0.9 s of silence, and cutting the silence around it
-// (keeping a normal pause) removes it without a re-take. The span must be silent (under -50 dB): this never cuts speech.
+// (keeping a normal pause) removes it without a re-take. The span must be silent: no sound above -50 dB except a stray burst the audio gate flags, so it never cuts speech.
 import fs from 'node:fs';
 import path from 'node:path';
 import { run } from './common.mjs';
@@ -32,17 +32,19 @@ export function trimTake(proj, from, to) {
   const r = run('ffmpeg', ['-v', 'error', '-y', '-i', backup, '-filter_complex',
     `[0:a]atrim=0:${from},asetpts=PTS-STARTPTS[a];[0:a]atrim=start=${to},asetpts=PTS-STARTPTS[b];[a][b]concat=n=2:v=0:a=1[o]`, '-map', '[o]', '-c:a', 'libmp3lame', '-b:a', '128k', '-ar', '44100', tmp]);
   if (r.status !== 0 || !fs.existsSync(tmp)) throw new Error(`ffmpeg could not trim the take: ${String(r.stderr).trim().split('\n').pop()}`);
-  fs.renameSync(tmp, mp3);
   // the last sound before the cut: a word the aligner stretched across the silence really ends there
   let last = a - 1; while (last > 0 && levels[last] < -60) last--;
   const realEnd = +((last + 1) * LEVEL_STEP).toFixed(3), removed = +(to - from).toFixed(3);
   for (const w of take.words) {
     if (w.start >= from && w.start < to && w.end > to) { w.start = from; w.end = +(w.end - removed).toFixed(3); continue; }   // an aligner put this word's start in the silence: it now starts at the cut
     if (w.start >= to) { w.start = +(w.start - removed).toFixed(3); w.end = +(w.end - removed).toFixed(3); }
-    else if (w.end > to && w.start >= realEnd) w.end = +(w.end - removed).toFixed(3);   // starts after the last sound before the cut, so the word's sound is after it: shift, don't clip to zero
+    else if (w.end > to && w.start >= realEnd - 0.1) w.end = +(w.end - removed).toFixed(3);   // starts at (or within 0.1 s of, an aligner overlap with the word before) the last sound before the cut, so its sound is after it: shift, don't clip to zero
     else if (w.end > from) w.end = +Math.min(w.end, Math.max(w.start, realEnd)).toFixed(3);
   }
   take.duration = +(take.duration - removed).toFixed(3);
-  fs.writeFileSync(json, JSON.stringify(take));
+  // both files are written to temp names first, so a failure leaves the old mp3 and json together; then two renames
+  const tmpJson = path.join(proj.voice, 'take.trim.tmp.json');
+  fs.writeFileSync(tmpJson, JSON.stringify(take));
+  fs.renameSync(tmp, mp3); fs.renameSync(tmpJson, json);
   return { removed, backup };
 }

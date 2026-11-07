@@ -38,9 +38,11 @@ async function realScrape(url) {
   const html = await r.text();
   return { markdown: html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, ' ').replace(/\s+\n/g, '\n'), html };
 }
-async function realDownload(url) {
+export async function realDownload(url) {
   const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 explainer-video-kit', Referer: 'https://pixabay.com/' } });
   if (!r.ok) fail(`the audio download failed (HTTP ${r.status}) for ${url}`);
+  const type = r.headers.get('content-type') || '';
+  if (!/^(audio\/|application\/octet-stream)/i.test(type)) fail(`the audio download for ${url} came back as "${type || 'no content type'}", not audio (an error page?). Download the mp3 by hand into music/ and set project.json "music".`);
   return Buffer.from(await r.arrayBuffer());
 }
 

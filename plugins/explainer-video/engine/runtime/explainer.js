@@ -262,7 +262,6 @@
         if (st) {
           if (!st.sel) throw new Error(`explainer: callout "${e.label}": at "${e.at}" has no selector after the scene name`);
           l.scene = sceneEl(st.scene); l.sel = st.sel;
-          if (!l.scene.querySelector(st.sel)) throw new Error(`explainer: callout "${e.label}": no element matches "${st.sel}" in scene "${st.scene}"`);
         }
         for (let k = 0; k < 4; k++) add(l.ring, 'i');
         l.tag.textContent = e.label;
@@ -271,6 +270,9 @@
         tl.set(l, { o: 0 }, labelEnd(events, e));
       }
     }
+
+    // Checked after every event, because a scene's build() may create the element and its scene event may sort after the label.
+    for (const l of labels) if (l.scene && !l.scene.querySelector(l.sel)) throw new Error(`explainer: callout "${l.tag.textContent}": no element matches "${l.sel}" in scene "${l.scene.dataset.scene}"`);
 
     // Captions: one chunk on screen at a time, whole and centred, so it never shifts under the app's controls; the word being
     // said is highlighted and underlined. Built once, one element per chunk.

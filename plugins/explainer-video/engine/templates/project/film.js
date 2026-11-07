@@ -10,7 +10,7 @@ window.FILM = {
   screen: { x: 160, y: 24, w: 1600, h: 900 },
   events: [
     { t: 0, show: 'dark/default' },
-    { t: 'beat:2+0.5', cam: [0, 0, 900], dur: 2, ease: 'power2.inOut' },
+    { t: 'beat:2+0.5', cam: [160, 0, 900], dur: 2, ease: 'power2.inOut' },
     { t: 'beat:3+0.2', cursor: 'dark/default:search', dur: 0.8 },
     { t: 'beat:3+1', click: true },
     { t: 'beat:3+1', label: 'Search by title', at: 'dark/default:search', dur: 2.5 },
