@@ -47,13 +47,14 @@ test('dry run spends nothing and calls nothing but /models', async () => {
   assert.equal(fs.existsSync(path.join(dir, 'voice', 'take.mp3')), false);
 });
 
-test('dry run without a key uses the fallback table and says so', async () => {
+test('dry run without a key uses the fallback table without a warning (DV-6 snag 5)', async () => {
   const m = await mockEleven({ key: 'x' });
   const r = await ev(['voice', makeProject(SCRIPT, cfg), '--dry-run'], { EV_ELEVENLABS_BASE: m.url, ELEVENLABS_API_KEY: '' });
   await m.close();
   assert.equal(r.status, 0, r.out);
   assert.equal(m.calls.length, 0);
-  assert.match(r.out, /WARNING: using the fallback limit table/);
+  assert.match(r.out, /No key found: using the built-in limit table/);
+  assert.doesNotMatch(r.out, /WARNING: using the fallback limit table/);
 });
 
 test('dry run works with no voice id and no key; a real run still needs a voice id', async () => {

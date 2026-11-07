@@ -147,12 +147,14 @@ export async function pixelCheck(proj, refRoot) {
 }
 
 export default async function (argv) {
-  const a = parseArgs(argv, { bool: ['help'] });
+  const a = parseArgs(argv, { bool: ['help', 'verbose'] });
   if (a.help || argv.includes('-h')) return log(HELP);
   const proj = loadProject(a._[0]);
-  { const r = checkProject(proj); formatCheck(r).forEach((l) => log(l)); if (r.errors.length) throw new Error('project check failed: fix film.js or project.json (see ERROR lines above)'); }
+  // Captions come after frames, so the not-yet-checked anchors line is noise here.
+  { const r = checkProject(proj); r.warnings = r.warnings.filter((w) => !/anchors not checked/.test(w)); formatCheck(r).forEach((l) => log(l)); if (r.errors.length) throw new Error('project check failed: fix film.js or project.json (see ERROR lines above)'); }
   const cfg = proj.cfg.frames;
   if (!cfg?.page || !cfg.sets) fail('project.json has no "frames": { "page": ..., "sets": { ... } }. Run: ev frames --help');
+  if (!/^(https?|file):\/\//.test(cfg.page) && !fs.existsSync(path.resolve(proj.root, cfg.page))) fail(`frames.page "${cfg.page}" does not exist in ${proj.root}. Put your page there (ev init --empty ships none), or point frames.page in project.json at your page or URL. ev init <name> without --empty ships a sample page.`);
   const names = Object.keys(cfg.sets).filter((n) => !a.set || n === a.set);
   if (!names.length) fail(`no set "${a.set}" in project.json frames.sets (have: ${Object.keys(cfg.sets).join(', ')})`);
   const { default: puppeteer } = await import('puppeteer-core');
@@ -173,7 +175,7 @@ export default async function (argv) {
         if (errors) problems.push(`${errors} page error(s) in set ${name}`);
         for (const m of missing) {
           if (refs.has(m)) problems.push(`box not found: ${m}, used by film.js event ${JSON.stringify(refs.get(m))} (check the text or selector in project.json, or change the event)`);
-          else log(`WARNING: box not found: ${m} (no film.js event uses it; fine if that state doesn't show it)`);
+          else if (a.verbose) log(`WARNING: box not found: ${m} (no film.js event uses it; fine if that state doesn't show it)`);
         }
         continue;
       }

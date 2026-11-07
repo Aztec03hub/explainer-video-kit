@@ -78,9 +78,18 @@ test('a missing box that no film.js event uses is only a warning line', { skip: 
   fs.writeFileSync(path.join(dir, 'film.js'), "window.FILM = { id: 'main', events: [{ t: 1, show: 'app/home' }] };\n");
   const lines = [], orig = console.log;
   console.log = (...a) => lines.push(a.join(' '));
-  try { await frames([dir]); } finally { console.log = orig; }
+  try { await frames([dir, '--verbose']); } finally { console.log = orig; }
   assert.ok(lines.some((l) => /^WARNING: box not found: app\/home:nope/.test(l)), lines.join('\n'));
   assert.ok(lines.some((l) => /^WARNING: box not found: app\/detail:nope/.test(l)), 'one line per state');
+});
+
+test('missing-box warnings are quiet unless --verbose (DV-6 snag 3)', { skip: !haveChrome, timeout: 120000 }, async () => {
+  const dir = badText('quiettext');
+  fs.writeFileSync(path.join(dir, 'film.js'), "window.FILM = { id: 'main', events: [{ t: 1, show: 'app/home' }] };\n");
+  const lines = [], orig = console.log;
+  console.log = (...a) => lines.push(a.join(' '));
+  try { await frames([dir]); } finally { console.log = orig; }
+  assert.ok(!lines.some((l) => /box not found/.test(l)), lines.join('\n'));
 });
 
 test('--check passes against a dsf 1 copy and fails against a modified reference', { skip: !haveChrome, timeout: 180000 }, async () => {
@@ -111,4 +120,16 @@ test('pixelCheck (what ev build runs): passes on the approved images, fails nami
   for (let y = 40; y < 120; y++) for (let x = 40; x < 120; x++) { const i = (y * png.width + x) * 4; png.data[i] = 255 - png.data[i]; png.data[i + 1] = 255 - png.data[i + 1]; png.data[i + 2] = 255 - png.data[i + 2]; }
   fs.writeFileSync(f, PNG.sync.write(png));
   await assert.rejects(pixelCheck(proj, path.join(tmp, 'pxbad')), /pixel check against .* failed:[\s\S]*app\/detail differs from .*: \d+\.\d+% \(\d+ px\)/);
+});
+
+test('a missing frames.page says what to do; no anchors warning before captions (DV-6 snags 1, 4)', async () => {
+  const dir = project('nopage', 1);
+  const cfg = JSON.parse(fs.readFileSync(path.join(dir, 'project.json'), 'utf8'));
+  cfg.frames.page = 'mockup/index.html';
+  fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify(cfg));
+  fs.writeFileSync(path.join(dir, 'film.js'), "window.FILM = { id: 'main', events: [{ t: 'word:hello', show: 'app/home' }] };\n");
+  const lines = [], orig = console.log;
+  console.log = (...a) => lines.push(a.join(' '));
+  try { await assert.rejects(frames([dir]), /frames\.page "mockup\/index\.html" does not exist.*ev init --empty ships none/); } finally { console.log = orig; }
+  assert.ok(!lines.some((l) => /anchors not checked/.test(l)), lines.join('\n'));
 });

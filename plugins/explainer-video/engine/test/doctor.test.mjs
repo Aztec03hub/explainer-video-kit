@@ -52,9 +52,18 @@ test('--json prints an array of checks', () => {
   assert.ok(!r.stdout.includes(FAKE));
 });
 
-test('no key with the default --need: the failing line names only voice, and the rest are reported ready', () => {
+test('no key with the default --need is a note, exit 0 (DV-6 snag 2); --need voice still fails', () => {
   const r = doctor(['--key-file', path.join(home, 'nothing.env')]);
-  assert.match(r.stdout, /1 needed check\(s\) failed for: voice\n/);
-  assert.match(r.stdout, /Still ready for: render, frames\n/);
-  assert.ok(!/failed for: voice, render/.test(r.stdout));
+  assert.match(r.stdout, /Note: no ELEVENLABS_API_KEY/);
+  assert.doesNotMatch(r.stdout, /needed check\(s\) failed/);
+  assert.match(r.stdout, /Ready for: render, frames\n/);
+  assert.equal(r.status, 0, r.stdout);
+  assert.equal(doctor(['--need', 'voice', '--key-file', path.join(home, 'nothing.env')]).status, 1);
+});
+
+test('a command whose reader closes the pipe exits quietly, no EPIPE stack (DV-6 snag 6)', () => {
+  const err = path.join(home, 'epipe.err'), common = path.join(path.dirname(EV), '..', 'lib', 'common.mjs');
+  const js = `import(${JSON.stringify(common)}).then((m) => { m.log('one'); let n = 0; const t = setInterval(() => { m.log('more'); if (++n > 8) clearInterval(t); }, 100); })`;
+  spawnSync('sh', ['-c', `"$0" -e "$1" 2>"$2" | head -1`, process.execPath, js, err], { encoding: 'utf8' });
+  assert.equal(fs.readFileSync(err, 'utf8'), '');
 });

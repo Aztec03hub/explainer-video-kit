@@ -33,7 +33,7 @@ $ find ~/.claude/plugins -name ev.mjs -path "*engine/bin*"
 $ export PATH="<the folder that holds ev.mjs, from the line above>:$PATH"
 ```
 
-`ev doctor` prints the exact `export` line for you at the bottom. Without PATH, replace `ev` below with `node <full path to ev.mjs>`. Or just ask Claude to run each command.
+The plugin folder holds `skills/` and `engine/`, and `ev.mjs` is at `engine/bin/ev.mjs` inside it. `ev doctor` prints the exact `export` line for you at the bottom. Without PATH, replace `ev` below with `node <full path to ev.mjs>`. Or just ask Claude to run each command.
 
 ```
 $ ev setup
@@ -49,10 +49,11 @@ A good result looks like this. Four ticks on Node, ffmpeg, Chrome and tesseract 
 ✓ tesseract (needed by the on-screen text gate): tesseract 5.3.4
 ✗ ELEVENLABS_API_KEY: missing
 ...
-Still ready for: render, frames
+Note: no ELEVENLABS_API_KEY. It is only needed for a spoken voice ...
+Ready for: render, frames
 ```
 
-The last cross, the ElevenLabs key, is fine. It only blocks the voice. `ev doctor` exits with an error code because of it. Ignore that. Look for `Still ready for: render, frames`.
+The last cross, the ElevenLabs key, is fine. It only matters for a spoken voice, and `ev doctor` prints it as a note and still exits 0. Look for `Ready for: render, frames`.
 
 ## 3. Start a project
 
@@ -63,7 +64,7 @@ $ ev init demo
 $ cd demo
 ```
 
-`ev init demo` copies a sample project (a made-up library app) into `demo`. Use this one, not `--empty`. `--empty` has no page to film, and `ev frames` fails on it.
+`ev init demo` copies a sample project (a made-up library app) into `demo`. Use this one, not `--empty`. `--empty` has no page to film, and `ev frames` tells you so.
 
 ## 4. Write a short script
 
@@ -156,7 +157,7 @@ $ ev captions . --placeholder
 $ ev build . --quality draft
 ```
 
-You should see three lines like `dark/default h=720 pageerrors=0`. Warnings that start `box not found` are fine here. The build takes about a minute. It prints these, which are fine:
+You should see three lines like `dark/default h=720 pageerrors=0`. The build takes about a minute. It prints these, which are fine:
 
 ```
 no voice/take.mp3: the film has no voice (music only, or silent).
@@ -204,16 +205,14 @@ Open `out/demo.mp4` in any player. It is 1920x1080, 24 seconds, with captions bu
 | `ev: command not found` | `ev` is not on your PATH | Use the `export PATH=...` line from `ev doctor`, or `node <path to ev.mjs>` |
 | `ev: no project.json in <folder>. Run: ev init <folder>` | you are not inside a project folder | `cd` into `demo`, or run `ev init` |
 | `✗ ELEVENLABS_API_KEY: missing` | no voice key | Fine for this guide. Skip the voice |
-| `1 needed check(s) failed for: voice` with `Still ready for: render, frames` | the same thing | Fine. Carry on |
 | `✗ tesseract ... not on PATH` | tesseract not installed | `sudo apt install tesseract-ocr` (macOS: `brew install tesseract`) |
 | `FAIL  ocr: tesseract missing` | same, found at the gate | Install tesseract, then `ev gates . --only ocr`. Or `ev build . --skip-ocr` to go without that check |
-| `ev frames: net::ERR_FILE_NOT_FOUND at file:///.../mockup/index.html` | there is no page to film (you used `--empty`) | Use `ev init demo` without `--empty`, or add `mockup/index.html` |
+| `ev frames: frames.page "mockup/index.html" does not exist` | there is no page to film (you used `--empty`) | Use `ev init demo` without `--empty`, or add `mockup/index.html` |
 | `ev build: cannot build yet: - no frames in <folder>/frames. Run: ev frames <folder>` | you skipped step 6 | Run `ev frames .`, then build again |
 | `ev voice: no voice id. Run ev voice voices ...` | you ran `ev voice` for real | Skip it. Or get a key first |
 | `ev voice: ELEVENLABS_API_KEY is not set` | same | Skip it. Or put the key in `~/.config/explainer-video/.env` |
 | `The words aren't locked yet (run ev script . --approve ...)` | a notice, not an error | Ignore it when you have no voice |
 | `WARNING the end card's call to action is still the placeholder` | you did not edit `endcard.lines` | Change that line in `project.json` |
-| `WARNING: box not found: dark/default:banner` | the sample names a box this state lacks | Ignore it. Nothing in your film uses it |
 | `no music file: run ev music <url>` | no music yet | Fine. Or `ev music --list` |
 | `gates: FAIL` | a gate caught something | Read the `FAIL` line. It names the second, the word or the fix |
 

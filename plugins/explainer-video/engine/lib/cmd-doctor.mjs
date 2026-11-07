@@ -91,7 +91,9 @@ export default async function (argv) {
   const need = a.need ? String(a.need).split(',').map((s) => s.trim()).filter(Boolean) : DEFAULT_NEED;
   const checks = runChecks({ envFile: a['key-file'], projectDir: a.project, quick: !!a.quick });
   // Disk is a warning only; tesseract fails the run only when --need names ocr.
-  const hard = checks.filter((c) => c.ok === false && c.needs.some((n) => need.includes(n)) && !c.id.startsWith('disk'));
+  // A missing voice key only fails the run when --need names voice: a silent film needs none.
+  const keyNote = !a.need && checks.some((c) => c.id === 'key' && c.ok === false);
+  const hard = checks.filter((c) => c.ok === false && c.needs.some((n) => need.includes(n)) && !c.id.startsWith('disk') && !(keyNote && c.id === 'key'));
   if (a.json) log(JSON.stringify(checks.map((c) => ({ ...c, needed: need.some((n) => c.needs.includes(n)) })), null, 1));
   else {
     for (const c of checks) {
@@ -101,7 +103,8 @@ export default async function (argv) {
     }
     if (a.project && fs.existsSync(path.join(path.resolve(a.project), 'SAMPLE.md'))) log(`\nReminder: ${path.resolve(a.project)} is still the SAMPLE project (SAMPLE.md says what to replace). Delete SAMPLE.md when it is yours.`);
     const failing = need.filter((n) => hard.some((c) => c.needs.includes(n)));
-    const ready = need.filter((n) => !failing.includes(n));
+    const ready = need.filter((n) => !failing.includes(n) && !(keyNote && n === 'voice'));
+    if (keyNote) log(`\nNote: no ELEVENLABS_API_KEY. It is only needed for a spoken voice; a silent film is fine without it (or run: ev doctor --need voice).`);
     if (hard.length) log(`\n${hard.length} needed check(s) failed for: ${failing.join(', ')}`);
     if (ready.length) log(`${hard.length ? '' : '\n'}${hard.length ? 'Still ready' : 'Ready'} for: ${ready.join(', ')}`);
     log(`\n${pathHint()}`);

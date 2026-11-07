@@ -38,7 +38,7 @@
    /plugin marketplace add evolvconsulting/explainer-video-kit
    /plugin install explainer-video@explainer-video-kit
    ```
-2. Ask Claude: **"set up explainer-video"**. It installs the render browser and checks your machine, once per machine. You never type an engine path.
+2. Ask Claude: **"set up explainer-video"**. It installs the render browser and checks your machine, once per machine. You never type an engine path. To type `ev` yourself, the command is `engine/bin/ev.mjs` inside the plugin folder (the one that holds `skills/` and `engine/`); `ev doctor` prints a PATH line for it.
 3. Restart Claude Code and ask: **"Make an explainer video of this app."** Or ask Claude for a sample video: it renders one with no voice and no key.
 
 ## Keys

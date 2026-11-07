@@ -76,7 +76,7 @@ async function requestLimit(a, proj, model) {
   else log('No key found: using the built-in limit table instead of GET /models.');
   const limit = FALLBACK_LIMITS[model];
   if (!limit) log(`WARNING: no limit known for ${model}; assuming 5000 characters per request. Run ev voice models.`);
-  log(`WARNING: using the fallback limit table: ${limit || 5000} characters per request for ${model}.`);
+  if (!(a['dry-run'] && !key)) log(`WARNING: using the fallback limit table: ${limit || 5000} characters per request for ${model}.`);
   return { limit: limit || 5000, key, note: 'fallback table' };
 }
 
