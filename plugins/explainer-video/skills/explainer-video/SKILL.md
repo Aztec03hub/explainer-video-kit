@@ -28,6 +28,16 @@ If `EV` fails, or the user says it isn't set up, use the **setup** skill: it doe
 
 The voice step needs an ElevenLabs API key. **Never** paste it into a chat, a script, a config file or a command line. Put `ELEVENLABS_API_KEY=...` in one of: the environment, the project's `.env`, `~/.config/explainer-video/.env`, or a file named with `--key-file <path-to-an-env-file>` (one line: `ELEVENLABS_API_KEY=...`). Get a key at https://elevenlabs.io/app/settings/api-keys. `.env.example` in every project shows the line; `.env` is gitignored. If the key is missing, `EV doctor` and `EV voice` name the variable and every place they looked.
 
+## The look: ask once, before the picture phase
+
+Ask the user one question when the project starts: **"Is there a particular design system the screens and overlays should follow, or should I use the default (the evolv groundwork design system)?"** Do not ask it again, and do not ask it if project.json already has a `theme` or the user named a look.
+
+- **Default (they say "default", "no", or have no preference):** use evolv groundwork. The mockup pages for `EV frames` use its tokens (dark ground `#141A27`, surface `#1D2536`, header `#2E3952`, orange `#D15635`, text `#E6E8EC`; Montserrat for headings, Nunito Sans for body), and project.json gets the matching `theme` block from the video-picture skill ("Theme: the evolv groundwork preset"). If the evolv-brand plugin is installed, its groundwork files and fonts are the source: copy them into the project, never link them.
+- **A named system or brand:** ask for its colours and fonts (a link, a file, or hex values), put them in the mockups and in `theme.vars`, and copy any font files into the project's `theme/fonts`.
+- **Plain default look:** only if they ask for the plugin's own purple look.
+
+Write the answer in the project's `script.md` header or notes so the next session does not ask again.
+
 ## The path
 
 Pick the form first. **Quick** (default): about 60 to 90 seconds, 12 beats or fewer, about 150 to 215 spoken words (the sample is 12 beats, about 190 words, 72 s). **Long**: chapters, many beats; read `references/long-form.md` before writing.

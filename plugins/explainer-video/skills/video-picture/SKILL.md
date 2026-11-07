@@ -57,6 +57,21 @@ Captions, callout brackets and tags, cursor and ripple come in the plugin's defa
 }
 ```
 
+### Theme: the evolv groundwork preset
+
+The default design system (see the conductor skill, "The look"). Paste this into project.json and make the mockup pages use the same colours:
+
+```json
+"theme": {
+  "vars": {
+    "--ev-canvas-from": "#2E3952", "--ev-canvas-mid": "#1D2536", "--ev-canvas-to": "#141A27",
+    "--ev-highlight": "#D15635", "--ev-callout": "#D15635", "--ev-callout-ink": "#0B0F18", "--ev-callout-shadow": "rgba(11,15,24,.9)"
+  }
+}
+```
+
+This is what the Replicators video shipped with. For the evolv faces, copy `Montserrat.ttf` and `NunitoSans.ttf` from the evolv-brand plugin's `assets/fonts` into `theme/fonts`, add them under `theme.fonts`, and set `--ev-font` to `'Nunito Sans', sans-serif` and `--ev-caption-font`, `--ev-tag-font` to `'Montserrat', sans-serif`. Orange `#D15635` is for marks and large text only; small orange text uses `#B84A2D`.
+
 Variables (default): `--ev-canvas-from` (#3a2470), `--ev-canvas-mid` (#241544), `--ev-canvas-to` (#160c2c) background gradient; `--ev-caption` (#fff) subtitle text; `--ev-highlight` (#FFD84D) spoken-word colour and underline; `--ev-callout` (#FF4FD8) bracket and tag fill; `--ev-callout-ink` (#1A1033) tag text; `--ev-callout-shadow` (rgba(26,16,51,.9)) the halo behind the callout corner marks (evolv projects default to #0B0F18 at .9); `--ev-font` (Fredoka) base font; `--ev-caption-font`, `--ev-tag-font` (both `var(--ev-font)`); `--ev-caption-size` (52px, also read by the captionfit gate), `--ev-tag-size` (28px); `--ev-caption-bg` (transparent) subtitle background; `--ev-callout-shadow` (rgba(26,16,51,.9)) bracket glow; `--ev-cursor` (#fff) and `--ev-cursor-edge` (#111) cursor fill and outline; `--ev-ripple` (#fff) click ripple. An unknown name or a missing font file fails the project check at the start of `ev build` (and `ev frames`), naming the key. The older `style` block still works.
 
 ## Size guide: design the page for video, not for a browser
