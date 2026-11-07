@@ -8,6 +8,10 @@
 
 ---
 
+**New here? Follow [How to make your first video](docs/first-video.md): 15 minutes, no voice key needed.**
+
+---
+
 ## What you get
 
 - **A drawn cursor** that glides to the right spot, clicks, and sends out a ripple.
