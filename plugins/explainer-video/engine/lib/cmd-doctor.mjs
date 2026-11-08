@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setupCmd, ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv, loadProject } from './common.mjs';
+import { missingDeps, setupCmd, ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv, loadProject } from './common.mjs';
 
 const HELP = `usage: ev doctor [--need voice,render,ocr,align,frames] [--key-file <path>] [--project <dir>] [--json] [--quick]
 Checks Node, ffmpeg, the engine's dependencies, a render Chrome, tesseract, whisper, disk space and the ElevenLabs key.
@@ -87,7 +87,7 @@ export const DEFAULT_NEED = ['voice', 'render', 'frames'];
 export default async function (argv) {
   const a = parseArgs(argv, { bool: ['json', 'quick', 'help'] });
   if (a.help) return log(HELP);
-  if (a.project && !hyperframesBin()) throw new Error(`--project needs the engine dependencies, which are not installed. Run: ${setupCmd()}`);
+  if (a.project && missingDeps().length) throw new Error(`--project needs the engine dependencies, which are not installed. Run: ${setupCmd()}`);
   const need = a.need ? String(a.need).split(',').map((s) => s.trim()).filter(Boolean) : DEFAULT_NEED;
   const checks = runChecks({ envFile: a['key-file'], projectDir: a.project, quick: !!a.quick });
   // Disk is a warning only; tesseract fails the run only when --need names ocr.

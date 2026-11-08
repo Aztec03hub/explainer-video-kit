@@ -45,7 +45,7 @@ try {
     const pkg = /package '([^']+)'/.exec(e.message)?.[1] || 'unknown';
     // `ev` is not on PATH on a fresh clone, so the hint spells out a command that works from anywhere.
     const fix = cmd === 'setup' ? `${pkg} could not be loaded. Delete the node_modules folder in "${engine}", then run: npm ci --prefix "${engine}"`
-      : `Run: node "${path.join(engine, 'bin', 'ev.mjs')}" setup`;
+      : `Run: ${(await import(pathToFileURL(path.join(LIB, 'common.mjs')).href)).setupCmd()}`;
     e.message = `an engine dependency is not installed (${pkg}). ${fix}`;
   }
   console.error(`ev ${cmd}: ${e.message}`);

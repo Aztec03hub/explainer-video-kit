@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { setupCmd, ENGINE, parseArgs, log, which, hyperframesCmd, hfEnv } from './common.mjs';
+import { missingDeps, setupCmd, ENGINE, parseArgs, log, which, hyperframesCmd, hfEnv } from './common.mjs';
 
 const step = (cmd, args, env) => {
   log(`\n$ ${cmd} ${args.join(' ')}`);
@@ -18,8 +18,7 @@ export default async function (argv) {
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   if (!which(npm)) throw new Error(`npm is not on PATH. It comes with Node: install Node 22 or newer from https://nodejs.org, then run ${setupCmd()} again.`);
   step(npm, ['ci'], process.env);
-  const deps = Object.keys(JSON.parse(fs.readFileSync(path.join(ENGINE, 'package.json'), 'utf8')).dependencies);
-  const missing = deps.filter((d) => !fs.existsSync(path.join(ENGINE, 'node_modules', d)));
+  const missing = missingDeps();
   if (missing.length) throw new Error(`npm ci did not install ${missing.join(' and ')}. Run: npm ci --prefix "${ENGINE}" and read its output.`);
   const hf = hyperframesCmd(['browser', 'ensure']);
   step(hf.cmd, hf.args, hfEnv());

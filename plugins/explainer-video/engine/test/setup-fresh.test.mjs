@@ -24,6 +24,7 @@ console.log('STUB npm ' + process.argv.slice(2).join(' '));
 const nm = path.join(${JSON.stringify(bare)}, 'node_modules');
 const mk = (rel, body) => { fs.mkdirSync(path.dirname(path.join(nm, rel)), { recursive: true }); fs.writeFileSync(path.join(nm, rel), body); };
 if (${JSON.stringify(install)} !== 'none') mk('hyperframes/bin/hyperframes.mjs', "console.log('Ready to render (fake)');");
+if (${JSON.stringify(install)} !== 'none') mk('hyperframes/package.json', '{}');
 if (${JSON.stringify(install)} === 'all' || ${JSON.stringify(install)} === 'nopixel') for (const d of Object.keys(JSON.parse(fs.readFileSync(path.join(${JSON.stringify(bare)}, 'package.json'), 'utf8')).dependencies)) if (d !== 'hyperframes' && !(${JSON.stringify(install)} === 'nopixel' && d === 'pixelmatch')) mk(d + '/package.json', '{}');
 `);
     fs.writeFileSync(path.join(stub, 'npm'), `#!/bin/sh\nexec node "${path.join(stub, 'stub.mjs')}" "$@"\n`, { mode: 0o755 });
@@ -90,4 +91,31 @@ test('full ev setup with a fake npm that installs gets through the lazy doctor',
   assert.match(r.stdout, /STUB npm ci/);
   assert.match(r.stdout, /engine dependencies/);
   assert.doesNotMatch(r.stderr, /engine dependency is not installed/);
+}));
+
+test('setupCmd quotes a path with a quote, dollar or backtick so it pastes into a shell', async () => {
+  const { setupCmd } = await import('../lib/common.mjs');
+  const real = setupCmd();
+  assert.ok(real.startsWith('node "') || real.startsWith("node '"));
+  const { shellQuote } = await import('../lib/common.mjs');
+  const p = '/tmp/sp ace "q\'x$y`z/ev.mjs';
+  const out = spawnSync('sh', ['-c', `printf %s ${shellQuote(p)}`], { encoding: 'utf8' }).stdout;
+  assert.equal(out, p);
+});
+
+test('setup treats an empty dependency folder as not installed', () => withBare('none', (ev, bare) => {
+  const hook = fs.readFileSync(path.join(bare, 'package.json'), 'utf8');
+  assert.ok(hook);
+  // fake npm 'none' installs nothing; pre-create an empty hyperframes folder to mimic a half extract
+  fs.mkdirSync(path.join(bare, 'node_modules', 'hyperframes'), { recursive: true });
+  const r = ev('setup');
+  assert.match(r.stderr, /npm ci did not install .*hyperframes/);
+}));
+
+test('doctor --project guard asks for the same dependency set as setup', () => withBare('none', (ev, bare) => {
+  fs.mkdirSync(path.join(bare, 'node_modules', 'hyperframes', 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(bare, 'node_modules', 'hyperframes', 'bin', 'hyperframes.mjs'), '');
+  const r = ev('doctor', '--quick', '--project', '.');
+  assert.doesNotMatch(r.stdout, /engine dependencies/);
+  assert.match(r.stderr, /ev\.mjs.* setup/);
 }));

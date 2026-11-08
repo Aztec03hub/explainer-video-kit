@@ -8,7 +8,12 @@ import { fileURLToPath } from 'node:url';
 
 export const ENGINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // `ev` is not on PATH on a fresh clone, so hints spell out a command that works from anywhere.
-export const setupCmd = () => `node "${path.join(ENGINE, 'bin', 'ev.mjs')}" setup`;
+// Double quotes unless the path holds " $ ` or \ ; then single quotes with ' escaped (POSIX shells).
+export const shellQuote = (p) => (/["$`\\]/.test(p) && process.platform !== 'win32' ? `'${p.replace(/'/g, `'\\''`)}'` : `"${p}"`);
+export const setupCmd = () => `node ${shellQuote(path.join(ENGINE, 'bin', 'ev.mjs'))} setup`;
+// Dependencies from package.json whose node_modules/<d>/package.json is absent (an empty folder counts as missing).
+export const missingDeps = () => Object.keys(JSON.parse(fs.readFileSync(path.join(ENGINE, 'package.json'), 'utf8')).dependencies ?? {})
+  .filter((d) => !fs.existsSync(path.join(ENGINE, 'node_modules', d, 'package.json')));
 export const PLUGIN_ROOT = path.resolve(ENGINE, '..');
 export const RUNTIME = path.join(ENGINE, 'runtime');
 
