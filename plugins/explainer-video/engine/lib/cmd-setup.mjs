@@ -2,7 +2,6 @@
 // Safe to run again. Needs no key. The doctor it ends with prints the PATH hint for the ev shim.
 import { spawnSync } from 'node:child_process';
 import { ENGINE, parseArgs, log, which, hyperframesCmd, hfEnv } from './common.mjs';
-import doctor from './cmd-doctor.mjs';
 
 const step = (cmd, args, env) => {
   log(`\n$ ${cmd} ${args.join(' ')}`);
@@ -19,5 +18,7 @@ export default async function (argv) {
   step(npm, ['ci'], process.env);
   const hf = hyperframesCmd(['browser', 'ensure']);
   step(hf.cmd, hf.args, hfEnv());
+  // Loaded only now: the doctor chain imports packages that npm ci has just installed.
+  const { default: doctor } = await import('./cmd-doctor.mjs');
   await doctor(['--need', 'render,frames']);
 }
