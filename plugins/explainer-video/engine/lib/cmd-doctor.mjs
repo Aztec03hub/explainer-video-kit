@@ -42,8 +42,9 @@ export function runChecks({ envFile, projectDir, quick = false } = {}) {
   }
 
   const hf = hyperframesBin();
-  const deps = fs.existsSync(path.join(ENGINE, 'node_modules', 'hyperframes'));
-  add({ id: 'deps', label: 'engine dependencies', ok: deps, detail: deps ? 'node_modules/hyperframes present' : 'not installed', needs: ['render', 'frames'], fix: `Run: ${setupCmd()}` });
+  const lacking = missingDeps();
+  const deps = !lacking.length;
+  add({ id: 'deps', label: 'engine dependencies', ok: deps, detail: deps ? 'node_modules/hyperframes present' : lacking.length === Object.keys(JSON.parse(fs.readFileSync(path.join(ENGINE, 'package.json'), 'utf8')).dependencies ?? {}).length ? 'not installed' : `missing: ${lacking.join(', ')}`, needs: ['render', 'frames'], fix: `Run: ${setupCmd()}` });
 
   if (quick) add({ id: 'chrome', label: 'render Chrome', ok: null, detail: 'skipped by --quick', needs: ['render', 'frames'] });
   else {

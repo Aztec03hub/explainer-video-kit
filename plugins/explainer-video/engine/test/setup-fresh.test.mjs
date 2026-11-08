@@ -98,14 +98,12 @@ test('setupCmd quotes a path with a quote, dollar or backtick so it pastes into 
   const real = setupCmd();
   assert.ok(real.startsWith('node "') || real.startsWith("node '"));
   const { shellQuote } = await import('../lib/common.mjs');
-  const p = '/tmp/sp ace "q\'x$y`z/ev.mjs';
+  const p = '/tmp/sp ace "q\'x$y`z!w/ev.mjs';
   const out = spawnSync('sh', ['-c', `printf %s ${shellQuote(p)}`], { encoding: 'utf8' }).stdout;
   assert.equal(out, p);
 });
 
 test('setup treats an empty dependency folder as not installed', () => withBare('none', (ev, bare) => {
-  const hook = fs.readFileSync(path.join(bare, 'package.json'), 'utf8');
-  assert.ok(hook);
   // fake npm 'none' installs nothing; pre-create an empty hyperframes folder to mimic a half extract
   fs.mkdirSync(path.join(bare, 'node_modules', 'hyperframes'), { recursive: true });
   const r = ev('setup');
@@ -118,4 +116,14 @@ test('doctor --project guard asks for the same dependency set as setup', () => w
   const r = ev('doctor', '--quick', '--project', '.');
   assert.doesNotMatch(r.stdout, /engine dependencies/);
   assert.match(r.stderr, /ev\.mjs.* setup/);
+}));
+
+test('setup names several missing dependencies with commas', () => withBare('none', (ev) => {
+  assert.match(ev('setup').stderr, /did not install hyperframes, pixelmatch, pngjs, puppeteer-core\./);
+}));
+
+test('plain doctor flags a half install and names what is missing', () => withBare('partial', (ev, bare) => {
+  ev('setup'); // the fake npm installs only hyperframes
+  const r = ev('doctor', '--quick');
+  assert.match(r.stdout, /engine dependencies.*pixelmatch/s);
 }));
