@@ -26,6 +26,7 @@ const FAKE_HF = [
 // Runs fn(bare) on a bare engine copy and a fake-npm dir; removes both even if fn throws.
 // install: 'all' makes the fake npm create fake hyperframes + every dependency; 'nopixel' all but pixelmatch; 'partial' only hyperframes; 'none' nothing.
 const withBare = (install, fn, extraEnv = {}) => {
+  let home;
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-fresh-'));
   const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-stubnpm-'));
   try {
@@ -42,12 +43,14 @@ if (${JSON.stringify(install)} === 'all' || ${JSON.stringify(install)} === 'nopi
 `);
     fs.writeFileSync(path.join(stub, 'npm'), `#!/bin/sh\nexec node "${path.join(stub, 'stub.mjs')}" "$@"\n`, { mode: 0o755 });
     fs.writeFileSync(path.join(stub, 'npm.cmd'), `@node "%~dp0stub.mjs" %*\r\n`);
-    const env = { ...process.env, ...extraEnv, PATH: stub + path.delimiter + process.env.PATH };
+    home = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-home-'));
+    const env = { ...process.env, HOME: home, USERPROFILE: home, ...extraEnv, PATH: stub + path.delimiter + process.env.PATH };
     const ev = (...args) => spawnSync(process.execPath, [path.join(bare, 'bin', 'ev.mjs'), ...args], { encoding: 'utf8', env });
     return fn(ev, bare);
   } finally {
     fs.rmSync(bare, { recursive: true, force: true });
     fs.rmSync(stub, { recursive: true, force: true });
+    if (typeof home === 'string') fs.rmSync(home, { recursive: true, force: true });
   }
 };
 
@@ -200,4 +203,55 @@ test('setup skips the browser download when HYPERFRAMES_BROWSER_PATH names an ex
     assert.equal(hfCalls(log), 0);
     assert.match(r.stdout, /HYPERFRAMES_BROWSER_PATH.*skipping|skipping.*HYPERFRAMES_BROWSER_PATH/i);
   }, { FAKE_HF_LOG: log, HYPERFRAMES_BROWSER_PATH: process.execPath });
+});
+
+const NO_SUCH = (name, p) => `${name} is set to ${p} but no such file exists. Unset it or point it at a Chrome/Chromium binary.`;
+
+test('HYPERFRAMES_BROWSER_PATH wins over PRODUCER_HEADLESS_SHELL_PATH, as in hyperframes', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    const r = ev('setup');
+    assert.equal(r.status, 1);
+    assert.ok(r.stderr.includes(NO_SUCH('HYPERFRAMES_BROWSER_PATH', '/no/such/chrome')), r.stderr);
+    assert.equal(hfCalls(log), 0);
+  }, { FAKE_HF_LOG: log, HYPERFRAMES_BROWSER_PATH: '/no/such/chrome', PRODUCER_HEADLESS_SHELL_PATH: process.execPath });
+});
+
+test('a directory is not a browser: setup fails loudly before any download', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    const r = ev('setup');
+    assert.equal(r.status, 1);
+    assert.ok(r.stderr.includes(NO_SUCH('PRODUCER_HEADLESS_SHELL_PATH', os.tmpdir())), r.stderr);
+    assert.doesNotMatch(r.stdout, /\$ npm ci/);
+    assert.equal(hfCalls(log), 0);
+  }, { FAKE_HF_LOG: log, PRODUCER_HEADLESS_SHELL_PATH: os.tmpdir() });
+});
+
+test('the opening lines mention only what will be downloaded', () => {
+  withBare('all', (ev, bare) => {
+    const own = ev('setup').stdout;
+    assert.doesNotMatch(own, /114 MB/);
+    assert.doesNotMatch(own, /To use a Chrome/);
+    assert.match(own.split('\n')[0], /dependencies/);
+  }, { HYPERFRAMES_BROWSER_PATH: process.execPath });
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-cachehome-'));
+  fs.mkdirSync(path.join(cache, '.cache', 'hyperframes', 'chrome', 'v1'), { recursive: true });
+  try {
+    withBare('all', (ev) => {
+      const out = ev('setup').stdout;
+      assert.doesNotMatch(out, /114 MB/);
+      assert.doesNotMatch(out, /To use a Chrome/);
+    }, { HOME: cache, USERPROFILE: cache });
+  } finally { fs.rmSync(cache, { recursive: true, force: true }); }
+});
+
+test('setup does not retry a failure when the disk is nearly full', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    const r = ev('setup');
+    assert.equal(r.status, 1);
+    assert.equal(hfCalls(log), 1);
+    assert.match(r.stderr, /disk|free space/i);
+  }, { FAKE_HF_MODE: 'other', FAKE_HF_LOG: log, EV_SETUP_MIN_FREE_MB: '999999999' });
 });
