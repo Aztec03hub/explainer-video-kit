@@ -9,10 +9,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ENGINE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+// The fake `hyperframes browser ensure`. FAKE_HF_MODE: ok (default) | stall-once | stall | other. FAKE_HF_LOG gets one line per call.
+const FAKE_HF = [
+  "import fs from 'node:fs';",
+  "if (!process.argv.includes('ensure')) { console.log('fake hyperframes'); process.exit(0); }",
+  "const mode = process.env.FAKE_HF_MODE || 'ok'; const log = process.env.FAKE_HF_LOG;",
+  "const n = log && fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\\n').filter(Boolean).length : 0;",
+  "if (log) fs.appendFileSync(log, 'call\\n');",
+  "const stall = 'The Chrome download from storage.googleapis.com stalled: no data for 60s.';",
+  "if (mode === 'stall' || (mode === 'stall-once' && n === 0)) { console.error(stall); process.exit(1); }",
+  "if (mode === 'other') { console.error('Chrome could not be unpacked: disk is full'); process.exit(1); }",
+  "console.log('Ready to render (fake)');",
+].join('\n');
 
 // Runs fn(bare) on a bare engine copy and a fake-npm dir; removes both even if fn throws.
 // install: 'all' makes the fake npm create fake hyperframes + every dependency; 'nopixel' all but pixelmatch; 'partial' only hyperframes; 'none' nothing.
-const withBare = (install, fn) => {
+const withBare = (install, fn, extraEnv = {}) => {
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-fresh-'));
   const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-stubnpm-'));
   try {
@@ -23,13 +35,13 @@ const withBare = (install, fn) => {
 console.log('STUB npm ' + process.argv.slice(2).join(' '));
 const nm = path.join(${JSON.stringify(bare)}, 'node_modules');
 const mk = (rel, body) => { fs.mkdirSync(path.dirname(path.join(nm, rel)), { recursive: true }); fs.writeFileSync(path.join(nm, rel), body); };
-if (${JSON.stringify(install)} !== 'none') mk('hyperframes/bin/hyperframes.mjs', "console.log('Ready to render (fake)');");
+if (${JSON.stringify(install)} !== 'none') mk('hyperframes/bin/hyperframes.mjs', ${JSON.stringify(FAKE_HF)});
 if (${JSON.stringify(install)} !== 'none') mk('hyperframes/package.json', '{}');
 if (${JSON.stringify(install)} === 'all' || ${JSON.stringify(install)} === 'nopixel') for (const d of Object.keys(JSON.parse(fs.readFileSync(path.join(${JSON.stringify(bare)}, 'package.json'), 'utf8')).dependencies)) if (d !== 'hyperframes' && !(${JSON.stringify(install)} === 'nopixel' && d === 'pixelmatch')) mk(d + '/package.json', '{}');
 `);
     fs.writeFileSync(path.join(stub, 'npm'), `#!/bin/sh\nexec node "${path.join(stub, 'stub.mjs')}" "$@"\n`, { mode: 0o755 });
     fs.writeFileSync(path.join(stub, 'npm.cmd'), `@node "%~dp0stub.mjs" %*\r\n`);
-    const env = { ...process.env, PATH: stub + path.delimiter + process.env.PATH };
+    const env = { ...process.env, ...extraEnv, PATH: stub + path.delimiter + process.env.PATH };
     const ev = (...args) => spawnSync(process.execPath, [path.join(bare, 'bin', 'ev.mjs'), ...args], { encoding: 'utf8', env });
     return fn(ev, bare);
   } finally {
@@ -127,3 +139,53 @@ test('plain doctor flags a half install and names what is missing', () => withBa
   const r = ev('doctor', '--quick');
   assert.match(r.stdout, /engine dependencies.*pixelmatch/s);
 }));
+
+const hfCalls = (log) => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).length : 0);
+const mkLog = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ev-hflog-')), 'calls');
+
+test('setup opens by saying what it downloads and how to use an installed Chrome', () => withBare('all', (ev) => {
+  const first = ev('setup').stdout.split('\n')[0];
+  assert.match(first, /114 MB/);
+  const head = ev('setup').stdout.split('\n').slice(0, 4).join('\n');
+  assert.match(head, /HYPERFRAMES_BROWSER_PATH=/);
+}));
+
+test('setup retries the browser download once after a stall, then goes on', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    const r = ev('setup');
+    assert.equal(hfCalls(log), 2);
+    assert.match(r.stdout, /retrying/i);
+    assert.doesNotMatch(r.stderr, /browser ensure failed/);
+  }, { FAKE_HF_MODE: 'stall-once', FAKE_HF_LOG: log });
+});
+
+test('setup gives up after a second stall with the Chrome hint and the re-run command', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    const r = ev('setup');
+    assert.equal(r.status, 1);
+    assert.equal(hfCalls(log), 2);
+    assert.match(r.stderr, /HYPERFRAMES_BROWSER_PATH=/);
+    assert.match(r.stderr, /ev\.mjs.* setup/);
+  }, { FAKE_HF_MODE: 'stall', FAKE_HF_LOG: log });
+});
+
+test('setup does not retry a failure that is not a network stall', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    const r = ev('setup');
+    assert.equal(r.status, 1);
+    assert.equal(hfCalls(log), 1);
+    assert.doesNotMatch(r.stdout, /retrying/i);
+  }, { FAKE_HF_MODE: 'other', FAKE_HF_LOG: log });
+});
+
+test('setup skips the browser download when HYPERFRAMES_BROWSER_PATH names an existing file', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    const r = ev('setup');
+    assert.equal(hfCalls(log), 0);
+    assert.match(r.stdout, /HYPERFRAMES_BROWSER_PATH.*skipping|skipping.*HYPERFRAMES_BROWSER_PATH/i);
+  }, { FAKE_HF_LOG: log, HYPERFRAMES_BROWSER_PATH: process.execPath });
+});
