@@ -40,7 +40,7 @@ try {
   const mod = await import(pathToFileURL(file).href);
   await mod.default(argv);
 } catch (e) {
-  if (e.code === 'ERR_MODULE_NOT_FOUND' && /Cannot find package/.test(e.message)) e.message = `an engine dependency is not installed (${/package '([^']+)'/.exec(e.message)?.[1] || 'unknown'}). ${cmd === 'setup' ? 'Run: cd ' + path.dirname(LIB) + ' && npm ci' : 'Run: ev setup'}`;
+  if (e.code === 'ERR_MODULE_NOT_FOUND' && /Cannot find package/.test(e.message)) e.message = `an engine dependency is not installed (${/package '([^']+)'/.exec(e.message)?.[1] || 'unknown'}). ${cmd === 'setup' ? 'Run: npm ci --prefix "' + path.dirname(LIB) + '"' : 'Run: ev setup'}`;
   console.error(`ev ${cmd}: ${e.message}`);
   if (process.env.EV_DEBUG) console.error(e.stack);
   process.exit(1);

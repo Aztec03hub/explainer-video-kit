@@ -3,7 +3,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkProject, formatCheck } from './project-check.mjs';
 import { ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv, loadProject } from './common.mjs';
 
 const HELP = `usage: ev doctor [--need voice,render,ocr,align,frames] [--key-file <path>] [--project <dir>] [--json] [--quick]
@@ -110,6 +109,7 @@ export default async function (argv) {
     log(`\n${pathHint()}`);
   }
   if (a.project && fs.existsSync(path.join(a.project, 'project.json'))) { // film.js against project.json, no browser
+    const { checkProject, formatCheck } = await import('./project-check.mjs'); // lazy: it pulls engine dependencies a bare clone lacks
     const r = checkProject(loadProject(a.project));
     if (!a.json) for (const l of formatCheck(r)) log(l);
     if (r.errors.length) process.exitCode = 1;
