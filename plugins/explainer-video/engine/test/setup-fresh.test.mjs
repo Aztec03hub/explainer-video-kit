@@ -13,9 +13,10 @@ const ENGINE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FAKE_HF = [
   "import fs from 'node:fs';",
   "if (!process.argv.includes('ensure')) { console.log('fake hyperframes'); process.exit(0); }",
+  "const sameAsParent = () => { try { return fs.statSync('/proc/' + process.ppid + '/fd/1').ino === fs.fstatSync(1).ino; } catch { return true; } };",
   "const mode = process.env.FAKE_HF_MODE || 'ok'; const log = process.env.FAKE_HF_LOG;",
   "const n = log && fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\\n').filter(Boolean).length : 0;",
-  "if (log) fs.appendFileSync(log, 'call\\n');",
+  "if (log) fs.appendFileSync(log, 'call ' + (sameAsParent() ? 'inherited' : 'piped') + '\\n');",
   "const stall = 'The Chrome download from storage.googleapis.com stalled: no data for 60s.';",
   "if (mode === 'stall' || (mode === 'stall-once' && n === 0)) { console.error(stall); process.exit(1); }",
   "if (mode === 'other') { console.error('Chrome could not be unpacked: disk is full'); process.exit(1); }",
@@ -160,25 +161,36 @@ test('setup retries the browser download once after a stall, then goes on', () =
   }, { FAKE_HF_MODE: 'stall-once', FAKE_HF_LOG: log });
 });
 
-test('setup gives up after a second stall with the Chrome hint and the re-run command', () => {
-  const log = mkLog();
-  withBare('all', (ev) => {
-    const r = ev('setup');
-    assert.equal(r.status, 1);
-    assert.equal(hfCalls(log), 2);
-    assert.match(r.stderr, /HYPERFRAMES_BROWSER_PATH=/);
-    assert.match(r.stderr, /ev\.mjs.* setup/);
-  }, { FAKE_HF_MODE: 'stall', FAKE_HF_LOG: log });
+test('setup retries once after any failure, then gives only the exact re-run command', () => {
+  for (const mode of ['stall', 'other']) {
+    const log = mkLog();
+    withBare('all', (ev) => {
+      const r = ev('setup');
+      assert.equal(r.status, 1);
+      assert.equal(hfCalls(log), 2, mode);
+      assert.match(r.stderr, /ev\.mjs.* setup/);
+      assert.doesNotMatch(r.stderr, /HYPERFRAMES_BROWSER_PATH/);
+      assert.match(r.stdout, /from the beginning|from byte 0/);
+      assert.doesNotMatch(r.stdout, /resumes/);
+    }, { FAKE_HF_MODE: mode, FAKE_HF_LOG: log });
+  }
 });
 
-test('setup does not retry a failure that is not a network stall', () => {
+test('setup runs the browser step with inherited stdio, not captured pipes', { skip: process.platform !== 'linux' }, () => {
   const log = mkLog();
   withBare('all', (ev) => {
-    const r = ev('setup');
-    assert.equal(r.status, 1);
-    assert.equal(hfCalls(log), 1);
-    assert.doesNotMatch(r.stdout, /retrying/i);
-  }, { FAKE_HF_MODE: 'other', FAKE_HF_LOG: log });
+    ev('setup');
+    assert.match(fs.readFileSync(log, 'utf8'), /^call inherited$/m);
+    assert.doesNotMatch(fs.readFileSync(log, 'utf8'), /piped/);
+  }, { FAKE_HF_LOG: log });
+});
+
+test('setup also skips the download when PRODUCER_HEADLESS_SHELL_PATH names an existing file', () => {
+  const log = mkLog();
+  withBare('all', (ev) => {
+    ev('setup');
+    assert.equal(hfCalls(log), 0);
+  }, { FAKE_HF_LOG: log, PRODUCER_HEADLESS_SHELL_PATH: process.execPath });
 });
 
 test('setup skips the browser download when HYPERFRAMES_BROWSER_PATH names an existing file', () => {
