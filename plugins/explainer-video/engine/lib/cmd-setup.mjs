@@ -18,7 +18,8 @@ export default async function (argv) {
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   if (!which(npm)) throw new Error('npm is not on PATH. It comes with Node: install Node 22 or newer from https://nodejs.org, then run ev setup again.');
   step(npm, ['ci'], process.env);
-  if (!fs.existsSync(path.join(ENGINE, 'node_modules', 'hyperframes'))) throw new Error(`npm ci did not install hyperframes. Run: npm ci --prefix "${ENGINE}" and read its output.`);
+  const missing = ['hyperframes', 'pngjs'].filter((d) => !fs.existsSync(path.join(ENGINE, 'node_modules', d)));
+  if (missing.length) throw new Error(`npm ci did not install ${missing.join(' and ')}. Run: npm ci --prefix "${ENGINE}" and read its output.`);
   const hf = hyperframesCmd(['browser', 'ensure']);
   step(hf.cmd, hf.args, hfEnv());
   // Loaded only now: the doctor chain imports packages that npm ci has just installed.

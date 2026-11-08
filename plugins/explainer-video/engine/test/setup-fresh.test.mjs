@@ -1,4 +1,5 @@
 // A fresh clone has no node_modules, so ev setup must run before any dependency-importing module loads.
+// Every test here runs on a copy of the engine with no node_modules and a fake npm, so none needs the network or real dependencies.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -9,56 +10,66 @@ import { fileURLToPath } from 'node:url';
 
 const ENGINE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-test('ev setup --help works on a clone with no node_modules', () => {
+// Runs fn(bare) on a bare engine copy and a fake-npm dir; removes both even if fn throws.
+// install: 'all' makes the fake npm create fake hyperframes + pngjs; 'partial' only hyperframes; 'none' nothing.
+const withBare = (install, fn) => {
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-fresh-'));
-  for (const d of ['bin', 'lib', 'runtime']) fs.cpSync(path.join(ENGINE, d), path.join(bare, d), { recursive: true });
-  fs.copyFileSync(path.join(ENGINE, 'package.json'), path.join(bare, 'package.json'));
-  const r = spawnSync(process.execPath, [path.join(bare, 'bin', 'ev.mjs'), 'setup', '--help'], { encoding: 'utf8' });
-  fs.rmSync(bare, { recursive: true, force: true });
+  const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-stubnpm-'));
+  try {
+    for (const d of ['bin', 'lib', 'runtime']) fs.cpSync(path.join(ENGINE, d), path.join(bare, d), { recursive: true });
+    fs.copyFileSync(path.join(ENGINE, 'package.json'), path.join(bare, 'package.json'));
+    // The fake npm is a node script behind an npm / npm.cmd launcher, so it runs on every platform.
+    fs.writeFileSync(path.join(stub, 'stub.mjs'), `import fs from 'node:fs'; import path from 'node:path';
+console.log('STUB npm ' + process.argv.slice(2).join(' '));
+const nm = path.join(${JSON.stringify(bare)}, 'node_modules');
+const mk = (rel, body) => { fs.mkdirSync(path.dirname(path.join(nm, rel)), { recursive: true }); fs.writeFileSync(path.join(nm, rel), body); };
+if (${JSON.stringify(install)} !== 'none') mk('hyperframes/bin/hyperframes.mjs', "console.log('Ready to render (fake)');");
+if (${JSON.stringify(install)} === 'all') mk('pngjs/package.json', '{}');
+`);
+    fs.writeFileSync(path.join(stub, 'npm'), `#!/bin/sh\nexec node "${path.join(stub, 'stub.mjs')}" "$@"\n`, { mode: 0o755 });
+    fs.writeFileSync(path.join(stub, 'npm.cmd'), `@node "%~dp0stub.mjs" %*\r\n`);
+    const env = { ...process.env, PATH: stub + path.delimiter + process.env.PATH };
+    const ev = (...args) => spawnSync(process.execPath, [path.join(bare, 'bin', 'ev.mjs'), ...args], { encoding: 'utf8', env });
+    return fn(ev, bare);
+  } finally {
+    fs.rmSync(bare, { recursive: true, force: true });
+    fs.rmSync(stub, { recursive: true, force: true });
+  }
+};
+
+test('ev setup --help works on a clone with no node_modules', () => withBare('none', (ev) => {
+  const r = ev('setup', '--help');
   assert.doesNotMatch(r.stderr, /engine dependency/);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /usage: ev setup/);
-});
+}));
 
-const bareEngine = () => {
-  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-fresh-'));
-  for (const d of ['bin', 'lib', 'runtime']) fs.cpSync(path.join(ENGINE, d), path.join(bare, d), { recursive: true });
-  fs.copyFileSync(path.join(ENGINE, 'package.json'), path.join(bare, 'package.json'));
-  return bare;
-};
-// A fake npm first on PATH: no network. `install` makes it link the real node_modules, like a good npm ci would.
-const withStubNpm = (bare, install) => {
-  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-stubnpm-'));
-  const body = install ? `ln -s "${path.join(ENGINE, 'node_modules')}" "${path.join(bare, 'node_modules')}"\n` : '';
-  fs.writeFileSync(path.join(bin, 'npm'), `#!/bin/sh\necho STUB npm "$@"\n${body}`, { mode: 0o755 });
-  return { ...process.env, PATH: bin + path.delimiter + process.env.PATH };
-};
-const evIn = (bare, args, env) => spawnSync(process.execPath, [path.join(bare, 'bin', 'ev.mjs'), ...args], { encoding: 'utf8', env });
-const posix = process.platform !== 'win32';
-
-test('ev doctor on a clone with no node_modules prints its checklist, not a dependency error', () => {
-  const bare = bareEngine();
-  const r = evIn(bare, ['doctor', '--quick']);
-  fs.rmSync(bare, { recursive: true, force: true });
+test('ev doctor on a clone with no node_modules prints its checklist, not a dependency error', () => withBare('none', (ev) => {
+  const r = ev('doctor', '--quick');
   assert.doesNotMatch(r.stderr, /engine dependency is not installed/);
   assert.match(r.stdout, /engine dependencies/);
-});
+}));
 
-test('a missing dependency during setup points at npm ci --prefix <engine>', { skip: !posix }, () => {
-  const bare = bareEngine();
-  const r = evIn(bare, ['frames', '.'], process.env);
-  const s = evIn(bare, ['setup'], withStubNpm(bare, false));
-  fs.rmSync(bare, { recursive: true, force: true });
-  assert.match(r.stderr, /Run: ev setup/);
-  assert.match(s.stderr, /npm ci did not install hyperframes.*npm ci --prefix /);
-  assert.doesNotMatch(s.stderr, /Run: ev setup/);
-});
+test('on a fresh clone the hint names a command that works without ev on PATH', () => withBare('none', (ev, bare) => {
+  const r = ev('frames', '.');
+  assert.match(r.stderr, /engine dependency is not installed \(pngjs\)/);
+  assert.ok(r.stderr.includes(`node "${path.join(bare, 'bin', 'ev.mjs')}" setup`), r.stderr);
+}));
 
-test('full ev setup with a stub npm that installs gets through the lazy doctor', { skip: !posix || !fs.existsSync(path.join(ENGINE, 'node_modules', 'hyperframes')) }, () => {
-  const bare = bareEngine();
-  const r = evIn(bare, ['setup'], withStubNpm(bare, true));
-  fs.rmSync(bare, { recursive: true, force: true });
+test('setup says so when npm ci installed nothing, and names npm ci --prefix', () => withBare('none', (ev) => {
+  const r = ev('setup');
+  assert.match(r.stderr, /npm ci did not install hyperframes.*npm ci --prefix /);
+  assert.doesNotMatch(r.stderr, /Run: ev setup/);
+}));
+
+test('setup also catches a partial install that lacks pngjs', () => withBare('partial', (ev) => {
+  const r = ev('setup');
+  assert.match(r.stderr, /npm ci did not install .*pngjs/);
+}));
+
+test('full ev setup with a fake npm that installs gets through the lazy doctor', () => withBare('all', (ev) => {
+  const r = ev('setup');
   assert.match(r.stdout, /STUB npm ci/);
   assert.match(r.stdout, /engine dependencies/);
   assert.doesNotMatch(r.stderr, /engine dependency is not installed/);
-});
+}));

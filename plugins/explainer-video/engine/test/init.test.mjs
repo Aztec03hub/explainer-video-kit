@@ -79,7 +79,7 @@ test('a command that needs engine dependencies says "Run: ev setup" when they ar
   fs.copyFileSync(path.join(path.dirname(EV), '..', 'package.json'), path.join(bare, 'package.json'));
   const r = spawnSync(process.execPath, [path.join(bare, 'bin', 'ev.mjs'), 'frames', dir], { encoding: 'utf8' });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /an engine dependency is not installed \(pngjs\)\. Run: ev setup/);
+  assert.match(r.stderr, /an engine dependency is not installed \(pngjs\)\. Run: node ".*ev\.mjs" setup/);
   fs.rmSync(bare, { recursive: true, force: true });
 });
 

@@ -40,7 +40,14 @@ try {
   const mod = await import(pathToFileURL(file).href);
   await mod.default(argv);
 } catch (e) {
-  if (e.code === 'ERR_MODULE_NOT_FOUND' && /Cannot find package/.test(e.message)) e.message = `an engine dependency is not installed (${/package '([^']+)'/.exec(e.message)?.[1] || 'unknown'}). ${cmd === 'setup' ? 'Run: npm ci --prefix "' + path.dirname(LIB) + '"' : 'Run: ev setup'}`;
+  if (e.code === 'ERR_MODULE_NOT_FOUND' && /Cannot find package/.test(e.message)) {
+    const engine = path.dirname(LIB);
+    const pkg = /package '([^']+)'/.exec(e.message)?.[1] || 'unknown';
+    // `ev` is not on PATH on a fresh clone, so the hint spells out a command that works from anywhere.
+    const fix = cmd === 'setup' ? `npm ci finished but ${pkg} is still missing. Delete the node_modules folder in "${engine}", then run: npm ci --prefix "${engine}"`
+      : `Run: node "${path.join(engine, 'bin', 'ev.mjs')}" setup`;
+    e.message = `an engine dependency is not installed (${pkg}). ${fix}`;
+  }
   console.error(`ev ${cmd}: ${e.message}`);
   if (process.env.EV_DEBUG) console.error(e.stack);
   process.exit(1);
