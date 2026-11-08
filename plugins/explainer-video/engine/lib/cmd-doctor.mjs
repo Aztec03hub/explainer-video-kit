@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv, loadProject } from './common.mjs';
+import { setupCmd, ENGINE, parseArgs, log, which, run, getKey, KeyMissing, hyperframesBin, hyperframesCmd, hfEnv, loadProject } from './common.mjs';
 
 const HELP = `usage: ev doctor [--need voice,render,ocr,align,frames] [--key-file <path>] [--project <dir>] [--json] [--quick]
 Checks Node, ffmpeg, the engine's dependencies, a render Chrome, tesseract, whisper, disk space and the ElevenLabs key.
@@ -43,13 +43,13 @@ export function runChecks({ envFile, projectDir, quick = false } = {}) {
 
   const hf = hyperframesBin();
   const deps = fs.existsSync(path.join(ENGINE, 'node_modules', 'hyperframes'));
-  add({ id: 'deps', label: 'engine dependencies', ok: deps, detail: deps ? 'node_modules/hyperframes present' : 'not installed', needs: ['render', 'frames'], fix: 'Run: ev setup' });
+  add({ id: 'deps', label: 'engine dependencies', ok: deps, detail: deps ? 'node_modules/hyperframes present' : 'not installed', needs: ['render', 'frames'], fix: `Run: ${setupCmd()}` });
 
   if (quick) add({ id: 'chrome', label: 'render Chrome', ok: null, detail: 'skipped by --quick', needs: ['render', 'frames'] });
   else {
     let path_ = '';
     if (hf) { try { const c = hyperframesCmd(['browser', 'path']); const r = run(c.cmd, c.args, { env: hfEnv(), cwd: ENGINE, timeout: 60000 }); if (r.status === 0) path_ = r.stdout.trim().split(/\r?\n/).pop(); } catch { /* reported below */ } }
-    add({ id: 'chrome', label: 'render Chrome', ok: !!path_, detail: path_ || 'not downloaded', needs: ['render', 'frames'], fix: 'Run: ev setup (downloads the browser HyperFrames renders with)' });
+    add({ id: 'chrome', label: 'render Chrome', ok: !!path_, detail: path_ || 'not downloaded', needs: ['render', 'frames'], fix: `Run: ${setupCmd()} (downloads the browser HyperFrames renders with)` });
   }
 
   const tess = which('tesseract') ? version('tesseract', ['--version']) : '';
@@ -87,6 +87,7 @@ export const DEFAULT_NEED = ['voice', 'render', 'frames'];
 export default async function (argv) {
   const a = parseArgs(argv, { bool: ['json', 'quick', 'help'] });
   if (a.help) return log(HELP);
+  if (a.project && !hyperframesBin()) throw new Error(`--project needs the engine dependencies, which are not installed. Run: ${setupCmd()}`);
   const need = a.need ? String(a.need).split(',').map((s) => s.trim()).filter(Boolean) : DEFAULT_NEED;
   const checks = runChecks({ envFile: a['key-file'], projectDir: a.project, quick: !!a.quick });
   // Disk is a warning only; tesseract fails the run only when --need names ocr.

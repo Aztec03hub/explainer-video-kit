@@ -4,7 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
+import { setupCmd, ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
 import { measureLoudness, mixAudio, lufsTarget, DEFAULTS } from './mix.mjs';
 import { blankColours, defaultsCss, endcardDecision, endcardFonts, evolvThemeDefaults, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
 import { checkEndcardFit } from './endcard-measure.mjs';
@@ -71,7 +71,7 @@ function gsapPath() {
   const dir = path.join(ENGINE, 'node_modules', 'hyperframes', 'dist', 'vendor', 'npm');
   const v = fs.existsSync(dir) ? fs.readdirSync(dir).filter((d) => d.startsWith('gsap@')).sort().at(-1) : null;
   const file = v && path.join(dir, v, 'dist', 'gsap.min.js');
-  if (!file || !fs.existsSync(file)) throw new Error(`gsap.min.js not found under ${dir}. Run: ev setup`);
+  if (!file || !fs.existsSync(file)) throw new Error(`gsap.min.js not found under ${dir}. Run: ${setupCmd()}`);
   return file;
 }
 
@@ -112,7 +112,7 @@ function runLong({ cmd, args }, { cwd, show = null } = {}) {
 function checkPrerequisites(proj) {
   const missing = [];
   for (const bin of ['ffmpeg', 'ffprobe']) if (!which(bin)) missing.push(`${bin} is not installed. Install ffmpeg (apt install ffmpeg, brew install ffmpeg or winget install ffmpeg), then run: ev doctor`);
-  if (!hyperframesBin()) missing.push('the HyperFrames CLI is not installed in the engine. Run: ev setup');
+  if (!hyperframesBin()) missing.push(`the HyperFrames CLI is not installed in the engine. Run: ${setupCmd()}`);
   if (!fs.existsSync(proj.film)) missing.push(`${proj.film} is missing. Write film.js (window.FILM = { id, screen, events }) or run: ev init <folder>`);
   const sets = fs.existsSync(proj.frames) ? fs.readdirSync(proj.frames, { withFileTypes: true }).filter((e) => e.isDirectory()) : [];
   if (!sets.length) missing.push(`no frames in ${proj.frames}. Run: ev frames ${proj.root}`);

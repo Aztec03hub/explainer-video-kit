@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 import { readFilm } from './cmd-build.mjs';
-import { hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, run } from './common.mjs';
+import { setupCmd, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, run } from './common.mjs';
 import { checkProject, formatCheck } from './project-check.mjs';
 
 const fail = (m) => { throw new Error(m); };
@@ -41,7 +41,7 @@ export function chromePath() {
     const line = r.status === 0 ? r.stdout.replace(/\u001b\[[0-9;]*m/g, '').trim().split(/\r?\n/).pop() : '';
     if (line && fs.existsSync(line)) return line;
   }
-  throw new Error('no Chrome found for ev frames. Run: ev setup (or set CHROME to a Chrome or chrome-headless-shell binary)');
+  throw new Error(`no Chrome found for ev frames. Run: ${setupCmd()} (or set CHROME to a Chrome or chrome-headless-shell binary)`);
 }
 
 // The URL of one state: a local page opens by file://, a URL as given; the state's query goes after ?theme=<theme>.

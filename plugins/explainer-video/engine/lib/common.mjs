@@ -7,6 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ENGINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// `ev` is not on PATH on a fresh clone, so hints spell out a command that works from anywhere.
+export const setupCmd = () => `node "${path.join(ENGINE, 'bin', 'ev.mjs')}" setup`;
 export const PLUGIN_ROOT = path.resolve(ENGINE, '..');
 export const RUNTIME = path.join(ENGINE, 'runtime');
 
@@ -140,7 +142,7 @@ export const hyperframesBin = () => {
 // hyperframesCmd(['check', '.']) -> { cmd, args } to hand to spawn, spawnSync or run (no shell needed on any platform).
 export const hyperframesCmd = (args) => {
   const bin = hyperframesBin();
-  if (!bin) throw new Error('the HyperFrames CLI is not installed in the engine. Run: ev setup');
+  if (!bin) throw new Error(`the HyperFrames CLI is not installed in the engine. Run: ${setupCmd()}`);
   return { cmd: process.execPath, args: [bin, ...args] };
 };
 export const hfEnv = () => ({ ...process.env, HYPERFRAMES_NO_TELEMETRY: '1', DO_NOT_TRACK: '1', NO_COLOR: '1' });

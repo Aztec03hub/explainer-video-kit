@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const ENGINE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Runs fn(bare) on a bare engine copy and a fake-npm dir; removes both even if fn throws.
-// install: 'all' makes the fake npm create fake hyperframes + pngjs; 'partial' only hyperframes; 'none' nothing.
+// install: 'all' makes the fake npm create fake hyperframes + every dependency; 'nopixel' all but pixelmatch; 'partial' only hyperframes; 'none' nothing.
 const withBare = (install, fn) => {
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-fresh-'));
   const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-stubnpm-'));
@@ -24,7 +24,7 @@ console.log('STUB npm ' + process.argv.slice(2).join(' '));
 const nm = path.join(${JSON.stringify(bare)}, 'node_modules');
 const mk = (rel, body) => { fs.mkdirSync(path.dirname(path.join(nm, rel)), { recursive: true }); fs.writeFileSync(path.join(nm, rel), body); };
 if (${JSON.stringify(install)} !== 'none') mk('hyperframes/bin/hyperframes.mjs', "console.log('Ready to render (fake)');");
-if (${JSON.stringify(install)} === 'all') mk('pngjs/package.json', '{}');
+if (${JSON.stringify(install)} === 'all' || ${JSON.stringify(install)} === 'nopixel') for (const d of Object.keys(JSON.parse(fs.readFileSync(path.join(${JSON.stringify(bare)}, 'package.json'), 'utf8')).dependencies)) if (d !== 'hyperframes' && !(${JSON.stringify(install)} === 'nopixel' && d === 'pixelmatch')) mk(d + '/package.json', '{}');
 `);
     fs.writeFileSync(path.join(stub, 'npm'), `#!/bin/sh\nexec node "${path.join(stub, 'stub.mjs')}" "$@"\n`, { mode: 0o755 });
     fs.writeFileSync(path.join(stub, 'npm.cmd'), `@node "%~dp0stub.mjs" %*\r\n`);
@@ -60,6 +60,24 @@ test('setup says so when npm ci installed nothing, and names npm ci --prefix', (
   const r = ev('setup');
   assert.match(r.stderr, /npm ci did not install hyperframes.*npm ci --prefix /);
   assert.doesNotMatch(r.stderr, /Run: ev setup/);
+}));
+
+test('bare ev doctor tells the user a command that works without ev on PATH', () => withBare('none', (ev) => {
+  const r = ev('doctor', '--quick');
+  assert.match(r.stdout, /ev\.mjs" setup/);
+  assert.doesNotMatch(r.stdout, /Run: ev setup/);
+}));
+
+test('bare ev doctor --project fails early, before the checklist, with the hint', () => withBare('none', (ev) => {
+  const r = ev('doctor', '--quick', '--project', '.');
+  assert.equal(r.status, 1);
+  assert.doesNotMatch(r.stdout, /engine dependencies/);
+  assert.match(r.stderr, /ev\.mjs" setup/);
+}));
+
+test('setup also catches a partial install that lacks pixelmatch', () => withBare('nopixel', (ev) => {
+  const r = ev('setup');
+  assert.match(r.stderr, /npm ci did not install pixelmatch/);
 }));
 
 test('setup also catches a partial install that lacks pngjs', () => withBare('partial', (ev) => {

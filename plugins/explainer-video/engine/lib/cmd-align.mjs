@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, norm, parseArgs, readJson, run, writeJson } from './common.mjs';
+import { setupCmd, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, norm, parseArgs, readJson, run, writeJson } from './common.mjs';
 import { ensureScript, spokenWords } from './script.mjs';
 
 const HELP = `usage: ev align <project> --audio <file> [--engine whisper] [--shift -0.3] [--force]
@@ -82,7 +82,7 @@ function transcribe(audio, engine) {
     return readJson(process.env.EV_TRANSCRIPT_JSON);
   }
   const bin = hyperframesBin();
-  if (!bin) throw new Error('hyperframes is not installed in the engine. Run: ev setup');
+  if (!bin) throw new Error(`hyperframes is not installed in the engine. Run: ${setupCmd()}`);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-align-'));
   log('Transcribing with Whisper. On first use this builds whisper.cpp and downloads a model, which can take several minutes. Progress goes to stderr.');
   const hf = hyperframesCmd(['transcribe', path.resolve(audio), '--json', '-e', engine, '-m', 'small.en', '-l', 'en', '-d', dir]);
