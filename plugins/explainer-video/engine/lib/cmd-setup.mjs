@@ -24,14 +24,22 @@ const browserFromEnv = () => {
   return name && { name, path: process.env[name] };
 };
 // A Chrome hyperframes (or puppeteer) already downloaded: ensure is then a no-op, so there is nothing to announce.
-const browserCached = () => ['.cache/hyperframes/chrome', '.cache/puppeteer/chrome-headless-shell'].some((d) => {
-  try { return fs.readdirSync(path.join(os.homedir(), d)).length > 0; } catch { return false; }
-});
+// Looks for the browser executable itself (a few folders down), not just a non-empty cache folder.
+const SHELL = new Set(['chrome-headless-shell', 'chrome-headless-shell.exe', 'chrome', 'chrome.exe']);
+const hasBrowser = (dir, depth = 0) => {
+  if (depth > 5) return false;
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true }).some((e) => (e.isDirectory() ? hasBrowser(path.join(dir, e.name), depth + 1) : SHELL.has(e.name)));
+  } catch { return false; }
+};
+const browserCached = () => ['.cache/hyperframes/chrome', '.cache/puppeteer/chrome-headless-shell'].some((d) => hasBrowser(path.join(os.homedir(), d)));
 // hyperframes prints a failed download's reason on stdout, so it cannot be read without capturing stdout (which would cost
 // its TTY retries). A nearly full disk is the one cause worth ruling out up front, so it is checked by free space.
+// A filesystem that reports zero blocks (/proc style) says nothing about free space, so it never counts as low.
+export const lowDiskFrom = (f, minMb) => f.blocks > 0 && (f.bavail * f.bsize) / 2 ** 20 < minMb;
+export const diskCheckDir = (home) => (fs.existsSync(path.join(home, '.cache')) ? path.join(home, '.cache') : home);
 const lowDisk = () => {
-  const minMb = Number(process.env.EV_SETUP_MIN_FREE_MB || 300);
-  try { const f = fs.statfsSync(os.homedir()); return (f.bavail * f.bsize) / 2 ** 20 < minMb; } catch { return false; }
+  try { return lowDiskFrom(fs.statfsSync(diskCheckDir(os.homedir())), Number(process.env.EV_SETUP_MIN_FREE_MB || 300)); } catch { return false; }
 };
 
 export default async function (argv) {
@@ -39,10 +47,9 @@ export default async function (argv) {
   if (a.help) return log('usage: ev setup\nnpm ci in the engine, hyperframes browser ensure, then ev doctor. Idempotent; no key needed.');
   const env = browserFromEnv();
   if (env && !(fs.existsSync(env.path) && fs.statSync(env.path).isFile())) throw new Error(`${env.name} is set to ${env.path} but no such file exists. Unset it or point it at a Chrome/Chromium binary.`);
-  const needDeps = missingDeps().length > 0;
   const needBrowser = !env && !browserCached();
-  const parts = [needDeps && 'the engine dependencies (npm ci)', needBrowser && 'a render browser of about 114 MB'].filter(Boolean);
-  if (parts.length) log(`ev setup downloads ${parts.join(' and ')}; on a slow link that can take several minutes.`);
+  const browserPart = needBrowser ? ' and downloads a render browser of about 114 MB' : '';
+  log(`ev setup runs npm ci, which reinstalls the engine dependencies in node_modules${browserPart}; on a slow link that can take several minutes.`);
   if (needBrowser) log('To use a Chrome or Chromium you already have instead, run with HYPERFRAMES_BROWSER_PATH=/path/to/chrome (the browser download is then skipped).');
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   if (!which(npm)) throw new Error(`npm is not on PATH. It comes with Node: install Node 22 or newer from https://nodejs.org, then run ${setupCmd()} again.`);

@@ -236,7 +236,9 @@ test('the opening lines mention only what will be downloaded', () => {
     assert.match(own.split('\n')[0], /dependencies/);
   }, { HYPERFRAMES_BROWSER_PATH: process.execPath });
   const cache = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-cachehome-'));
-  fs.mkdirSync(path.join(cache, '.cache', 'hyperframes', 'chrome', 'v1'), { recursive: true });
+  const shellDir = path.join(cache, '.cache', 'hyperframes', 'chrome', 'v1', 'chrome-headless-shell-linux64');
+  fs.mkdirSync(shellDir, { recursive: true });
+  fs.writeFileSync(path.join(shellDir, process.platform === 'win32' ? 'chrome-headless-shell.exe' : 'chrome-headless-shell'), '');
   try {
     withBare('all', (ev) => {
       const out = ev('setup').stdout;
@@ -254,4 +256,35 @@ test('setup does not retry a failure when the disk is nearly full', () => {
     assert.equal(hfCalls(log), 1);
     assert.match(r.stderr, /disk|free space/i);
   }, { FAKE_HF_MODE: 'other', FAKE_HF_LOG: log, EV_SETUP_MIN_FREE_MB: '999999999' });
+});
+
+test('the opening line says npm ci reinstalls node_modules, even when no browser download is announced', () => withBare('all', (ev) => {
+  const first = ev('setup').stdout.split('\n')[0];
+  assert.match(first, /npm ci.*reinstalls/);
+  assert.doesNotMatch(first, /114 MB/);
+}, { HYPERFRAMES_BROWSER_PATH: process.execPath }));
+
+test('an empty cache folder is not a cached browser, so the 114 MB line still shows', () => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-cachehome-'));
+  fs.mkdirSync(path.join(cache, '.cache', 'hyperframes', 'chrome', 'v1'), { recursive: true });
+  try {
+    withBare('all', (ev) => assert.match(ev('setup').stdout, /114 MB/), { HOME: cache, USERPROFILE: cache });
+  } finally { fs.rmSync(cache, { recursive: true, force: true }); }
+});
+
+test('lowDiskFrom ignores a filesystem that reports zero blocks, and flags a small one', async () => {
+  const { lowDiskFrom } = await import('../lib/cmd-setup.mjs');
+  assert.equal(lowDiskFrom({ blocks: 0, bavail: 0, bsize: 4096 }, 300), false);
+  assert.equal(lowDiskFrom({ blocks: 1000, bavail: 10, bsize: 4096 }, 300), true);
+  assert.equal(lowDiskFrom({ blocks: 1e9, bavail: 1e9, bsize: 4096 }, 300), false);
+});
+
+test('the disk check looks at ~/.cache first and falls back to the home dir', async () => {
+  const { diskCheckDir } = await import('../lib/cmd-setup.mjs');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-diskhome-'));
+  try {
+    assert.equal(diskCheckDir(home), home);
+    fs.mkdirSync(path.join(home, '.cache'));
+    assert.equal(diskCheckDir(home), path.join(home, '.cache'));
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
