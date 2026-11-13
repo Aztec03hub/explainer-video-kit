@@ -165,3 +165,11 @@ test('show and device with a :box suffix are errors', () => {
   assert.match(r.errors[0], /event 1 .*show.*takes no box/);
   assert.match(r.errors[1], /event 2 .*device.*takes no box/);
 });
+
+// F5: an ease gsap does not know only crashed the render when the move was interrupted by the next camera event.
+test('a camera event with an ease gsap does not know is an error naming the event and the ease', () => {
+  const bad = checkProject(sample({ film: film({ t: 1, cam: [0, 0, 1280], dur: 1, ease: 'power2.inout' }) }));
+  assert.ok(bad.errors.some((l) => /event 1/.test(l) && /power2\.inout/.test(l) && /ease/.test(l)), bad.errors.join('\n'));
+  const ok = checkProject(sample({ film: film({ t: 1, cam: [0, 0, 1280], dur: 1, ease: 'power2.inOut' }, { t: 3, cam: [0, 0, 1280], dur: 1, ease: 'back.out(1.7)' }, { t: 5, cam: [0, 0, 1280], ease: 'none' }) }));
+  assert.deepEqual(ok.errors, []);
+});

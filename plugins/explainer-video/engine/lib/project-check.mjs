@@ -9,11 +9,23 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { readWindow, styleCss } from './cmd-build.mjs';
 import { blankColours, endcardCheck, endcardDecision } from './endcard.mjs';
-import { readJson } from './common.mjs';
+import { ENGINE, readJson } from './common.mjs';
 
 const { makeClock } = createRequire(import.meta.url)('../runtime/clock.js');
 const { sceneTarget } = createRequire(import.meta.url)('../runtime/explainer.js');
 const REF = /^([^\s/:]+)\/([^\s/:]+)(?::([^\s/:]+))?$/;
+// gsap's own ease table, run in a sandbox, so a typo in `ease` fails here instead of crashing the render when a camera move is interrupted
+let parseEase;
+function knownEase(name) {
+  if (!parseEase) {
+    const dir = path.join(ENGINE, 'node_modules', 'hyperframes', 'dist', 'vendor', 'npm'), v = fs.existsSync(dir) && fs.readdirSync(dir).find((d) => d.startsWith('gsap@'));
+    if (!v) return true;   // no gsap installed: nothing to check against
+    const box = { exports: {}, setTimeout, clearTimeout }; box.module = { exports: box.exports }; box.window = box.self = box;
+    vm.runInNewContext(fs.readFileSync(path.join(dir, v, 'dist', 'gsap.min.js'), 'utf8'), box);
+    parseEase = (n) => box.exports.gsap.parseEase(n);
+  }
+  return typeof parseEase(name) === 'function';
+}
 const TALL = 1.5; // page height over width*9/16 beyond which a set with no fixed height warns
 
 function distance(a, b) {
@@ -105,6 +117,7 @@ export function checkProject(proj) {
   events.map((e, i) => ({ e, i, t: last = typeof e.t === 'number' ? e.t : last })).sort((a, b) => a.t - b.t || a.i - b.i).forEach(({ e, i }) => {
     if (typeof e.show === 'string') shown = heightOf(e.show) ?? shown;
     if (!Array.isArray(e.cam)) return;
+    if (e.ease !== undefined && !knownEase(e.ease)) errors.push(`event ${i + 1} (cam): the ease "${e.ease}" is not a gsap ease (try power2.inOut, power2.out, back.out(1.7) or none).`);
     const pageH = shown ?? minH;
     const [x, y, w] = e.cam, h = w * (film.screen && film.screen.w > 0 && film.screen.h > 0 ? film.screen.h / film.screen.w : 9 / 16), where = `event ${i + 1} (cam: [${e.cam.join(', ')}])`;
     if (![x, y, w].every(Number.isFinite) || w <= 0) return errors.push(`${where}: a camera window is [x, y, width] in page pixels.`);

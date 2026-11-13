@@ -239,7 +239,7 @@
         }
         const to = win(e.cam), from = { ...camAt };
         if (e.dur) {
-          const ease = e.ease || 'power2.inOut', tween = gsap.to(cam, { ...to, duration: e.dur, ease });
+          const ease = e.ease && gsap.parseEase(e.ease) ? e.ease : 'power2.inOut', tween = gsap.to(cam, { ...to, duration: e.dur, ease });
           tl.add(tween, t);
           camMove = { tween, start: t, end: t + e.dur, from, to, ease };
           camAt = to;
