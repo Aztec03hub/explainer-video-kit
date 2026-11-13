@@ -26,7 +26,9 @@ const SPIKE_FLOOR = 2.0, SPIKE_RATIO = 4, STALL_RATIO = 0.1, MOTION_MIN = 0.15, 
 const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
 
 // Pure: diffs[i] is frame i against frame i-1 (index 0 unused). exempt(i) says frame i is a scheduled change.
-export function findHiccups(diffs, exempt = () => false) {
+// edge(i) (default: exempt) is wider: it also says frame i is where a camera move starts or ends, so a still hold between two
+// moves, which is motion on both sides, is a hold and not a hang.
+export function findHiccups(diffs, exempt = () => false, edge = exempt) {
   const out = [], n = diffs.length;
   const around = (i, j) => {
     const v = [];
@@ -44,7 +46,7 @@ export function findHiccups(diffs, exempt = () => false) {
     while (j + 1 < n && diffs[j + 1] < STALL_MAX && !exempt(j + 1)) j++;
     {
       // a long run (a hang, not a stray repeat) must have motion on BOTH sides and no scheduled change right next to it, so a hold that starts or ends at a cut or a move is not one
-      const long = j - i + 1 > MAX_RUN, m = long ? (exempt(i - 1) || exempt(j + 1) ? 0 : Math.min(median(diffs.slice(Math.max(1, i - SPAN), i)), median(diffs.slice(j + 1, j + 1 + SPAN)))) : around(i, j);
+      const long = j - i + 1 > MAX_RUN, m = long ? (edge(i - 1) || edge(j + 1) ? 0 : Math.min(median(diffs.slice(Math.max(1, i - SPAN), i)), median(diffs.slice(j + 1, j + 1 + SPAN)))) : around(i, j);
       if (m >= MOTION_MIN && Math.max(...diffs.slice(i, j + 1)) < STALL_RATIO * m) out.push({ kind: 'stall', i, frames: j - i + 1, value: Math.max(...diffs.slice(i, j + 1)), around: m });
     }
     i = j;
@@ -125,7 +127,9 @@ export default async function smoothGate({ proj, cut }) {
     if (Math.abs(d - step) > step * 0.1) findings.push({ t: pts[k], text: `timestamp: ${d.toFixed(4)} s between frames (expected ${step.toFixed(4)})` });
   }
   const { diffs, n } = await frameDiffs(cut, crop, fps);
-  for (const h of findHiccups(diffs, exempt)) {
+  // a frame within 3 frames of where a real camera move starts or ends
+  const nearMoveEdge = (i) => moves.some(([a, b]) => Math.abs(i / fps - a) <= 3 / fps || Math.abs(i / fps - b) <= 3 / fps);
+  for (const h of findHiccups(diffs, exempt, (i) => exempt(i) || nearMoveEdge(i))) {
     const t = h.i / fps, ctx = inMove(t) ? 'during a camera move' : 'outside any camera move';
     findings.push({ t, text: h.kind === 'spike'
       ? `jump: this frame differs by ${h.value.toFixed(2)} from the one before; its neighbours differ by about ${h.around.toFixed(2)}; no cut is scheduled here (${ctx})`
