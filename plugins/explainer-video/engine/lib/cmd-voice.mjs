@@ -191,7 +191,10 @@ async function speak(a) {
     if (fs.existsSync(list)) fs.unlinkSync(list);
   }
   const duration = ffprobeDuration(takeMp3);
-  writeJson(takeJson, { source: 'elevenlabs', model, voice, seed: seed ?? null, duration: +duration.toFixed(3), words: takeWords });
+  // the words in each beat the take holds, so a later --replace-beats knows where the take ends whatever was edited since
+  const beatWords = script.beats.slice(0, mode ? (mode.kind === 'append' ? mode.to + 1 : oldCovers) : undefined).map((x) => spokenWords(x.spoken).length);
+  const counted = beatWords.reduce((n, c) => n + c, 0) === takeWords.length; // not when the spoken words differ from the script (warned below)
+  writeJson(takeJson, { source: 'elevenlabs', model, voice, seed: seed ?? null, duration: +duration.toFixed(3), ...(counted ? { beatWords } : {}), words: takeWords });
 
   const counterAfter = await counter();
   const known = spend.requests.every((q) => q.billed !== null);

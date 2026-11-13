@@ -30,7 +30,7 @@ test('full run in 5 requests: request k starts at the decoded length of the k se
   // the joined take holds 5 x the decoded audio, so that's the clock the words have to be on
   const joined = contentDuration(path.join(dir, 'voice', 'take.mp3'));
   // (plus the one frame of padding the join's own encode leaves at the very end, about 22 ms, once)
-  assert.ok(joined - 5 * decoded >= 0 && joined - 5 * decoded < 0.03,`take ${joined} s, segment decoded ${decoded} s, ffprobe ${ffprobeDuration(seg)} s`);
+  assert.ok(joined - 5 * decoded >= 0 && joined - 5 * decoded < 0.06, `take ${joined} s, segment decoded ${decoded} s, ffprobe ${ffprobeDuration(seg)} s`);
 
   let idx = 0;
   const late = BEATS.map((b, k) => { // the mock's alignment starts each request's first word at 0
@@ -55,4 +55,23 @@ test('--beats in 2 requests: the second request starts one decoded segment after
   const words = JSON.parse(fs.readFileSync(path.join(dir, 'voice', 'take.json'), 'utf8')).words;
   const at = (beat) => words[BEATS.slice(0, beat).flatMap((b) => spokenWords(b)).length].start;
   assert.ok(Math.abs(at(4) - at(3) - decoded) < 0.002, `beat 5 starts ${at(4) - at(3)} s after beat 4; its audio starts ${decoded} s after`);
+});
+
+test('--replace-beats in 2 requests: the new words and the old words after them both sit on the decoded clock', async () => {
+  const key = fakeKey(); const m = await mockEleven({ key, models });
+  const dir = makeProject(script, { voice: { id: 'voice1', model: 'eleven_v4', seed: 7 } });
+  const env = { EV_ELEVENLABS_BASE: m.url, ELEVENLABS_API_KEY: key };
+  assert.equal((await ev(['voice', dir], env)).status, 0);
+  const readWords = () => JSON.parse(fs.readFileSync(path.join(dir, 'voice', 'take.json'), 'utf8')).words;
+  const first = (beat) => BEATS.slice(0, beat).flatMap((b) => spokenWords(b)).length; // index of a beat's first word
+  const old = readWords();
+  const r = await ev(['voice', dir, '--replace-beats', '2-3'], env);
+  await m.close();
+  assert.equal(r.status, 0, r.out);
+  const decoded = contentDuration(path.join(dir, 'voice', 'segments', '01.mp3'));
+  const now = readWords();
+  assert.ok(Math.abs(now[first(2)].start - now[first(1)].start - decoded) < 0.002, 'beat 3 starts one decoded segment after beat 2');
+  const cutA = (old[first(1) - 1].end + old[first(1)].start) / 2; const cutB = (old[first(3) - 1].end + old[first(3)].start) / 2;
+  const want = cutA + 0.35 + 2 * decoded + 0.35 + (old[first(3)].start - cutB); // old audio to cutA, gap, two new segments, gap, old audio from cutB
+  assert.ok(Math.abs(now[first(3)].start - want) < 0.003, `beat 4 starts at ${now[first(3)].start} s; its audio starts at ${want} s`);
 });

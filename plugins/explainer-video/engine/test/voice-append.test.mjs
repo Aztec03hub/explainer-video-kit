@@ -188,6 +188,50 @@ test('replace: a take that stops at the range is still patched, with the range e
   await m.close();
 });
 
+test('replace: a range shortened to its own first words still patches a take that stops at it', async () => {
+  const key = fakeKey(); const m = await mockEleven({ key });
+  const dir = makeProject(script(5).replace(BEATS[1], 'Scan one.'), cfg);
+  fakeTake(dir, 2);
+  const r = await ev(['voice', dir, '--replace-beats', '2', '--force-words'], env(m, key));
+  await m.close();
+  assert.equal(r.status, 0, r.out);
+  assert.deepEqual(readTake(dir).words.map((w) => w.w), [...beatWords(0, 1), ...spokenWords('Scan one.')]);
+});
+
+// A take written by ev voice records how many words each beat has (beatWords), so the check doesn't depend on which words survived.
+const withCounts = (dir, n) => { const f = path.join(dir, 'voice', 'take.json'); fs.writeFileSync(f, JSON.stringify({ ...readTake(dir), beatWords: BEATS.slice(0, n).map((_, k) => beatWords(k, k + 1).length) })); };
+
+test('replace refuses when the range AND every later beat were edited, on a take that records its beats', async () => {
+  const key = fakeKey(); const m = await mockEleven({ key });
+  const dir = makeProject(script(3).replace(BEATS[1], 'A brand new second line.').replace(BEATS[2], 'Leave it on the desk instead.'), cfg);
+  fakeTake(dir, 3); withCounts(dir, 3);
+  const r = await ev(['voice', dir, '--replace-beats', '2', '--force-words'], env(m, key));
+  await m.close();
+  assert.notEqual(r.status, 0, r.out);
+  assert.match(r.out, /doesn't fit the script around beat 2: the beats before and after must keep the words/);
+  assert.equal(tts(m).length, 0);
+});
+
+test('replace: a later beat whose words also sit in the old range does not block a take that stops at the range', async () => {
+  const key = fakeKey(); const m = await mockEleven({ key });
+  const text = '# Lantern Library\n### Beat 1\n' + BEATS[0] + '\n### Beat 2\nA brand new second line.\n### Beat 3\nThen go on.\n';
+  const dir = makeProject(text, cfg);
+  fakeTake(dir, 2); withCounts(dir, 2); // old beat 2 is "Scan one, then go on."
+  const r = await ev(['voice', dir, '--replace-beats', '2', '--force-words'], env(m, key));
+  await m.close();
+  assert.equal(r.status, 0, r.out);
+  assert.deepEqual(readTake(dir).beatWords, [beatWords(0, 1).length, 5]);
+});
+
+test('a full run records each beat\'s word count in take.json', async () => {
+  const key = fakeKey(); const m = await mockEleven({ key });
+  const dir = makeProject(script(3), cfg);
+  const r = await ev(['voice', dir], env(m, key));
+  await m.close();
+  assert.equal(r.status, 0, r.out);
+  assert.deepEqual(readTake(dir).beatWords, [0, 1, 2].map((k) => beatWords(k, k + 1).length));
+});
+
 test('replace refuses a range the take does not cover', async () => {
   const key = fakeKey(); const m = await mockEleven({ key });
   const dir = makeProject(script(5), cfg);
