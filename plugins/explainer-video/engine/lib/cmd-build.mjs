@@ -144,7 +144,7 @@ function ensureCaptions(proj, hasVoice) {
   if (!fs.existsSync(path.join(ENGINE, 'lib', 'cmd-captions.mjs'))) throw new Error(`${file} is missing and ev captions is not installed in this checkout. Run: ev captions ${proj.root}${hasVoice ? '' : ' --placeholder'}`);
   if (!hasVoice) log('PLACEHOLDER BUILD: there is no voice/take.mp3, so captions are spread evenly over the beats and the mix has no voice. Run: ev voice <project> for the real thing.');
   const r = spawnSync(process.execPath, [ev, 'captions', proj.root, ...(hasVoice ? [] : ['--placeholder'])], { stdio: 'inherit' });
-  if (r.status !== 0) throw new Error(`ev captions failed (see above)${outdated ? `. It ran because build/captions.json is older than script.md or the voice take; fix what it says, then run: ev captions ${proj.root}` : ''}`);
+  if (r.status !== 0) throw new Error(`ev captions failed (see above)${outdated ? `. It ran because build/captions.json is older than ${hasVoice ? 'script.md or the voice take' : 'script.md'}; fix what it says and build again` : ''}`);
   return hasVoice ? 'voice' : 'placeholder';
 }
 
