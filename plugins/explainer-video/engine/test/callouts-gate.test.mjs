@@ -16,7 +16,7 @@ const CARD = `{ card: { html: '<div id="box" style="position:absolute;left:100px
 const BOXES = { dark: { a: { width: 1280, height: 720, shotHeight: 720, pill: { x: 100, y: 100, w: 200, h: 60 }, low: { x: 100, y: 650, w: 200, h: 200 } }, b: { width: 1280, height: 720, shotHeight: 720, pill: { x: 600, y: 300, w: 200, h: 60 } } } };
 
 // A minimal built project: build/index.html + assets + captions.json + film.js, the same shape `ev build` writes.
-function built(events, { patch } = {}) {
+function built(events, { patch, id = 'main' } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-cogate-'));
   fs.mkdirSync(path.join(dir, 'build', 'assets'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'build', 'frames', 'dark'), { recursive: true });
@@ -31,14 +31,14 @@ function built(events, { patch } = {}) {
   fs.writeFileSync(path.join(dir, 'build', 'captions.json'), JSON.stringify({ chunks: [], beats: [], chapters: [] }));
   fs.writeFileSync(path.join(dir, 'build', 'captions.js'), 'window.CAPTIONS = { chunks: [] };');
   fs.writeFileSync(path.join(dir, 'build', 'frames', 'dark', 'boxes.js'), `window.BOXES = ${JSON.stringify(BOXES)};`);
-  const film = `window.SCENES = ${CARD};\nwindow.FILM = ${JSON.stringify({ id: 'main', duration: 12, page: 1280, events })};`;
+  const film = `window.SCENES = ${CARD};\nwindow.FILM = ${JSON.stringify({ id, duration: 12, page: 1280, events })};`;
   fs.writeFileSync(path.join(dir, 'film.js'), film);
   fs.writeFileSync(path.join(dir, 'build', 'film.js'), film);
   fs.writeFileSync(path.join(dir, 'build', 'index.html'), `<!doctype html><html><head><script src="assets/gsap.min.js"></script><script src="assets/clock.js"></script><script src="assets/explainer.js"></script>
 <style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:1920px;height:1080px;overflow:hidden}#root{position:relative;width:100%;height:100%;overflow:hidden}</style></head>
-<body><div id="root" data-composition-id="main" data-start="0" data-duration="12" data-width="1920" data-height="1080"></div>
+<body><div id="root" data-composition-id="${id}" data-start="0" data-duration="12" data-width="1920" data-height="1080"></div>
 <script src="frames/dark/boxes.js"></script><script src="captions.js"></script><script src="film.js"></script>
-<script>window.__timelines = window.__timelines || {}; window.__timelines['main'] = explainer(window.FILM, 12);</script></body></html>`);
+<script>window.__timelines = window.__timelines || {}; window.__timelines['${id}'] = explainer(window.FILM, 12);</script></body></html>`);
   return loadProject(dir);
 }
 const show = (s) => ({ t: 0, show: s });
@@ -47,6 +47,11 @@ test('PASS: brackets on a state box and on a moving element inside a scene, all 
   const r = await calloutsGate({ proj: built([show('dark/a'), { t: 1, label: 'Pill', at: 'dark/a:pill', dur: 2 }, { t: 4, scene: 'card', dur: 6 }, { t: 5, label: 'Box', at: 'scene:card:#box', dur: 4 }]), opts: {} });
   assert.equal(r.status, 'PASS', r.lines.join('\n'));
   assert.equal(r.data.callouts, 2);
+});
+
+test('PASS: the same clean film with a composition id that is not "main"', { skip: !haveChrome, timeout: 60000 }, async () => {
+  const r = await calloutsGate({ proj: built([show('dark/a'), { t: 1, label: 'Pill', at: 'dark/a:pill', dur: 2 }], { id: 'lantern' }), opts: {} });
+  assert.equal(r.status, 'PASS', r.lines.join('\n'));
 });
 
 test('FAIL: a callout aimed at a state that is not on screen, and a target that runs off the screen, are named with measured boxes', { skip: !haveChrome, timeout: 60000 }, async () => {

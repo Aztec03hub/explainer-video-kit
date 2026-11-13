@@ -24,8 +24,8 @@ const f1 = (n) => Math.round(n * 10) / 10;
 const box = (b) => (b ? `x ${f1(b.x)} y ${f1(b.y)} w ${f1(b.w)} h ${f1(b.h)}` : 'none');
 
 // Runs in the page: seeks, then reports each label's opacity and boxes and its target's real box.
-function probe(time, specs, page) {
-  window.__timelines.main.totalTime(time, false);
+function probe(time, specs, page, id) {
+  window.__timelines[id].totalTime(time, false);
   const r = (e) => { const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
   const cam = r(document.querySelector('.xp-camera')), k = cam.w / page;
   const labels = [...document.querySelectorAll('.xp-label')];
@@ -86,7 +86,7 @@ export default async function callouts({ proj, opts = {} }) {
     await pg.setViewport({ width: W, height: H });
     await pg.goto('file://' + path.join(proj.build, 'index.html'), { waitUntil: 'load' });
     await pg.evaluate(() => document.fonts.ready);
-    const at = (t) => pg.evaluate(probe, Math.min(Math.max(t, 0), length), specs, page);
+    const at = (t) => pg.evaluate(probe, Math.min(Math.max(t, 0), length), specs, page, F.id || 'main');
     const inFrame = (b) => b.x >= -tol && b.y >= -tol && b.x + b.w <= W + tol && b.y + b.h <= H + tol;
 
     // 1. inside each window: start, middle, end
