@@ -56,7 +56,8 @@ export function checkProject(proj) {
     if (!sets[set]) return errors.push(`${where}: no set "${set}" in project.json frames.sets (have: ${list(Object.keys(sets))}).${didYouMean(set, Object.keys(sets))}`);
     const states = Object.keys(sets[set].states || { default: '' });
     if (!states.includes(state)) return errors.push(`${where}: no state "${state}" in set "${set}" (have: ${list(states)}).${didYouMean(state, states)}`);
-    if (!box) return;
+    if (box && (key === 'show' || key === 'device')) return errors.push(`${where}: ${key} takes no box (a box is for cursor and label at); write "${set}/${state}".`);
+    if (!box) return key === 'cursor' ? errors.push(`${where}: cursor needs a box: "${set}/${state}:<box>".`) : undefined;
     const defined = [...Object.keys(sets[set].boxes || {}), ...Object.keys(sets[set].texts || {})];
     if (!defined.includes(box)) return errors.push(`${where}: no box "${box}" in set "${set}" (have: ${list(defined)}).${didYouMean(box, defined)}`);
     const captured = boxesOf(set)?.[state];
@@ -82,6 +83,8 @@ export function checkProject(proj) {
   // 2. anchors
   const capFile = path.join(proj.build, 'captions.json');
   const events = film.events || [];
+  events.forEach((e, i) => { if (typeof e.t !== 'number' && typeof e.t !== 'string') errors.push(`event ${i + 1} has no t (a time in seconds or an anchor like "word:x").`); });
+  events.forEach((e, i) => { if (e.label !== undefined && e.at === undefined) errors.push(`event ${i + 1} (label: "${e.label}") needs an at ("set/state:box", "caption", a scene target or [x, y, w, h]).`); });
   if (fs.existsSync(capFile)) {
     const resolve = makeClock({ captions: readJson(capFile), planEnd: film.duration, length: film.duration });
     events.forEach((e, i) => {

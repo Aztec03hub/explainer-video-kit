@@ -140,3 +140,28 @@ test('a callout at scene:name:selector is accepted; an unknown scene or an empty
   assert.match(bad.errors[0], /event 2 .*no scene "crad".*[Dd]id you mean "card"/);
   assert.match(bad.errors[1], /event 3 .*empty selector/);
 });
+
+test('a cursor with no :box is an error that names the event', () => {
+  const r = checkProject(sample({ film: film({ t: 0, cursor: 'dark/open' }) }));
+  assert.equal(r.errors.length, 1);
+  assert.match(r.errors[0], /event 1 .*cursor.*needs a box/);
+});
+
+test('an event with no t is an error that names the event', () => {
+  const r = checkProject(sample({ film: film({ show: 'dark/default' }) }));
+  assert.equal(r.errors.length, 1);
+  assert.match(r.errors[0], /event 1 .*no t/);
+});
+
+test('a label with no at is an error that names the event', () => {
+  const r = checkProject(sample({ film: film({ t: 1, label: 'x' }) }));
+  assert.equal(r.errors.length, 1);
+  assert.match(r.errors[0], /event 1 .*label.*needs an at/);
+});
+
+test('show and device with a :box suffix are errors', () => {
+  const r = checkProject(sample({ film: film({ t: 0, show: 'dark/open:confirm' }, { t: 1, device: 'dark/open:confirm' }) }));
+  assert.equal(r.errors.length, 2);
+  assert.match(r.errors[0], /event 1 .*show.*takes no box/);
+  assert.match(r.errors[1], /event 2 .*device.*takes no box/);
+});
