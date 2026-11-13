@@ -80,6 +80,23 @@ test('a camera window below the fixed screen height is an error when the page he
   assert.match(r.errors[0], /event 1 .*cam.*bottom 863.*720/);
 });
 
+// A short set and a tall set: the window is checked against the set on screen at its time, not the shortest set in the project.
+function twoSets(ev) {
+  const proj = sample({ boxes: { default: { height: 720, width: 1280, shotHeight: 720 } }, film: film(...ev), cfg: (c) => { c.frames.sets.long = { theme: 'dark', dsf: 4, states: { page: '&state=page' } }; } });
+  fs.mkdirSync(path.join(proj.frames, 'long'), { recursive: true });
+  fs.writeFileSync(path.join(proj.frames, 'long', 'boxes.json'), JSON.stringify({ page: { height: 2000, width: 1280, shotHeight: 2000 } }));
+  return checkProject(proj);
+}
+test('a camera window that fits the tall set on screen is fine even though another set is shorter', () => {
+  const r = twoSets([{ t: 0, show: 'long/page' }, { t: 1, cam: [0, 1000, 1280] }]);
+  assert.deepEqual(r.errors, []);
+});
+test('a camera window too tall for the set on screen at its time is still an error', () => {
+  const r = twoSets([{ t: 0, show: 'long/page' }, { t: 1, show: 'dark/default' }, { t: 2, cam: [0, 100, 1280] }]);
+  assert.equal(r.errors.length, 1);
+  assert.match(r.errors[0], /event 3 .*cam.*bottom 820.*720/);
+});
+
 test('a set with no fixed height whose page is much taller than 16:9 warns', () => {
   const boxes = { default: { height: 2400, width: 1280, shotHeight: 2400 } };
   const r = checkProject(sample({ boxes, cfg: (c) => { delete c.frames.sets.dark.fixed; } }));

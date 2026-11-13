@@ -95,9 +95,14 @@ export function checkProject(proj) {
   // 3. camera windows [x, y, w], h = w * 9 / 16
   const pageW = film.page || frames.width || 1280;
   const shotHeights = Object.keys(sets).map((s) => boxesOf(s)).filter(Boolean).flatMap((b) => Object.values(b).map((v) => v.shotHeight)).filter(Number.isFinite);
-  const pageH = shotHeights.length ? Math.min(...shotHeights) : null;
-  events.forEach((e, i) => {
+  const minH = shotHeights.length ? Math.min(...shotHeights) : null;   // used until a show has happened
+  // the window is checked against the page on screen at its time: walk events by time (an anchor like "word:x" keeps the time of the event before it), remember the last show
+  let last = -Infinity, shown = null;
+  const heightOf = (ref) => { const m = typeof ref === 'string' && REF.exec(ref), v = m && boxesOf(m[1])?.[m[2]]; return v && Number.isFinite(v.shotHeight) ? v.shotHeight : null; };
+  events.map((e, i) => ({ e, i, t: last = typeof e.t === 'number' ? e.t : last })).sort((a, b) => a.t - b.t || a.i - b.i).forEach(({ e, i }) => {
+    if (typeof e.show === 'string') shown = heightOf(e.show) ?? shown;
     if (!Array.isArray(e.cam)) return;
+    const pageH = shown ?? minH;
     const [x, y, w] = e.cam, h = w * (film.screen && film.screen.w > 0 && film.screen.h > 0 ? film.screen.h / film.screen.w : 9 / 16), where = `event ${i + 1} (cam: [${e.cam.join(', ')}])`;
     if (![x, y, w].every(Number.isFinite) || w <= 0) return errors.push(`${where}: a camera window is [x, y, width] in page pixels.`);
     if (x < 0 || x + w > pageW) errors.push(`${where}: the window's right edge is at ${x + w} but the page is ${pageW} wide. Keep x >= 0 and x + width <= ${pageW}.`);
