@@ -210,3 +210,25 @@ test('project.json gates.smooth: false skips the gate without reading the film o
   assert.equal(out.status, 'SKIP');
   assert.match(out.reason, /gates\.smooth is false/);
 });
+
+// F7: a scene's end is placed by the plan clock (the runtime resolves a numeric dur through it), not by the raw film.js dur.
+test('the smooth gate puts a scene end through the plan clock: the real end cut is exempt', async () => {
+  const mkRoot = (events, beats) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-smooth-pc-'));
+    for (const [f, v] of Object.entries({ 'project.json': { name: 'pc' }, 'film.js': `window.FILM = ${JSON.stringify({ id: 'main', duration: 6, screen: { x: 0, y: 0, w: 640, h: 360 }, events })};`,
+      'build/captions.json': { chunks: [], beats, chapters: [] }, 'build/index.html': '<div data-composition-id="main" data-width="640" data-height="360" data-duration="6"></div>' })) {
+      fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
+      fs.writeFileSync(path.join(root, f), typeof v === 'string' ? v : JSON.stringify(v));
+    }
+    return loadProject(root);
+  };
+  // plan beats 0-3 and 3-6, beat 2 starts at 4.7 s: plan t 1 is 1.5 s, plan dur 2 ends at 4.5 s. The picture cuts in at 1.5 s and out at 4.5 s.
+  const cut = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ev-smooth-v-')), 'scene.mp4');
+  const r = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=640x360:d=6:r=10', '-vf', "drawbox=x=0:y=0:w=640:h=200:color=white:t=fill:enable='between(t,1.5,4.5)'", '-pix_fmt', 'yuv420p', cut], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const flat = [{ i: 0, plan: null, voice: [0.2, 2] }, { i: 1, plan: null, voice: [4.7, 5.5] }], planned = [{ i: 0, plan: [0, 3], voice: [0.2, 2] }, { i: 1, plan: [3, 6], voice: [4.7, 5.5] }];
+  const control = await smoothGate({ proj: mkRoot([{ t: 1.5, scene: 's', dur: 3 }], flat), cut });
+  assert.equal(control.status, 'PASS', control.lines.join(' | '));
+  const out = await smoothGate({ proj: mkRoot([{ t: 1, scene: 's', dur: 2 }], planned), cut });
+  assert.equal(out.status, 'PASS', out.lines.join(' | '));
+});

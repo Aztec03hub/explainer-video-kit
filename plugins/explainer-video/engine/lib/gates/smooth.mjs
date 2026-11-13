@@ -11,8 +11,12 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import { RUNTIME } from '../common.mjs';
 import { loadTimeline } from './timeline.mjs';
 import { spawnAsync } from './ocr.mjs';
+
+const { resolveEvents } = createRequire(import.meta.url)(path.join(RUNTIME, 'explainer.js'));
 
 export const name = 'smooth';
 export const help = 'smooth: finds repeated or dropped frames, a freeze in the middle of motion and one-frame jumps away from the cuts in film.js; names the seconds.';
@@ -101,15 +105,16 @@ export default async function smoothGate({ proj, cut }) {
   const crop = cropFor(screen, cw && ch ? { w: cw, h: ch } : null, { w: dims.width, h: dims.height });
 
   const exemptSecs = [];   // [from, to] seconds
-  for (const e of F.events) {
-    const t = clock(e.t), d = e.fade || 0, f = 1 / fps;
+  const events = resolveEvents(F.events, clock);   // through the plan clock like the runtime: a numeric dur ends at clock(t + dur), so t and dur are film seconds
+  for (const e of events) {
+    const t = e.t, d = e.fade || 0, f = 1 / fps;
     if (e.show || 'device' in e) exemptSecs.push([t - f, t + d + 2 * f]);
     if (e.cam && (!e.dur || e.dur < 0.25)) exemptSecs.push([t - f, t + (e.dur || 0) + 2 * f]);   // a cam cut, or a move so short it reads as one
     if (e.scene) exemptSecs.push([t - f, t + (e.dur || 4) + d + 0.15]);
   }
   exemptSecs.push([0, 3 / fps], [tl.length - 3 / fps, tl.length + 1]);
   const exempt = (i) => { const t = i / fps; return exemptSecs.some(([a, b]) => t >= a && t <= b); };
-  const moves = F.events.filter((e) => e.cam && e.dur >= 0.25).map((e) => [clock(e.t), clock(e.t) + e.dur]);
+  const moves = events.filter((e) => e.cam && e.dur >= 0.25).map((e) => [e.t, e.t + e.dur]);
   const inMove = (t) => moves.some(([a, b]) => t >= a - 0.05 && t <= b + 0.05);
 
   const lines = [], findings = [];
