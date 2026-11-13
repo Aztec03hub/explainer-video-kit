@@ -66,9 +66,10 @@ export function measureLoudness(file, { from = 0, to = null } = {}) {
   const r = run('ffmpeg', ['-hide_banner', '-nostats', ...span, '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
   if (r.status !== 0) throw new Error(`ffmpeg could not measure ${file}: ${r.stderr.trim().split('\n').slice(-2).join(' | ')}`);
   const summary = r.stderr.slice(r.stderr.lastIndexOf('Summary:'));
-  const lufs = /\bI:\s+(-?[\d.]+|-inf)\s+LUFS/.exec(summary), peak = /True peak:\s+Peak:\s+(-?[\d.]+|-inf)\s+dBFS/.exec(summary);
+  const lufs = /\bI:\s+(-?[\d.]+|-?inf)\s+LUFS/.exec(summary), peak = /True peak:\s+Peak:\s+(-?[\d.]+|-?inf)\s+dBFS/.exec(summary);
   if (!lufs || !peak) throw new Error(`could not read the loudness summary for ${file}`);
-  return { lufs: parseFloat(lufs[1]), truePeak: parseFloat(peak[1]) };
+  const num = (s) => (s.endsWith('inf') ? (s[0] === '-' ? -Infinity : Infinity) : parseFloat(s)); // parseFloat('-inf') is NaN
+  return { lufs: num(lufs[1]), truePeak: num(peak[1]) };
 }
 
 // measureGap(voiceFile, duckedMusicFile?, { duration }) -> { voice, music, gap, span }: how far the music sits under the voice,

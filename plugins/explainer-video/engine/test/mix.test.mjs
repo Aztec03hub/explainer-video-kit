@@ -81,3 +81,8 @@ test('measureGap: the ducked music sits well under the voice over the voice span
 test('must fail: a missing input says which file', () => {
   assert.throws(() => mixAudio({ voice: path.join(tmp, 'nope.wav'), out: path.join(tmp, 'x.wav'), length: 2 }), /could not mix/);
 });
+
+test('a silent file measures a true peak of -Infinity, not NaN', () => {
+  const L = measureLoudness(tone('silent.wav', 300, 1, 0));
+  assert.equal(L.truePeak, -Infinity);
+});
