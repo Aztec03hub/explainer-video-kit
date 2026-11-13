@@ -26,6 +26,16 @@ test('captionsOutdated: a take.mp3 newer than captions.json is outdated even whe
   assert.equal(captionsOutdated(proj, true), true);
 });
 
+test('captionsOutdated: a take.mp3 with no take.json beside it never marks captions outdated (nothing to re-time them from)', () => {
+  const root = fs.mkdtempSync(path.join(tmp, 'mp3only-'));
+  const proj = { build: path.join(root, 'build'), voice: path.join(root, 'voice'), script: path.join(root, 'script.md') };
+  fs.mkdirSync(proj.build); fs.mkdirSync(proj.voice);
+  const set = (f, s) => { fs.writeFileSync(f, 'x'); const t = Date.now() / 1000 + s; fs.utimesSync(f, t, t); };
+  set(path.join(proj.build, 'captions.json'), -50);
+  set(path.join(proj.voice, 'take.mp3'), 0);
+  assert.equal(captionsOutdated(proj, true), false);
+});
+
 test('writeJson replaces the file by rename (never rewrites it in place) and leaves no temp file, also when the rename fails', () => {
   const f = path.join(tmp, 'out', 'a.json');
   writeJson(f, { a: 1 });
