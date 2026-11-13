@@ -1,16 +1,18 @@
 // Voice only some beats and join them onto an existing take (ev voice --beats / --append / --replace-beats).
 // Pure parts (range, coverage, the new word times) are separate from the ffmpeg part so the tests can reach each one.
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { norm, run } from './common.mjs';
 import { spokenWords } from './script.mjs';
 
 // Length of the audio itself, by decoding it: ffprobe's mp3 duration also counts encoder delay and padding (tens of ms
-// per file), and joining files must not add those up. Needs one quick decode per file.
+// per file), and joining files must not add those up. Counted from the decoded samples (16-bit mono at 44.1 kHz, about 5 MB
+// a minute in memory): ffmpeg's progress time stops at the last mp3 frame boundary, 0 to 26 ms short, and that adds up
+// over a take of many requests.
 export function contentDuration(file) {
-  const r = run('ffmpeg', ['-v', 'error', '-i', file, '-f', 'null', '-progress', 'pipe:1', '-']);
-  const us = [...r.stdout.matchAll(/out_time_us=(\d+)/g)].at(-1);
-  if (r.status !== 0 || !us) throw new Error(`ffmpeg could not measure ${file}: ${r.stderr.trim().slice(0, 200)}`);
-  return +us[1] / 1e6;
+  const r = spawnSync('ffmpeg', ['-v', 'error', '-i', file, '-f', 's16le', '-ac', '1', '-ar', '44100', '-'], { maxBuffer: 1 << 30 });
+  if (r.status !== 0) throw new Error(`ffmpeg could not measure ${file}: ${String(r.stderr).trim().slice(0, 200)}`);
+  return r.stdout.length / 2 / 44100;
 }
 
 export const SPLICE_GAP = 0.35; // seconds of silence between old audio and new audio (never a hard glue)
