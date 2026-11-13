@@ -369,6 +369,10 @@ describe('whisper gate', () => {
     assert.equal(r.status, 'PASS');
     assert.deepEqual(r.warnings, []);
   });
+  test('a match block with a total but no matched count does not pass on a NaN rate', async () => {
+    const r = await whisperGate(ctx(take({ total: 212 })));
+    assert.notEqual(r.status, 'PASS', r.measured);
+  });
   test('95 percent passes with a warning', async () => {
     const r = await whisperGate(ctx(take({ matched: 95, total: 100 })));
     assert.equal(r.status, 'PASS');

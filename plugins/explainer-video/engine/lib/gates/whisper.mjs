@@ -17,7 +17,7 @@ export default async function whisperGate({ proj }) {
   const takeFile = path.join(proj.voice, 'take.json');
   const take = fs.existsSync(takeFile) ? readJson(takeFile) : null;
   // heardAs / ignoreHeard change what counts as heard, so take.json's stored count (made without them) is recomputed.
-  let m = take?.match && Number.isFinite(take.match.total) && !heardConfig(proj).active ? take.match : null;
+  let m = take?.match && Number.isFinite(take.match.total) && Number.isFinite(take.match.matched) && !heardConfig(proj).active ? take.match : null;
   if (!m) {
     const tr = fs.existsSync(path.join(proj.voice, 'transcript.json')) ? transcriptWords(proj) : null;
     const scriptFile = path.join(proj.build, 'script.json');
@@ -32,7 +32,7 @@ export default async function whisperGate({ proj }) {
       'Run: ev align <project> --transcript-only (or ev align <project> --audio <your recording> for your own voice), then: ev gates <project> --only whisper' };
   }
   const rate = m.total ? m.matched / m.total : 0;
-  const status = rate < FAIL_UNDER ? 'FAIL' : 'PASS';
+  const status = rate >= FAIL_UNDER ? 'PASS' : 'FAIL';
   const warnings = status === 'PASS' && rate < PASS_AT ? [`match rate is under 98 percent (${(rate * 100).toFixed(1)}): listen to the unmatched words before shipping`] : [];
   return {
     name, status, measured: `${m.matched} of ${m.total} script words (${(rate * 100).toFixed(1)}%)`, limit: `>= ${PASS_AT * 100}% (fail under ${FAIL_UNDER * 100}%)`,
