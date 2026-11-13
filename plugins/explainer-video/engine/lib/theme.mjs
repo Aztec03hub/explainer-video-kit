@@ -9,8 +9,8 @@ export const THEME_VARS = [
   '--ev-font', '--ev-caption-font', '--ev-tag-font', '--ev-caption-size', '--ev-tag-size', '--ev-caption-bg',
   '--ev-callout-shadow', '--ev-cursor', '--ev-cursor-edge', '--ev-ripple',
 ];
-const SAFE = /^[^;{}<>\\]+$/; // a CSS value cannot break out of its rule
-const NO_REMOTE = /url\s*\(|\/\*|@import/i; // no web links (fonts are local) and no comment that could swallow the rest of the rule
+export const SAFE = /^[^;{}<>\\]+$/; // a CSS value cannot break out of its rule
+export const NO_REMOTE = /url\s*\(|\/\*|@import/i; // no web links (fonts are local) and no comment that could swallow the rest of the rule
 const FONT_EXT = /\.(ttf|otf|woff2?)$/i;
 
 export function themeCss(theme, root) {

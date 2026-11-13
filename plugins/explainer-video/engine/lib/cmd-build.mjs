@@ -9,7 +9,7 @@ import { measureLoudness, mixAudio, lufsTarget, DEFAULTS } from './mix.mjs';
 import { blankColours, defaultsCss, endcardDecision, endcardFonts, evolvThemeDefaults, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
 import { checkEndcardFit } from './endcard-measure.mjs';
 import { checkProject, formatCheck } from './project-check.mjs';
-import { themeCss } from './theme.mjs';
+import { themeCss, SAFE, NO_REMOTE } from './theme.mjs';
 
 const fail = (m) => { throw new Error(m); };
 const HELP = `usage: ev build <project> [--no-render] [--quality draft|delivery] [--crf n] [--workers n] [--skip-gates] [--skip-pixel-check] [--skip-ocr]
@@ -51,7 +51,7 @@ export const readFilm = (file) => readWindow(file).FILM;
 // project.json style: { canvasFrom, canvasMid, canvasTo, caption, highlight, callout, calloutInk, font } -> :root overrides.
 export function styleCss(style = {}) {
   const lines = Object.entries(style).map(([k, v]) => {
-    if (!/^[a-zA-Z]+$/.test(k) || !/^[^;{}<>]+$/.test(String(v))) throw new Error(`project.json style.${k}: use a plain name and a CSS value without ; { } < >. Give style.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
+    if (!/^[a-zA-Z]+$/.test(k) || !SAFE.test(String(v)) || NO_REMOTE.test(String(v))) throw new Error(`project.json style.${k}: use a plain name and a CSS value without ; { } < > backslash, a comment or url(. Give style.${k} a CSS value like "#FF6A3D", or delete the key to keep the default.`);
     return `--ev-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`;
   });
   return lines.length ? `:root { ${lines.join(' ')} }` : '';
@@ -125,7 +125,7 @@ export function captionsOutdated(proj, hasVoice) {
   if (!fs.existsSync(json)) return false;
   const made = fs.statSync(json).mtimeMs;
   const newer = (f) => fs.existsSync(f) && fs.statSync(f).mtimeMs > made;
-  return newer(proj.script) || (hasVoice && (newer(path.join(proj.voice, 'take.json'))));
+  return newer(proj.script) || (hasVoice && (newer(path.join(proj.voice, 'take.json')) || newer(path.join(proj.voice, 'take.mp3'))));
 }
 
 // Which captions the build uses: 'placeholder' (even timing, no voice) or 'voice'. Placeholder captions left over from an
