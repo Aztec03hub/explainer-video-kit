@@ -68,8 +68,7 @@ export default async function windowsGate({ proj, opts = {} }) {
   const hits = [];
   let open = null; // the run of consecutive steps that overlap one rectangle
   const close = () => { if (open) { hits.push(`${open.from.toFixed(2)} to ${open.to.toFixed(2)} s  window ${open.win} overlaps ${open.rect} (${open.ref})`); open = null; } };
-  const step = Number(opts.step) || STEP;
-  for (let t = 0; t <= length; t += step) {
+  for (let t = 0; t <= length; t += STEP) {
     const cam = cameraAt(segs, t, page), win = { x: cam.x, y: cam.y, w: cam.w, h: (cam.w * screen.h) / screen.w };
     const shown = shownAt(shows, t);
     const hit = rects.find((r) => shown.includes(`${r.set}/${r.state}`) && overlaps(win, r));

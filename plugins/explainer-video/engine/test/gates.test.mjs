@@ -544,6 +544,11 @@ describe('windows gate', () => {
     'build/index.html': '<div data-composition-id="lantern" data-width="640" data-duration="6"></div>',
   });
   const SHOW = { t: 0, show: 'app/home' }, TOP = { t: 0, cam: [0, 0, 640] };
+  test('ev gates --step (the OCR spacing) does not coarsen the camera sweep', async () => {
+    const films = (opts) => windowsGate({ proj: project([SHOW, TOP, { t: 1, cam: [0, 1000, 640], dur: 2 }]), opts });
+    assert.equal((await films({})).status, 'FAIL');
+    assert.equal((await films({ step: 1 })).status, 'FAIL');
+  });
   test('must fail: an eased move sweeps the window across a forbidden rectangle, naming time, window and rectangle', async () => {
     const r = await windowsGate({ proj: project([SHOW, TOP, { t: 1, cam: [0, 1000, 640], dur: 2 }]), opts: {} });
     console.log(`must-fail output: ${r.status}\n  ${r.lines.join('\n  ')}`);
