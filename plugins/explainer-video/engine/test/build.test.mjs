@@ -183,6 +183,7 @@ test('end to end: a 6 s film renders at 1920x1080 with audio and a populated fra
   for (const [n, size] of [['home', '1280x1600'], ['detail', '1280x1600']]) ff('-f', 'lavfi', '-i', `testsrc2=s=${size}:d=1,hue=h=${n === 'home' ? 0 : 120}`, '-frames:v', '1', path.join(dir, 'frames', 'app', `${n}.png`));
   ff('-f', 'lavfi', '-i', 'sine=f=300:d=0.5', path.join(dir, 'voice', 'take.mp3'));
   ff('-f', 'lavfi', '-i', 'sine=f=110:d=8', path.join(dir, 'music.mp3'));
+  fs.utimesSync(path.join(dir, 'build', 'captions.json'), new Date(), new Date()); // made after the take, as ev captions leaves them: a newer take.mp3 means stale captions
 
   await build([dir, '--skip-gates', '--workers', '2']);
 
