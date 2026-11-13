@@ -1,6 +1,6 @@
 // Smooth-motion gate (hiccup check): finds playback glitches in the rendered cut itself and names their timestamps.
 //  1. Timestamps: every video packet must be one frame apart (a dropped or repeated timestamp is a stutter in any player).
-//  2. Stalls: a run of 1 to 4 identical frames in the middle of motion (the picture freezes, then moves on).
+//  2. Stalls: a run of identical frames in the middle of motion (a longer run needs motion on both sides) (the picture freezes, then moves on).
 //  3. Spikes: one frame that differs far more than its neighbours, away from every scheduled cut.
 // "Scheduled" comes from film.js through the same clock the renderer uses: a show or device change, a scene, a cam cut (no dur)
 // and the first and last frames are exempt, as are their cross-fades and a scene's whole window. A hold on a still screen is never a stall,
@@ -42,8 +42,9 @@ export function findHiccups(diffs, exempt = () => false) {
     if (diffs[i] >= STALL_MAX || exempt(i)) continue;
     let j = i;
     while (j + 1 < n && diffs[j + 1] < STALL_MAX && !exempt(j + 1)) j++;
-    if (j - i + 1 <= MAX_RUN) {
-      const m = around(i, j);
+    {
+      // a long run (a hang, not a stray repeat) must have motion on BOTH sides and no scheduled change right next to it, so a hold that starts or ends at a cut or a move is not one
+      const long = j - i + 1 > MAX_RUN, m = long ? (exempt(i - 1) || exempt(j + 1) ? 0 : Math.min(median(diffs.slice(Math.max(1, i - SPAN), i)), median(diffs.slice(j + 1, j + 1 + SPAN)))) : around(i, j);
       if (m >= MOTION_MIN && Math.max(...diffs.slice(i, j + 1)) < STALL_RATIO * m) out.push({ kind: 'stall', i, frames: j - i + 1, value: Math.max(...diffs.slice(i, j + 1)), around: m });
     }
     i = j;

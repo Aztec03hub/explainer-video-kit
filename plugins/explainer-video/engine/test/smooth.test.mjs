@@ -41,9 +41,12 @@ test('MUST FAIL: a one-frame jump away from any cut is a spike, and the real sha
   assert.deepEqual(r.map((h) => h.kind), ['spike', 'stall', 'spike']);
 });
 
-test('a freeze on a still screen (no motion around it) is a hold, not a stall; a long freeze in motion is left to the other gates', () => {
+test('a freeze on a still screen (no motion around it) is a hold, not a stall; a long freeze in the middle of motion is a stall', () => {
   assert.deepEqual(findHiccups([0, ...flat(20, 0.003), 0.0001, ...flat(20, 0.003)]), []);
-  assert.deepEqual(findHiccups([0, ...flat(30, 0.3), ...flat(10, 0), ...flat(30, 0.3)]), []);
+  const r = findHiccups([0, ...flat(30, 0.3), ...flat(10, 0), ...flat(30, 0.3)]);
+  assert.deepEqual(r.map((h) => [h.kind, h.i, h.frames]), [['stall', 31, 10]], JSON.stringify(r));
+  assert.deepEqual(findHiccups([0, ...flat(30, 0.3), ...flat(10, 0), ...flat(30, 0.003)]), [], 'a move that ends into a still hold is not a hang');
+  assert.deepEqual(findHiccups([0, ...flat(30, 0.003), ...flat(10, 0), ...flat(30, 0.3)]), [], 'a still hold that ends into a move is not a hang');
 });
 
 test('a caption word change on a still screen is not a spike', () => {
