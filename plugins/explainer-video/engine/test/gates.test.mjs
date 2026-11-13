@@ -185,6 +185,17 @@ describe('wipes gate', () => {
     assert.equal(r.status, 'SKIP');
     assert.match(r.reason, /captions\.json is missing.*ev captions/);
   });
+  test('a 1280x720 composition with no FILM.screen runs wipes and smooth (the default screen scales with the composition)', async () => {
+    const p = mkProject({
+      'film.js': "window.FILM = { id: 'main', duration: 3, events: [{ t: 1, show: 'x', fade: 0.3 }] };",
+      'build/captions.json': { chunks: [], beats: [], chapters: [] },
+      'build/index.html': '<div data-composition-id="main" data-width="1280" data-height="720" data-duration="3"></div>',
+    });
+    const cut = path.join(tmp, 'small.mp4');
+    ff('-f', 'lavfi', '-i', 'testsrc2=s=1280x720:d=3:r=10', '-pix_fmt', 'yuv420p', cut);
+    await wipesGate(ctx(p, cut));
+    await (await import('../lib/gates/smooth.mjs')).default({ proj: p, cut });
+  });
 });
 
 describe('captions gate', () => {

@@ -7,8 +7,6 @@ import vm from 'node:vm';
 import { RUNTIME } from '../common.mjs';
 import { endcardDecision } from '../endcard.mjs';
 
-export const DEFAULT_SCREEN = { x: 160, y: 24, w: 1600, h: 900 };
-
 export function loadTimeline(proj, gateName) {
   const captionsFile = path.join(proj.build, 'captions.json'), indexFile = path.join(proj.build, 'index.html');
   const missing = [[proj.film, 'create film.js (ev init)'], [captionsFile, 'run: ev captions <project>'], [indexFile, 'run: ev build <project>']].find(([f]) => !fs.existsSync(f));
@@ -25,6 +23,7 @@ export function loadTimeline(proj, gateName) {
   const dur = /data-composition-id[^>]*data-duration="([\d.]+)"/.exec(html);
   if (!dur) throw new Error(`${indexFile} has no root element with data-composition-id and data-duration`);
   const length = Number(dur[1]);
-  const { makeClock } = createRequire(import.meta.url)(path.join(RUNTIME, 'clock.js'));
-  return { F, clock: makeClock({ captions, planEnd: F.duration, length }), screen: F.screen || DEFAULT_SCREEN, length, captions };
+  const req = createRequire(import.meta.url), { makeClock } = req(path.join(RUNTIME, 'clock.js'));
+  const size = (k, dflt) => Number(new RegExp(`data-${k}="(\\d+)"`).exec(html)?.[1]) || dflt;   // the runtime's default screen scales with the composition, so the gates' must too
+  return { F, clock: makeClock({ captions, planEnd: F.duration, length }), screen: F.screen || req(path.join(RUNTIME, 'explainer.js')).defaultScreen(size('width', 1920), size('height', 1080)), length, captions };
 }
