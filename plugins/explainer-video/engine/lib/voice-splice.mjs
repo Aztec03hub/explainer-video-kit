@@ -46,6 +46,21 @@ export function takeCoverage(take, beats) {
   return { k, exact: idx === take.words.length };
 }
 
+// Does the take stop at the end of the range being re-taken (no later beat in it)? No suffix matching is also what an
+// edited beat AFTER the range looks like, and then the take still holds the later beats' audio.
+function endsAtRange(tw, beats, mode, preLen) {
+  const same = (x, y) => x && norm(x.w) === norm(y);
+  const range = beats.slice(mode.from, mode.to + 1).flatMap((b) => spokenWords(b.spoken));
+  if (range.every((w, i) => same(tw[preLen + i], w))) return tw.length === preLen + range.length; // the range kept its words: nothing may follow them
+  // ponytail: with an edited range the old words are unknown, so look for any later beat's words in the rest of the
+  // take. It can't see later beats that were ALL edited as well; keeping beat boundaries in take.json would.
+  const rest = tw.slice(preLen);
+  return !beats.slice(mode.to + 1).some((b) => {
+    const ws = spokenWords(b.spoken);
+    return ws.length && rest.some((_, s) => ws.every((w, j) => same(rest[s + j], w)));
+  });
+}
+
 // Throws a clear error unless the take can be extended / patched as asked.
 export function checkTake(mode, take, beats, project) {
   const full = `Run a full take instead: ev voice ${project} --force (it speaks and bills the whole script).`;
@@ -58,13 +73,15 @@ export function checkTake(mode, take, beats, project) {
     const tw = take.words;
     const same = (x, y) => norm(x.w) === norm(y);
     const preOk = pre.every((w, i) => tw[i] && same(tw[i], w));
+    const noFit = `the existing take doesn't fit the script around beat${mode.to > mode.from ? 's' : ''} ${mode.label}: the beats before and after must keep the words the take has. Nothing was spent. ${full}`;
     for (let m = beats.length - (mode.to + 1); m >= 0 && preOk; m--) {
       const suf = wordsOf(beats.slice(mode.to + 1, mode.to + 1 + m));
+      if (m === 0 && !endsAtRange(tw, beats, mode, pre.length)) throw new Error(noFit); // it holds later beats that match nothing: cutting to its end would drop their audio
       if (tw.length >= pre.length + suf.length + 1 && suf.every((w, i) => same(tw[tw.length - suf.length + i], w))) { mode.sufBeats = m; return mode.to + 1 + m; }
     }
     const { k } = takeCoverage(take, beats);
     if (preOk && mode.to >= k) throw new Error(`the existing take covers beats 1-${k}, so it can't replace beat${mode.to > mode.from ? 's' : ''} ${mode.label}. Nothing was spent. Use --beats ${mode.from + 1}- to add beats, or: ${full}`);
-    throw new Error(`the existing take doesn't fit the script around beat${mode.to > mode.from ? 's' : ''} ${mode.label}: the beats before and after must keep the words the take has. Nothing was spent. ${full}`);
+    throw new Error(noFit);
   }
   const { k, exact } = takeCoverage(take, beats);
   if (!exact) throw new Error(`the existing take doesn't match the script (its words agree with beats 1-${k} and then differ or run on). Nothing was spent. ${full}`);

@@ -155,6 +155,39 @@ test('replace: the last beat and the first beat (no gap on a missing side)', asy
   assert.ok(Math.abs(dur(dir) - (newSeg(dir) + GAP + (10 - 3.0))) < 0.02, `first: ${dur(dir)}`);
 });
 
+// A later beat that was ALSO edited matches no suffix of the take. Treating that as "the take stops at the range" would
+// cut every later beat's audio out of take.mp3 with no warning.
+for (const [name, edit] of [
+  ['the range keeps its words', (s) => s.replace(BEATS[2], 'Leave it on the desk instead.')],
+  ['the range was edited too', (s) => s.replace(BEATS[1], 'A brand new second line.').replace(BEATS[2], 'Leave it on the desk instead.')],
+]) {
+  test(`replace refuses when a beat after the range was edited and the take still holds later beats (${name})`, async () => {
+    const key = fakeKey(); const m = await mockEleven({ key });
+    const dir = makeProject(script(4), cfg);
+    fakeTake(dir, 4, 13);
+    fs.writeFileSync(path.join(dir, 'script.md'), edit(script(4)));
+    const before = fs.readFileSync(path.join(dir, 'voice', 'take.mp3'));
+    const r = await ev(['voice', dir, '--replace-beats', '2', '--force-words'], env(m, key));
+    await m.close();
+    assert.notEqual(r.status, 0, r.out);
+    assert.match(r.out, /doesn't fit the script around beat 2/);
+    assert.equal(tts(m).length, 0);
+    assert.deepEqual(fs.readFileSync(path.join(dir, 'voice', 'take.mp3')), before);
+  });
+}
+
+test('replace: a take that stops at the range is still patched, with the range edited or not', async () => {
+  const key = fakeKey(); const m = await mockEleven({ key });
+  for (const text of [script(5), script(5).replace(BEATS[1], 'A brand new second line.')]) {
+    const dir = makeProject(text, cfg);
+    fakeTake(dir, 2);
+    const r = await ev(['voice', dir, '--replace-beats', '2', '--force-words'], env(m, key));
+    assert.equal(r.status, 0, r.out);
+    assert.equal(readTake(dir).words.length, beatWords(0, 1).length + spokenWords(text.split('\n')[4]).length);
+  }
+  await m.close();
+});
+
 test('replace refuses a range the take does not cover', async () => {
   const key = fakeKey(); const m = await mockEleven({ key });
   const dir = makeProject(script(5), cfg);
