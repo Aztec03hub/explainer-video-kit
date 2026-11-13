@@ -43,7 +43,7 @@ export function parseArgs(argv, { bool = [] } = {}) {
 export const norm = (w) => String(w).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
-export const writeJson = (p, v) => { fs.mkdirSync(path.dirname(p), { recursive: true }); const tmp = `${p}.${process.pid}.tmp`; fs.writeFileSync(tmp, JSON.stringify(v, null, 1) + '\n'); fs.renameSync(tmp, p); }; // temp beside the target, then rename: never half-written
+export const writeJson = (p, v) => { fs.mkdirSync(path.dirname(p), { recursive: true }); const tmp = `${p}.${process.pid}.tmp`; try { fs.writeFileSync(tmp, JSON.stringify(v, null, 1) + '\n'); fs.renameSync(tmp, p); } catch (e) { fs.rmSync(tmp, { force: true }); throw e; } }; // temp beside the target, renamed over it: a reader never sees half a file, then rename: never half-written
 
 // A project is a folder with project.json (see templates/project). Paths are always inside it.
 export function loadProject(dir) {

@@ -26,14 +26,16 @@ test('captionsOutdated: a take.mp3 newer than captions.json is outdated even whe
   assert.equal(captionsOutdated(proj, true), true);
 });
 
-test('writeJson writes via a temp file and leaves none behind; a failed write keeps the old file', () => {
+test('writeJson replaces the file by rename (never rewrites it in place) and leaves no temp file, also when the rename fails', () => {
   const f = path.join(tmp, 'out', 'a.json');
   writeJson(f, { a: 1 });
+  const first = fs.statSync(f).ino;
+  fs.linkSync(f, path.join(tmp, 'keep')); // holds the first file's inode so the second write can't be handed the same number
   writeJson(f, { a: 2 });
+  assert.notEqual(fs.statSync(f).ino, first, 'a reader of the old file must never see it half-written');
   assert.deepEqual(JSON.parse(fs.readFileSync(f, 'utf8')), { a: 2 });
   assert.deepEqual(fs.readdirSync(path.dirname(f)), ['a.json']);
-  const cyc = {}; cyc.self = cyc;
-  assert.throws(() => writeJson(f, cyc));
-  assert.deepEqual(JSON.parse(fs.readFileSync(f, 'utf8')), { a: 2 });
-  assert.deepEqual(fs.readdirSync(path.dirname(f)), ['a.json']);
+  const dir = path.join(tmp, 'out', 'taken'); fs.mkdirSync(dir); fs.writeFileSync(path.join(dir, 'x'), ''); // a non-empty folder in the way: the rename fails
+  assert.throws(() => writeJson(dir, { a: 3 }));
+  assert.deepEqual(fs.readdirSync(path.dirname(f)).sort(), ['a.json', 'taken']);
 });
