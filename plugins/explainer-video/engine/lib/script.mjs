@@ -26,7 +26,7 @@ export function bracketsBalanced(s) {
 
 // parseScript(markdown, { title }) -> the build/script.json object. Beats are 0-based (`i`), chapters too.
 export function parseScript(md, { title = '', form = 'quick' } = {}) {
-  const lines = md.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+  const lines = md.replace(/<!--[\s\S]*?-->/g, (c) => '\n'.repeat(c.split('\n').length - 1)).split(/\r?\n/);
   const hasBeatHeadings = lines.some((l) => /^###\s/.test(l));
   const chapters = [];
   const beats = [];
@@ -45,6 +45,7 @@ export function parseScript(md, { title = '', form = 'quick' } = {}) {
       chapter = chapters.length - 1; cur = null;
     } else if ((m = /^###\s+(.+)$/.exec(line))) {
       const w = WINDOW.exec(` ${m[1]}`);
+      if (w && secs(w[2]) <= secs(w[1])) throw new Error(`script.md line ${n + 1}: the window @${w[1]}-${w[2]} on beat "${m[1].trim()}" ends before it starts`);
       open((w ? m[1].slice(0, m[1].length - w[0].length + 1) : m[1]).trim(), w ? [secs(w[1]), secs(w[2])] : null);
     } else if (!line) {
       if (!hasBeatHeadings) cur = null; // a blank line ends a paragraph beat

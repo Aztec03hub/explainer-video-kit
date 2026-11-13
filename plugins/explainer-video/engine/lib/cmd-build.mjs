@@ -4,7 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import { setupCmd, ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, which } from './common.mjs';
+import { setupCmd, ENGINE, MUSIC_HINT, RUNTIME, ffprobeDuration, hfEnv, hyperframesBin, hyperframesCmd, loadProject, log, parseArgs, readJson, run, which } from './common.mjs';
 import { measureLoudness, mixAudio, lufsTarget, DEFAULTS } from './mix.mjs';
 import { blankColours, defaultsCss, endcardDecision, endcardFonts, evolvThemeDefaults, endcardScripts, fontCss, BRAND_DIR, SCENE_FILE } from './endcard.mjs';
 import { checkEndcardFit } from './endcard-measure.mjs';
@@ -203,6 +203,7 @@ export function sharpenArgs({ input, output, amount, crf }) {
 // The hyperframes render call. `crf` (from --crf or project.json render.crf) lowers the encoder's CRF below the quality
 // preset's own (lower = sharper and bigger; 14 is visually clean for screen text, 18 is the usual default).
 export function renderArgs({ quality, workers, outFile, crf }) {
+  if (!/^[1-9]\d*$/.test(String(workers))) throw new Error(`--workers needs a whole number of 1 or more, like --workers 3 (got "${workers}")`);
   const args = ['render', '.', '-q', quality, '--video-frame-format', 'png', '-w', workers, '-o', outFile];
   if (crf !== undefined && crf !== null && crf !== '') {
     if (crf === true) throw new Error('render crf needs a number from 0 to 30, like --crf 14');
@@ -221,7 +222,7 @@ export default async function (argv) {
   { const r = checkProject(proj); formatCheck(r).forEach((l) => log(l)); if (r.errors.length) throw new Error('project check failed: fix film.js or project.json (see ERROR lines above)'); }
   const quality = a.quality || 'delivery';
   if (!['draft', 'delivery'].includes(quality)) fail(`--quality must be draft or delivery, not "${quality}"`);
-  const workers = String(a.workers || 3);
+  const workers = String(a.workers ?? 3);
   const baseName = String(proj.cfg.output || proj.name).replace(/\.mp4$/i, '');
   const outFile = path.join(proj.out, `${baseName}${quality === 'draft' ? '-draft' : ''}.mp4`);
   if (!a['no-render']) assertNotFrozen(outFile);
@@ -308,7 +309,7 @@ export default async function (argv) {
   const sharpen = sharpenAmount(a.sharpen ?? proj.cfg.render?.sharpen);
   if (sharpen) {
     const tmpOut = outFile.replace(/\.mp4$/, '.sharpen.tmp.mp4');
-    const s = spawnSync('ffmpeg', sharpenArgs({ input: outFile, output: tmpOut, amount: sharpen, crf: a.crf ?? proj.cfg.render?.crf }), { encoding: 'utf8' });
+    const s = run('ffmpeg', sharpenArgs({ input: outFile, output: tmpOut, amount: sharpen, crf: a.crf ?? proj.cfg.render?.crf }));
     if (s.status !== 0 || !fs.existsSync(tmpOut)) throw new Error(`sharpen pass failed:\n${(s.stderr || '').split('\n').slice(-8).join('\n')}`);
     fs.renameSync(tmpOut, outFile);
     log(`sharpened (unsharp amount ${sharpen}).`);

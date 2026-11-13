@@ -51,7 +51,8 @@ export function loadProject(dir) {
   const root = path.resolve(dir || '.');
   const file = path.join(root, 'project.json');
   if (!fs.existsSync(file)) die(`no project.json in ${root}. Run: ev init <folder>`);
-  const cfg = readJson(file);
+  let cfg;
+  try { cfg = readJson(file); } catch (e) { throw new Error(`${file}: ${e.message}`); }
   const p = (...s) => path.join(root, ...s);
   return {
     root, cfg: { form: 'quick', ...cfg }, p,

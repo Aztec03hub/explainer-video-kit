@@ -30,6 +30,7 @@ export function mixInputs({ voice, music, length }) {
 // only: 'music' returns the music-only ducked track (the bed under the voice, before the voice is added and without
 // loudnorm) so the audio gate can rebuild it the way the reviewers did and measure the gap over the voice's span.
 export function mixFilterGraph({ hasVoice, hasMusic, length, bed = DEFAULTS.bed, offset = DEFAULTS.offset, only = null, lufs = DEFAULTS.lufs }) {
+  if (typeof bed !== 'number' || !Number.isFinite(bed) || bed < -60 || bed > 0) throw new Error(`project.json music.bed must be a number of dB between -60 and 0, got ${JSON.stringify(bed)}`);
   const delay = Math.round(offset * 1000);
   const fadeStart = Math.max(0, length - DEFAULTS.fadeOut);
   const voiceIn = (i) => `[${i}:a]${STEREO},adelay=${delay}|${delay},apad,atrim=0:${length}`;
