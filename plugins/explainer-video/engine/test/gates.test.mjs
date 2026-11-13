@@ -11,7 +11,7 @@ import { loadProject, which } from '../lib/common.mjs';
 import audioGate, { duckedGraph, measure, GAP_MIN, GAP_MAX, TARGET, help } from '../lib/gates/audio.mjs';
 import { DEFAULTS, mixFilterGraph } from '../lib/mix.mjs';
 import captionFitGate from '../lib/gates/captionfit.mjs';
-import windowsGate from '../lib/gates/windows.mjs';
+import windowsGate, { shownAt } from '../lib/gates/windows.mjs';
 import captionsGate from '../lib/gates/captions.mjs';
 import ocrGate, { pattern, termsFromFrameList } from '../lib/gates/ocr.mjs';
 import secretsGate from '../lib/gates/secrets.mjs';
@@ -557,6 +557,12 @@ describe('windows gate', () => {
     'rules.json': rects ? { forbiddenRects: rects } : {},
     'build/captions.json': { chunks: [], beats: [], chapters: [] },
     'build/index.html': '<div data-composition-id="lantern" data-width="640" data-duration="6"></div>',
+  });
+  test('shownAt keeps the old state until t + 1.5 x fade, as the runtime fades it out half a fade late', () => {
+    const shows = [{ t: 0, ref: 'a' }, { t: 5, ref: 'b', fade: 1 }];
+    assert.deepEqual(shownAt(shows, 5.9), ['b', 'a']);
+    assert.deepEqual(shownAt(shows, 6.2), ['b', 'a']);
+    assert.deepEqual(shownAt(shows, 6.6), ['b']);
   });
   const SHOW = { t: 0, show: 'app/home' }, TOP = { t: 0, cam: [0, 0, 640] };
   test('ev gates --step (the OCR spacing) does not coarsen the camera sweep', async () => {

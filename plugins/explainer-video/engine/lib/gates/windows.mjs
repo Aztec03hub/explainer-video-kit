@@ -45,12 +45,12 @@ export function buildSegments(events, page) {
   return segs;
 }
 
-// Which "set/state" are on screen at time t: the last show at or before t, plus the one before it while it fades in.
+// Which "set/state" are on screen at time t: the last show at or before t, plus the one before it while it fades in (the runtime fades the old one out from t + fade/2 over a fade, so until t + 1.5 fade).
 export function shownAt(shows, t) {
   const done = shows.filter((s) => s.t <= t);
   const last = done.at(-1), prev = done.at(-2);
   if (!last) return [];
-  return last.fade && t < last.t + last.fade && prev ? [last.ref, prev.ref] : [last.ref];
+  return last.fade && t < last.t + 1.5 * last.fade && prev ? [last.ref, prev.ref] : [last.ref];
 }
 
 const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
