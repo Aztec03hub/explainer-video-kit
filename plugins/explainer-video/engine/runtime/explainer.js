@@ -37,11 +37,13 @@
   // A word is highlighted from its start until the next word starts (or 0.15 s after the last word).
   function captionWindows(chunks) {
     return chunks.map((c, i) => {
+      if (!c.words.length) throw new Error(`caption chunk ${i + 1} has no words`);
       const last = c.words[c.words.length - 1].end;
       const next = chunks[i + 1] ? chunks[i + 1].words[0].start - 0.1 : last + 0.8;
+      const on = c.words[0].start - 0.08;
       return {
-        on: c.words[0].start - 0.08,
-        off: Math.min(next, last + 0.8),
+        on,
+        off: Math.max(on, Math.min(next, last + 0.8)), // never before on: words stacked within 0.02 s left the chunk on screen for good
         words: c.words.map((w, k) => ({ on: w.start, off: k + 1 < c.words.length ? c.words[k + 1].start : w.end + 0.15 })),
       };
     });

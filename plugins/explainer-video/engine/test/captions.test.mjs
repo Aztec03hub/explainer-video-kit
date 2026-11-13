@@ -121,3 +121,13 @@ test('cli: a script with / passes the captions gate and the SRT has no slash', a
   const g = await captionsGate({ proj: loadProject(dir) });
   assert.equal(g.status, 'PASS', JSON.stringify(g));
 });
+
+// F6: words stacked within 0.02 s used to switch a chunk off before it was on, so it stayed on screen to the end of the film.
+test('captionWindows never switches a chunk off before it is on, and refuses an empty chunk', async () => {
+  const { createRequire } = await import('node:module');
+  const { captionWindows } = createRequire(import.meta.url)('../runtime/explainer.js');
+  const w = (start, end) => ({ w: 'x', start, end });
+  const cw = captionWindows([{ words: [w(5, 5.2), w(5.5, 5.6)] }, { words: [w(5.01, 5.3), w(5.4, 5.6)] }, { words: [w(8, 8.4)] }]);
+  for (const c of cw) assert.ok(c.off >= c.on, `off ${c.off} is before on ${c.on}`);
+  assert.throws(() => captionWindows([{ words: [] }]), /no words/);
+});
