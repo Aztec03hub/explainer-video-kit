@@ -170,7 +170,7 @@ async function speak(a) {
     fs.writeFileSync(seg, res.audio);
     segs.push(seg);
     for (const w of alignmentToWords(res.alignment)) fresh.push({ w: w.w, start: +(w.start + offset).toFixed(3), end: +(w.end + offset).toFixed(3) });
-    offset += ffprobeDuration(seg);
+    offset += contentDuration(seg); // the joined take holds the decoded audio; ffprobe's number also counts mp3 padding, about 50 ms a segment
     spend.requests.push({ characters: r.characters, billed: res.cost });
     spend.charactersSent += r.characters;
     if (res.cost !== null) spend.billed += res.cost;
