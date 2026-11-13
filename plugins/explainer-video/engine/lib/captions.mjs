@@ -65,6 +65,7 @@ function autoChunk(words, max) {
     const j = i > 0 ? i - 1 : i + 1;
     const both = j < i ? [...chunks[j], ...chunks[i]] : [...chunks[i], ...chunks[j]];
     const parts = both.length <= max ? [both] : byBudget(both, max);
+    if (parts.some((p) => p.length < 2)) continue; // a budget of 2 can't share 3 words without leaving a one-word chunk: leave it (re-merging it looped forever)
     chunks.splice(Math.min(i, j), 2, ...parts);
     i = Math.min(i, j) - 1;
   }
@@ -115,6 +116,7 @@ export function buildCaptions(script, takeWords, { max = 5 } = {}) {
   for (const b of script.beats) {
     const words = takeWords.slice(at, at + b.words).map((w) => ({ w: w.w, start: w.start, end: w.end }));
     at += b.words;
+    if (!words.length) throw new Error(`beat ${b.i + 1}${b.name ? ` "${b.name}"` : ''} has no spoken text; add its words to script.md or remove the "###" line.`);
     beats.push({ i: b.i, name: b.name, chapter: b.chapter, plan: b.plan, voice: [words[0].start, words.at(-1).end] });
     for (const c of chunkBeat(words, max, b.breaks)) chunks.push({ text: c.map((w) => w.w).join(' '), words: c, beat: b.i });
   }
